@@ -6,6 +6,16 @@ use Illuminate\Http\Request;
 
 class WalkingLogController extends Controller
 {
+    private function rules()
+    {
+        return [
+            'activity_type' => 'required|in:walking,jogging,running,workout',
+            'steps' => 'nullable|integer|min:0|required_without:minutes',
+            'minutes' => 'nullable|integer|min:1|max:1440|required_without:steps',
+            'log_date' => 'required|date',
+        ];
+    }
+
     public function index(Request $request)
     {
         return $request->user()->walkingLogs()->latest('log_date')->get();
@@ -13,10 +23,7 @@ class WalkingLogController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'steps' => 'required|integer|min:0',
-            'log_date' => 'required|date',
-        ]);
+        $data = $request->validate($this->rules());
 
         return response()->json($request->user()->walkingLogs()->create($data), 201);
     }
@@ -25,10 +32,7 @@ class WalkingLogController extends Controller
     {
         $log = $request->user()->walkingLogs()->findOrFail($id);
 
-        $log->update($request->validate([
-            'steps' => 'required|integer|min:0',
-            'log_date' => 'required|date',
-        ]));
+        $log->update($request->validate($this->rules()));
 
         return response()->json($log);
     }

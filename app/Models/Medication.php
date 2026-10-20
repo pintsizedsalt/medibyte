@@ -12,10 +12,10 @@ class Medication extends Model
     ];
 
     protected $casts = [
-        'times' => 'array',
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'is_active' => 'boolean',
+    'times' => 'array',
+    'start_date' => 'date:Y-m-d',
+    'end_date' => 'date:Y-m-d',
+    'is_active' => 'boolean',
     ];
 
 }

@@ -6,7 +6,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::view('/test', 'test');
 Route::view('/login', 'login');
 Route::view('/register', 'register');
 Route::view('/dashboard', 'dashboard');

@@ -13,10 +13,19 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|min:8|confirmed',
+            'password' => 'required|min:8',
+            'sex' => 'required|in:female,male',
+            'consent' => 'accepted',
         ]);
 
-        $user = User::create($data);
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+        ]);
+
+        $user->forceFill(['consented_at' => now()])->save();
+        $user->profile()->create(['sex' => $data['sex']]);
 
         return response()->json([
             'user' => $user,

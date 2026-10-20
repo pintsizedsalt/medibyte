@@ -5,8 +5,17 @@
   <p id="msg"></p>
   <input id="name" placeholder="name">
   <input id="email" placeholder="email">
-  <input id="password" type="password" placeholder="password">
-  <input id="password_confirmation" type="password" placeholder="confirm password">
+  <input id="password" type="password" placeholder="password (8+ characters)">
+  <label>I am a
+    <select id="sex">
+      <option value="female">Girl</option>
+      <option value="male">Boy</option>
+    </select>
+  </label>
+  <label>
+    <input type="checkbox" id="consent">
+    I agree to the collection and storage of my health data (Data Privacy Act of 2012)
+  </label>
   <button onclick="doRegister()">Register</button>
   <p><a href="/login">I already have an account</a></p>
 @endsection
@@ -18,7 +27,8 @@ async function doRegister() {
     name: $('name').value,
     email: $('email').value,
     password: $('password').value,
-    password_confirmation: $('password_confirmation').value
+    sex: $('sex').value,
+    consent: $('consent').checked
   });
   if (data.token) {
     localStorage.setItem('token', data.token);

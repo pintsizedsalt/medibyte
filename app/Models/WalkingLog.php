@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class WalkingLog extends Model
 {
-    protected $fillable = ['user_id', 'steps', 'log_date'];
+    protected $fillable = ['user_id', 'activity_type', 'steps', 'minutes', 'log_date'];
 }

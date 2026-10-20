@@ -16,6 +16,8 @@ return new class extends Migration
             $table->timestamps();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->unsignedInteger('amount_ml');
+            $table->time('logged_time')->nullable();
+            $table->string('note')->nullable();
             $table->date('log_date');
         });
     }

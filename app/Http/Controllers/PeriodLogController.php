@@ -81,14 +81,19 @@ class PeriodLogController extends Controller
             $gaps[] = (int) abs($starts[$i - 1]->diffInDays($starts[$i]));
         }
 
-        $average = count($gaps) ? (int) round(array_sum($gaps) / count($gaps)) : 28;
+        $fallback = $request->user()->profile->cycle_length ?? 28;
+        $average = count($gaps) ? (int) round(array_sum($gaps) / count($gaps)) : $fallback;
+
         $last = $starts->last();
+        $next = $last->copy()->addDays($average);
 
         return response()->json([
             'last_period_start' => $last->toDateString(),
             'average_cycle_length' => $average,
             'based_on_cycles' => count($gaps),
-            'predicted_next_start' => $last->copy()->addDays($average)->toDateString(),
+            'cycle_day' => (int) abs($last->diffInDays(today())) + 1,
+            'predicted_next_start' => $next->toDateString(),
+            'days_until_next' => (int) today()->diffInDays($next, false),
         ]);
     }
 }

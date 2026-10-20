@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-  <h2>Water</h2>
+  <h2>Vitals</h2>
   <p id="msg"></p>
   <div id="log"></div>
 @endsection

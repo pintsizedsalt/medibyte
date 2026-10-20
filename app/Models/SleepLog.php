@@ -6,8 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class SleepLog extends Model
 {
-    public function sleepLogs()
-    {
-        return $this->hasMany(SleepLog::class);
-    }
+    protected $fillable = ['user_id', 'hours', 'bedtime', 'wake_time', 'log_date'];
 }

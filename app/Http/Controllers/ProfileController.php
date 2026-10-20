@@ -22,6 +22,8 @@ class ProfileController extends Controller
             'sleep_goal_hours' => 'numeric|min:1|max:16',
             'walking_goal_steps' => 'integer|min:0',
             'calorie_goal' => 'nullable|integer|min:500',
+            'cycle_length' => 'integer|min:20|max:45',
+            'reminders_enabled' => 'boolean',
         ]);
 
         if (($data['sex'] ?? null) === 'male') {
