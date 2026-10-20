@@ -38,7 +38,7 @@ class ProgressController extends Controller
         $date = $request->query('date', now()->toDateString());
         $profile = $user->profile;
 
-        $water = $user->waterLogs()->whereDate('log_date', $date)->sum('amount_ml');
+        $water = $user->dailyLogs()->whereDate('log_date', $date)->sum('water_ml');
         $sleep = $user->sleepLogs()->whereDate('log_date', $date)->sum('hours');
         $steps = $user->walkingLogs()->whereDate('log_date', $date)->sum('steps');
         $calories = $user->mealLogs()->whereDate('log_date', $date)->sum('calories');

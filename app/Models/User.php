@@ -41,6 +41,11 @@ class User extends Authenticatable
         return $this->hasMany(WaterLog::class);
     }
 
+    public function dailyLogs()
+    {
+        return $this->hasMany(DailyLog::class);
+    }
+
     public function sleepLogs()
     {
         return $this->hasMany(SleepLog::class);
