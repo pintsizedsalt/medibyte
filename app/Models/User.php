@@ -40,4 +40,54 @@ class User extends Authenticatable
     {
         return $this->hasMany(WaterLog::class);
     }
+
+    public function sleepLogs()
+    {
+        return $this->hasMany(SleepLog::class);
+    }
+
+    public function walkingLogs()
+    {
+        return $this->hasMany(WalkingLog::class);
+    }
+
+    public function mealLogs()
+    {
+        return $this->hasMany(MealLog::class);
+    }
+
+    public function weightLogs()
+    {
+        return $this->hasMany(WeightLog::class);
+    }
+
+    public function moodLogs()
+    {
+        return $this->hasMany(MoodLog::class);
+    }
+
+    public function periodLogs()
+    {
+        return $this->hasMany(PeriodLog::class);
+    }
+
+    public function symptomLogs()
+    {
+        return $this->hasMany(SymptomLog::class);
+    }
+
+    public function vitalSignLogs()
+    {
+        return $this->hasMany(VitalSignLog::class);
+    }
+
+    public function medications()
+    {
+        return $this->hasMany(Medication::class);
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
 }

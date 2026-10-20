@@ -15,10 +15,18 @@ class ProfileController extends Controller
         public function store(Request $request)
     {
         $data = $request->validate([
-            'sex' => 'required|in:female,male',
-            'has_period' => 'boolean',
+            'sex' => 'sometimes|in:female,male',
+            'period_status' => 'required_if:sex,female|nullable|in:active,not_yet,menopause',
             'weight_goal' => 'nullable|numeric',
+            'water_goal_ml' => 'integer|min:500',
+            'sleep_goal_hours' => 'numeric|min:1|max:16',
+            'walking_goal_steps' => 'integer|min:0',
+            'calorie_goal' => 'nullable|integer|min:500',
         ]);
+
+        if (($data['sex'] ?? null) === 'male') {
+            $data['period_status'] = null;
+        }
 
         $profile = Profile::updateOrCreate(
             ['user_id' => $request->user()->id],
