@@ -15,22 +15,24 @@ class WeightLogController extends Controller
         ];
     }
 
-    private function bmi($weightKg, $heightCm)
-    {
-        $meters = $heightCm / 100;
-
-        return round($weightKg / ($meters * $meters), 2);
-    }
-
     public function index(Request $request)
     {
-        return $request->user()->weightLogs()->latest('log_date')->get();
+        $request->validate(['date' => 'nullable|date']);
+
+        $date = $request->query('date');
+
+        $query = $request->user()->weightLogs()->latest('log_date');
+
+        if ($date) {
+            $query->whereDate('log_date', $date);
+        }
+
+        return $query->get();
     }
 
     public function store(Request $request)
     {
         $data = $request->validate($this->rules());
-        $data['bmi'] = $this->bmi($data['weight_kg'], $data['height_cm']);
 
         return response()->json($request->user()->weightLogs()->create($data), 201);
     }
@@ -40,7 +42,6 @@ class WeightLogController extends Controller
         $log = $request->user()->weightLogs()->findOrFail($id);
 
         $data = $request->validate($this->rules());
-        $data['bmi'] = $this->bmi($data['weight_kg'], $data['height_cm']);
 
         $log->update($data);
 

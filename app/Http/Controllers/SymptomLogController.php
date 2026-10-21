@@ -19,7 +19,15 @@ class SymptomLogController extends Controller
 
     public function index(Request $request)
     {
-        return $request->user()->symptomLogs()->latest('log_date')->get();
+        $date = $request->query('date');
+
+        $query = $request->user()->symptomLogs()->latest('log_date');
+
+        if ($date) {
+            $query->whereDate('log_date', $date);
+        }
+
+        return $query->get();
     }
 
     public function store(Request $request)

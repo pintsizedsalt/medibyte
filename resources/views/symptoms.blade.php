@@ -1,15 +1,24 @@
 @extends('layouts.app')
 
+@section('title', 'Symptoms · MediByte')
+
 @section('content')
-  <h2>Symptoms</h2>
-  <p id="msg"></p>
-  <div id="log"></div>
+  @include('partials.record-header', [
+    'title' => 'Symptoms',
+    'description' => 'Keep a clear record of symptoms and severity so patterns are easier to discuss with your doctor.',
+    'eyebrow' => 'Wellbeing',
+  ])
 @endsection
 
 @push('scripts')
 <script>
 logPage({
+  title: 'Symptoms',
+  icon: 'thermometer',
+  tone: 'amber',
   url: '/symptom-logs',
+  formTitle: 'Log a symptom',
+  formNote: 'Add the symptom and severity. Illness and notes are optional.',
   fields: [
     ['illness_name', 'Illness (optional)', 'text'],
     ['symptom', 'Symptom', 'text'],
@@ -17,7 +26,8 @@ logPage({
     ['notes', 'Notes', 'text'],
     ['log_date', 'Date', 'today']
   ],
-  show: r => `${r.symptom} (severity ${r.severity}/5)`
+  value: r => (r.symptom || 'Symptom').replace(/^./, c => c.toUpperCase()),
+  meta: r => [r.severity ? 'Severity ' + r.severity + '/5' : null, r.illness_name || null, dateLabel(r.log_date)].filter(Boolean).join(' · ')
 });
 </script>
 @endpush

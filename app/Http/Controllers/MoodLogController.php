@@ -30,7 +30,15 @@ class MoodLogController extends Controller
 
     public function index(Request $request)
     {
-        return $request->user()->moodLogs()->latest('log_date')->get();
+        $date = $request->query('date');
+
+        $query = $request->user()->moodLogs()->latest('log_date');
+
+        if ($date) {
+            $query->whereDate('log_date', $date);
+        }
+
+        return $query->get();
     }
 
     public function store(Request $request)

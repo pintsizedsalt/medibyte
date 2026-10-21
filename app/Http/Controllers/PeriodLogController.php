@@ -18,10 +18,8 @@ class PeriodLogController extends Controller
 
     private function ensureActive(Request $request)
     {
-        $profile = $request->user()->profile;
-
         abort_unless(
-            $profile && $profile->show_period_tracker,
+            $request->user()->show_period_tracker,
             403,
             'Period tracker is not enabled for this profile.'
         );
@@ -81,7 +79,7 @@ class PeriodLogController extends Controller
             $gaps[] = (int) abs($starts[$i - 1]->diffInDays($starts[$i]));
         }
 
-        $fallback = $request->user()->profile->cycle_length ?? 28;
+        $fallback = $request->user()->cycle_length ?? 28;
         $average = count($gaps) ? (int) round(array_sum($gaps) / count($gaps)) : $fallback;
 
         $last = $starts->last();

@@ -18,7 +18,17 @@ class WalkingLogController extends Controller
 
     public function index(Request $request)
     {
-        return $request->user()->walkingLogs()->latest('log_date')->get();
+        $request->validate(['date' => 'nullable|date']);
+
+        $date = $request->query('date');
+
+        $query = $request->user()->walkingLogs()->latest('log_date');
+
+        if ($date) {
+            $query->whereDate('log_date', $date);
+        }
+
+        return $query->get();
     }
 
     public function store(Request $request)

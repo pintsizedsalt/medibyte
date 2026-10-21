@@ -1,221 +1,957 @@
 @extends('layouts.app')
 
+@section('title', 'Set up your profile · MediByte')
+@section('body-class', 'is-onboarding')
+
 @section('content')
-  <p id="stepLabel"></p>
-  <p id="msg"></p>
-
-  {{-- STEP 1: CYCLE (girls lang) --}}
-  <div id="step1" style="display:none">
-    <h2>Cycle setup</h2>
-    <label>Do you have a period?
-      <select id="period_status" onchange="togglePeriodFields()">
-        <option value="active">Yes</option>
-        <option value="not_yet">No, not yet</option>
-        <option value="menopause">No, menopause</option>
-      </select>
-    </label>
-    <div id="periodFields">
-      <label>Last period start <input id="last_period" type="date"></label>
-      <label>Cycle length (days) <input id="cycle_length" type="number" value="28"></label>
+  <div class="wizard-shell">
+    <div class="wizard-card">
+      <div class="wizard-top">
+        <span class="wizard-brand"><span class="wizard-orb" aria-hidden="true"></span>MediByte</span>
+        <span class="wizard-pill">Set up your account</span>
+      </div>
+      <div class="wizard-progress" aria-hidden="true"><span id="wizard-progress"></span></div>
+      <div id="wizard-body">
+        <p class="wizard-copy">Loading your setup…</p>
+      </div>
+      <p id="wizard-error" class="wizard-error" role="alert"></p>
     </div>
-    <button onclick="saveStep1()">Save &amp; continue</button>
-  </div>
-
-  {{-- STEP 2: HABITS --}}
-  <div id="step2" style="display:none">
-    <h2>Daily habits</h2>
-
-    <label><input type="checkbox" id="add_walking" onchange="toggleWalking()"> Add walking?</label>
-    <div id="walkingFields" style="display:none">
-      <label>Activity
-        <select id="activity_type">
-          <option value="walking">Walking</option>
-          <option value="jogging">Jogging</option>
-          <option value="running">Running</option>
-          <option value="workout">Workout</option>
-        </select>
-      </label>
-      <label>Steps <input id="steps" type="number"></label>
-      <label>Minutes <input id="minutes" type="number"></label>
-    </div>
-
-    <h3>Water</h3>
-    <label>Water intake today (ml) <input id="water_ml" type="number" value="0"></label>
-
-    <h3>Sleep</h3>
-    <label>Bedtime <input id="bedtime" type="time" value="23:00"></label>
-    <label>Wake up <input id="wake_time" type="time" value="06:00"></label>
-
-    <h3>Meals today</h3>
-    @foreach (['breakfast', 'lunch', 'dinner', 'snack'] as $m)
-      <p>
-        <label><input type="checkbox" id="meal_{{ $m }}"> {{ ucfirst($m) }}</label>
-        <input id="food_{{ $m }}" placeholder="food">
-        <input id="cal_{{ $m }}" type="number" placeholder="calories (optional)">
-      </p>
-    @endforeach
-
-    <button onclick="saveStep2()">Continue</button>
-  </div>
-
-  {{-- STEP 3: BODY & MOOD --}}
-  <div id="step3" style="display:none">
-    <h2>Body &amp; mood</h2>
-
-    <label>Height (cm) <input id="height_cm" type="number" step="any" oninput="calcBmi()"></label>
-    <label>Weight (kg) <input id="weight_kg" type="number" step="any" oninput="calcBmi()"></label>
-    <p>Your BMI: <strong id="bmi">-</strong></p>
-
-    <label><input type="checkbox" id="has_goal" onchange="toggleGoal()"> Set a weight goal?</label>
-    <div id="goalFields" style="display:none">
-      <label>Target weight (kg) <input id="weight_goal" type="number" step="any"></label>
-    </div>
-
-    <h3>Mood</h3>
-    <label>How do you feel?
-      <select id="mood">
-        <option value="happy">Happy</option>
-        <option value="calm">Calm</option>
-        <option value="stressed">Stressed</option>
-        <option value="sad">Sad</option>
-      </select>
-    </label>
-    <label>Intensity
-      <select id="mood_intensity">
-        <option>1</option>
-        <option>2</option>
-        <option selected>3</option>
-        <option>4</option>
-        <option>5</option>
-      </select>
-    </label>
-
-    <button onclick="saveStep3()">Continue</button>
   </div>
 @endsection
 
 @push('scripts')
 <script>
-const done = {};
+const MOOD_FALLBACK = [
+  'happy', 'excited', 'grateful', 'calm', 'content', 'hopeful',
+  'proud', 'loved', 'energetic', 'motivated', 'relaxed',
+  'bored', 'tired', 'neutral', 'confused',
+  'lonely', 'sad', 'anxious', 'stressed', 'overwhelmed',
+  'angry', 'frustrated', 'irritated', 'disappointed',
+  'guilty', 'embarrassed', 'scared', 'numb'
+];
 
-// isang beses lang magse-save kada item, kahit ulitin mo ang button
-async function once(key, url, body) {
-  if (done[key]) return true;
-  const d = await api(url, 'POST', body);
-  if (!d.id) { $('msg').textContent = errText(d); return false; }
-  done[key] = true;
-  return true;
+let profile = null;
+let steps = [];
+let current = 0;
+let answers = {};
+let saved = {};
+let moods = MOOD_FALLBACK;
+let busy = false;
+
+function setError(message) {
+  const el = $('wizard-error');
+  if (el) el.textContent = message || '';
 }
 
-function show(n) {
-  [1, 2, 3].forEach(i => $('step' + i).style.display = i === n ? 'block' : 'none');
-  $('stepLabel').textContent = 'Step ' + n + ' of 4';
-  $('msg').textContent = '';
+function clearError() {
+  setError('');
 }
 
-function togglePeriodFields() {
-  $('periodFields').style.display = $('period_status').value === 'active' ? 'block' : 'none';
+function stepHeader(title, copy) {
+  return `<p class="wizard-kicker">Step ${current + 1} of ${steps.length}</p>
+    <h1 class="wizard-title">${esc(title)}</h1>
+    <p class="wizard-copy">${esc(copy)}</p>`;
 }
 
-function toggleWalking() {
-  $('walkingFields').style.display = $('add_walking').checked ? 'block' : 'none';
+function optionCard(key, value, title, description) {
+  const selected = String(answers[key] ?? '') === String(value);
+  return `<button type="button" class="option-card ${selected ? 'selected' : ''}" onclick="window.wizardChoose('${key}', '${value}')">
+    <span>
+      <strong>${esc(title)}</strong>
+      <small>${esc(description)}</small>
+    </span>
+  </button>`;
 }
 
-function calcBmi() {
-  const h = Number($('height_cm').value) / 100;
-  const w = Number($('weight_kg').value);
-  $('bmi').textContent = h > 0 && w > 0 ? (w / (h * h)).toFixed(1) : '-';
+function wizardActions(skip = true, label = 'Continue') {
+  return `<div class="wizard-actions">
+    ${current > 0 ? '<button type="button" class="btn btn-ghost" onclick="window.wizardBack()">Back</button>' : ''}
+    <span class="spacer"></span>
+    ${skip ? '<button type="button" class="btn btn-ghost" onclick="window.wizardSkip()">Skip for now</button>' : ''}
+    <button type="submit" class="btn btn-primary">${esc(label)}</button>
+  </div>`;
 }
 
-function toggleGoal() {
-  $('goalFields').style.display = $('has_goal').checked ? 'block' : 'none';
+function stepForm(content, skip = true, label = 'Continue') {
+  return `<form onsubmit="event.preventDefault(); window.wizardNext()">${content}${wizardActions(skip, label)}</form>`;
 }
 
-async function saveStep1() {
-  const status = $('period_status').value;
-  const body = { period_status: status };
+function buildSteps() {
+  const list = [];
 
-  if (status === 'active') {
-    if (!$('last_period').value) { $('msg').textContent = 'Enter your last period start date.'; return; }
-    body.cycle_length = $('cycle_length').value;
+  if (profile && profile.sex === 'female') list.push('cycle');
+
+  list.push('activity', 'water', 'sleep', 'meals', 'body', 'weight_goal', 'mood', 'illness');
+
+  if (answers.illness === 'yes') {
+    list.push('symptoms', 'vitals', 'medications', 'reminders');
   }
 
-  const p = await api('/profile', 'POST', body);
-  if (!p.id) { $('msg').textContent = errText(p); return; }
+  list.push('goals', 'done');
+  steps = list;
 
-  if (status === 'active') {
-    if (!await once('period', '/period-logs', { start_date: $('last_period').value })) return;
-  }
-
-  show(2);
+  if (current >= steps.length) current = steps.length - 1;
 }
 
-async function saveStep2() {
-  const date = ld(new Date());
+function stepCycle() {
+  const active = answers.period_status === 'active';
 
-  if ($('add_walking').checked) {
-    const body = { activity_type: $('activity_type').value, log_date: date };
-    if ($('steps').value) body.steps = $('steps').value;
-    if ($('minutes').value) body.minutes = $('minutes').value;
-    if (!await once('walking', '/walking-logs', body)) return;
+  return stepForm(stepHeader(
+    'Your menstrual cycle',
+    'This helps MediByte personalize cycle tracking and predictions. You can change this later in your profile.'
+  ) + `
+    <div class="option-grid">
+      ${optionCard('period_status', 'active', 'Yes, I currently have a cycle', 'Track periods and see an estimated next start date.')}
+      ${optionCard('period_status', 'not_yet', 'Not yet', 'Cycle tracking will stay hidden for now.')}
+      ${optionCard('period_status', 'menopause', 'No, I am in menopause', 'Cycle tracking will stay hidden for now.')}
+      ${optionCard('period_status', 'prefer_not_to_track', 'I prefer not to track', 'You can enable cycle tracking later in your profile.')}
+    </div>
+    ${active ? `<div class="wizard-fields">
+      <label class="field">
+        <span>First day of your last period</span>
+        <input id="w_last_period" type="date" value="${esc(answers.last_period || '')}">
+      </label>
+      <label class="field">
+        <span>Typical cycle length (days)</span>
+        <input id="w_cycle_length" type="number" min="20" max="45" value="${esc(answers.cycle_length || 28)}">
+      </label>
+      <p class="wizard-note">If you add your last period, we can estimate when your next one may start.</p>
+    </div>` : ''}
+  `, false);
+}
+
+function stepActivity() {
+  const activity = answers.activity || {};
+
+  return stepForm(stepHeader(
+    'Daily movement',
+    'Would you like to log physical activity today? Add steps, active minutes, or both.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Activity type</span>
+        <select id="w_activity_type">
+          ${['walking', 'jogging', 'running', 'workout'].map(type => `<option value="${type}" ${activity.activity_type === type ? 'selected' : ''}>${type.charAt(0).toUpperCase() + type.slice(1)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>Steps (optional)</span>
+        <input id="w_steps" type="number" min="0" placeholder="e.g. 3000" value="${esc(activity.steps || '')}">
+      </label>
+      <label class="field">
+        <span>Active minutes (optional)</span>
+        <input id="w_minutes" type="number" min="1" max="1440" placeholder="e.g. 30" value="${esc(activity.minutes || '')}">
+      </label>
+      <p class="wizard-note">You can log more activities from the Activity page.</p>
+    </div>
+  `);
+}
+
+function stepWater() {
+  return stepForm(stepHeader(
+    'Hydration',
+    'How much water have you had today? This is optional, and you can add more throughout the day.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Water today (ml)</span>
+        <input id="w_water" type="number" min="1" max="10000" placeholder="e.g. 500" value="${esc(answers.water_ml || '')}">
+      </label>
+      <div class="quick-log">
+        ${[250, 500, 750, 1000].map(amount => `<button type="button" class="btn btn-small" onclick="document.getElementById('w_water').value = ${amount}">${amount} ml</button>`).join('')}
+      </div>
+    </div>
+  `);
+}
+
+function stepSleep() {
+  const sleep = answers.sleep || {};
+
+  return stepForm(stepHeader(
+    'Sleep',
+    'How did you sleep last night? Add bedtime and wake-up time, or enter the total hours.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Bedtime</span>
+        <input id="w_bedtime" type="time" value="${esc(sleep.bedtime || '')}">
+      </label>
+      <label class="field">
+        <span>Wake-up time</span>
+        <input id="w_wake_time" type="time" value="${esc(sleep.wake_time || '')}">
+      </label>
+      <label class="field">
+        <span>Or total hours slept</span>
+        <input id="w_hours" type="number" min="0" max="24" step="0.25" placeholder="e.g. 7.5" value="${esc(sleep.hours || '')}">
+      </label>
+    </div>
+  `);
+}
+
+function stepMeals() {
+  const meal = answers.meal || {};
+
+  return stepForm(stepHeader(
+    'Meals',
+    'Log your first meal of the day. You can add the rest from the Meals page.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Meal</span>
+        <select id="w_meal_type">
+          ${['breakfast', 'lunch', 'dinner', 'snack'].map(type => `<option value="${type}" ${meal.meal_type === type ? 'selected' : ''}>${type.charAt(0).toUpperCase() + type.slice(1)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>What did you eat?</span>
+        <input id="w_food_name" type="text" placeholder="e.g. Oatmeal with fruit" value="${esc(meal.food_name || '')}">
+      </label>
+      <label class="field">
+        <span>Calories (optional)</span>
+        <input id="w_calories" type="number" min="0" placeholder="e.g. 350" value="${esc(meal.calories || '')}">
+      </label>
+    </div>
+  `);
+}
+
+function stepBody() {
+  const body = answers.body || {};
+
+  return stepForm(stepHeader(
+    'Height and weight',
+    'We use these to compute your BMI. BMI is a screening tool, not a diagnosis.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Height (cm)</span>
+        <input id="w_height_cm" type="number" min="50" max="260" step="0.1" placeholder="e.g. 170" value="${esc(body.height_cm || '')}" oninput="window.updateBmiPreview()">
+      </label>
+      <label class="field">
+        <span>Weight (kg)</span>
+        <input id="w_weight_kg" type="number" min="20" max="400" step="0.1" placeholder="e.g. 65" value="${esc(body.weight_kg || '')}" oninput="window.updateBmiPreview()">
+      </label>
+      <div class="wizard-success" id="bmi-preview">BMI will appear here.</div>
+    </div>
+  `);
+}
+
+function stepWeightGoal() {
+  const hasGoal = answers.weight_goal_choice === 'yes';
+
+  return stepForm(stepHeader(
+    'Weight goal',
+    'Do you have a weight goal you would like to work toward? You can set or change this later.'
+  ) + `
+    <div class="option-grid">
+      ${optionCard('weight_goal_choice', 'yes', 'Yes, I have a goal', 'Add the weight you are working toward.')}
+      ${optionCard('weight_goal_choice', 'no', 'Not right now', 'You can set a goal later in your profile.')}
+    </div>
+    ${hasGoal ? `<div class="wizard-fields">
+      <label class="field">
+        <span>Goal weight (kg)</span>
+        <input id="w_weight_goal" type="number" min="20" max="400" step="0.1" placeholder="e.g. 60" value="${esc(answers.weight_goal || '')}">
+      </label>
+    </div>` : ''}
+  `, false);
+}
+
+function stepMood() {
+  const mood = answers.mood || 'neutral';
+  const intensity = answers.intensity || 3;
+
+  return stepForm(stepHeader(
+    'How are you feeling?',
+    'Choose the mood that fits you best right now and how strong it feels.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Mood</span>
+        <select id="w_mood">
+          ${moods.map(item => `<option value="${esc(item)}" ${mood === item ? 'selected' : ''}>${esc(item.charAt(0).toUpperCase() + item.slice(1))}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>Intensity (1 = very mild, 5 = very strong)</span>
+        <select id="w_intensity">
+          ${[1, 2, 3, 4, 5].map(level => `<option value="${level}" ${Number(intensity) === level ? 'selected' : ''}>${level} / 5</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>Anything you want to note? (optional)</span>
+        <textarea id="w_reflection" rows="3" placeholder="A short note about your day or how you feel.">${esc(answers.reflection || '')}</textarea>
+      </label>
+    </div>
+  `);
+}
+
+function stepIllness() {
+  return stepForm(stepHeader(
+    'Health conditions',
+    'Are you currently managing an illness or health condition? This is optional and stays private to your account.'
+  ) + `
+    <div class="option-grid">
+      ${optionCard('illness', 'yes', 'Yes, I am', 'You can log symptoms, vital signs, medications, and reminders next.')}
+      ${optionCard('illness', 'no', 'No, not right now', 'You can add health records later from the dashboard.')}
+    </div>
+  `, false);
+}
+
+function stepSymptoms() {
+  const symptom = answers.symptom || {};
+
+  return stepForm(stepHeader(
+    'Signs and symptoms',
+    'Log one symptom you are experiencing. You can add more from the Symptoms page later.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Condition or illness (optional)</span>
+        <input id="w_illness_name" type="text" placeholder="e.g. Migraine" value="${esc(symptom.illness_name || '')}">
+      </label>
+      <label class="field">
+        <span>Symptom</span>
+        <input id="w_symptom" type="text" placeholder="e.g. Headache" value="${esc(symptom.symptom || '')}">
+      </label>
+      <label class="field">
+        <span>Severity (1 = mild, 5 = severe)</span>
+        <select id="w_severity">
+          ${[1, 2, 3, 4, 5].map(level => `<option value="${level}" ${Number(symptom.severity || 1) === level ? 'selected' : ''}>${level} / 5</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>Notes (optional)</span>
+        <textarea id="w_notes" rows="2" placeholder="Anything else you want to remember.">${esc(symptom.notes || '')}</textarea>
+      </label>
+    </div>
+  `);
+}
+
+function stepVitals() {
+  const vitals = answers.vitals || {};
+
+  return stepForm(stepHeader(
+    'Vital signs',
+    'Add any recent readings you have. Leave the fields blank if you do not have them.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Blood pressure — top number</span>
+        <input id="w_systolic" type="number" min="30" max="300" placeholder="e.g. 120" value="${esc(vitals.systolic || '')}">
+      </label>
+      <label class="field">
+        <span>Blood pressure — bottom number</span>
+        <input id="w_diastolic" type="number" min="20" max="200" placeholder="e.g. 80" value="${esc(vitals.diastolic || '')}">
+      </label>
+      <label class="field">
+        <span>Heart rate (bpm)</span>
+        <input id="w_heart_rate" type="number" min="20" max="300" placeholder="e.g. 72" value="${esc(vitals.heart_rate || '')}">
+      </label>
+      <label class="field">
+        <span>Temperature (°C)</span>
+        <input id="w_temperature_c" type="number" min="30" max="45" step="0.1" placeholder="e.g. 36.6" value="${esc(vitals.temperature_c || '')}">
+      </label>
+      <label class="field">
+        <span>Oxygen saturation (%)</span>
+        <input id="w_oxygen_saturation" type="number" min="50" max="100" placeholder="e.g. 98" value="${esc(vitals.oxygen_saturation || '')}">
+      </label>
+    </div>
+  `);
+}
+
+function stepMedications() {
+  const medication = answers.medication || {};
+
+  return stepForm(stepHeader(
+    'Medications',
+    'Add a medication you are taking. Include the times you usually take it so reminders can work.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Medication name</span>
+        <input id="w_med_name" type="text" placeholder="e.g. Paracetamol" value="${esc(medication.name || '')}">
+      </label>
+      <label class="field">
+        <span>Dosage (optional)</span>
+        <input id="w_med_dosage" type="text" placeholder="e.g. 500 mg" value="${esc(medication.dosage || '')}">
+      </label>
+      <label class="field">
+        <span>Times (24-hour, separated by commas)</span>
+        <input id="w_med_times" type="text" placeholder="e.g. 08:00, 20:00" value="${esc(medication.times || '')}">
+      </label>
+      <label class="field">
+        <span>Food instruction</span>
+        <select id="w_food_instruction">
+          ${['anytime', 'before_meal', 'after_meal', 'with_meal'].map(value => `<option value="${value}" ${medication.food_instruction === value ? 'selected' : ''}>${value.replace(/_/g, ' ')}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field">
+        <span>Start date</span>
+        <input id="w_start_date" type="date" value="${esc(medication.start_date || today())}">
+      </label>
+      <label class="check-row">
+        <input id="w_is_active" type="checkbox" ${medication.is_active === false ? '' : 'checked'}>
+        <span>I am currently taking this medication</span>
+      </label>
+      <label class="field">
+        <span>Notes (optional)</span>
+        <textarea id="w_med_notes" rows="2" placeholder="Anything your future self should know.">${esc(medication.notes || '')}</textarea>
+      </label>
+    </div>
+  `);
+}
+
+function stepReminders() {
+  return stepForm(stepHeader(
+    'Reminders',
+    'Would you like MediByte to remind you about medications and appointments?'
+  ) + `
+    <div class="option-grid">
+      ${optionCard('reminders_enabled', 'yes', 'Yes, remind me', 'Show upcoming medication times and appointments on your dashboard.')}
+      ${optionCard('reminders_enabled', 'no', 'Not right now', 'You can turn reminders on later in Settings.')}
+    </div>
+  `, false);
+}
+
+function stepGoals() {
+  return stepForm(stepHeader(
+    'Daily goals',
+    'Set targets that feel realistic. You can update them anytime in your profile.'
+  ) + `
+    <div class="wizard-fields">
+      <label class="field">
+        <span>Water goal (ml)</span>
+        <input id="w_water_goal" type="number" min="500" step="100" value="${esc(answers.water_goal_ml || 2000)}">
+      </label>
+      <label class="field">
+        <span>Sleep goal (hours)</span>
+        <input id="w_sleep_goal" type="number" min="1" max="16" step="0.5" value="${esc(answers.sleep_goal_hours || 8)}">
+      </label>
+      <label class="field">
+        <span>Daily steps goal</span>
+        <input id="w_steps_goal" type="number" min="0" step="500" value="${esc(answers.walking_goal_steps || 8000)}">
+      </label>
+      <label class="field">
+        <span>Daily calorie goal (optional)</span>
+        <input id="w_calorie_goal" type="number" min="500" placeholder="e.g. 2000" value="${esc(answers.calorie_goal || '')}">
+      </label>
+      ${answers.prediction && answers.prediction.predicted_next_start ? `<div class="wizard-success">Estimated next period: <strong>${esc(answers.prediction.predicted_next_start)}</strong> (about ${esc(answers.prediction.days_until_next)} days from today).</div>` : ''}
+    </div>
+  `, false, 'Finish setup');
+}
+
+function stepDone() {
+  const goalText = [
+    answers.water_goal_ml ? answers.water_goal_ml + ' ml water' : null,
+    answers.sleep_goal_hours ? answers.sleep_goal_hours + ' hours sleep' : null,
+    answers.walking_goal_steps ? answers.walking_goal_steps + ' steps' : null
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="wizard-step">
+    ${stepHeader(
+      'You are all set',
+      'Your profile is ready. You can update any of these details later from your profile.'
+    )}
+    <div class="wizard-success">
+      <strong>Welcome to MediByte.</strong><br>
+      ${goalText ? 'Your daily goals: ' + esc(goalText) + '.' : 'You can set daily goals in your profile.'}
+      ${answers.prediction && answers.prediction.predicted_next_start ? '<br>Estimated next period: ' + esc(answers.prediction.predicted_next_start) + '.' : ''}
+    </div>
+    <div class="wizard-actions">
+      <button type="button" class="btn btn-primary" onclick="location.replace('/dashboard')">Go to dashboard</button>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const key = steps[current];
+  const progress = ((current + 1) / steps.length) * 100;
+  $('wizard-progress').style.width = progress + '%';
+  clearError();
+
+  const builders = {
+    cycle: stepCycle,
+    activity: stepActivity,
+    water: stepWater,
+    sleep: stepSleep,
+    meals: stepMeals,
+    body: stepBody,
+    weight_goal: stepWeightGoal,
+    mood: stepMood,
+    illness: stepIllness,
+    symptoms: stepSymptoms,
+    vitals: stepVitals,
+    medications: stepMedications,
+    reminders: stepReminders,
+    goals: stepGoals,
+    done: stepDone
+  };
+
+  $('wizard-body').innerHTML = builders[key]();
+  if (key === 'body') window.updateBmiPreview();
+
+  const firstField = $('wizard-body').querySelector('input, select, textarea, button.option-card');
+  if (firstField && key !== 'done') firstField.focus({ preventScroll: true });
+}
+
+function advance() {
+  if (current < steps.length - 1) {
+    current++;
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+window.wizardChoose = (key, value) => {
+  answers[key] = value;
+
+  if (key === 'illness') buildSteps();
+  if (key === 'weight_goal_choice' && value === 'no') answers.weight_goal = '';
+  if (key === 'period_status' && value !== 'active') answers.prediction = null;
+
+  render();
+};
+
+window.wizardBack = () => {
+  if (current > 0) {
+    current--;
+    render();
+  }
+};
+
+window.wizardSkip = () => {
+  const key = steps[current];
+  const required = ['cycle', 'weight_goal', 'illness', 'reminders', 'goals', 'done'];
+  if (required.includes(key)) return;
+  advance();
+};
+
+window.updateBmiPreview = () => {
+  const preview = $('bmi-preview');
+  if (!preview) return;
+
+  const height = parseFloat($('w_height_cm')?.value || '0');
+  const weight = parseFloat($('w_weight_kg')?.value || '0');
+
+  if (height > 0 && weight > 0) {
+    const bmi = weight / Math.pow(height / 100, 2);
+    let label = 'Healthy range';
+    if (bmi < 18.5) label = 'Below the healthy range';
+    else if (bmi >= 25 && bmi < 30) label = 'Above the healthy range';
+    else if (bmi >= 30) label = 'Well above the healthy range';
+
+    preview.textContent = `Estimated BMI: ${bmi.toFixed(1)} — ${label}`;
+  } else {
+    preview.textContent = 'BMI will appear here.';
+  }
+};
+
+async function saveProfile(data) {
+  const result = await api('/profile', 'POST', data);
+  if (result && result.id) {
+    profile = Object.assign({}, profile, result);
+    return true;
+  }
+  setError(errText(result));
+  return false;
+}
+
+async function upsert(key, url, body) {
+  const id = saved[key];
+  const result = await api(url + (id ? '/' + id : ''), id ? 'PUT' : 'POST', body);
+  if (result && result.id) {
+    saved[key] = result.id;
+    return result;
+  }
+  setError(errText(result));
+  return null;
+}
+
+async function saveCycle() {
+  if (!answers.period_status) {
+    setError('Please choose how you would like to handle cycle tracking.');
+    return false;
   }
 
-  if (Number($('water_ml').value) > 0) {
-    if (!await once('water', '/water-logs', { amount_ml: $('water_ml').value, log_date: date })) return;
-  }
+  const cycleLength = $('w_cycle_length')?.value;
+  const lastPeriod = $('w_last_period')?.value;
+  const body = { period_status: answers.period_status };
+  if (cycleLength) body.cycle_length = cycleLength;
+  if (cycleLength) answers.cycle_length = cycleLength;
+  if (lastPeriod) answers.last_period = lastPeriod;
 
-  if ($('bedtime').value && $('wake_time').value) {
-    if (!await once('sleep', '/sleep-logs', {
-      bedtime: $('bedtime').value, wake_time: $('wake_time').value, log_date: date
-    })) return;
-  }
+  if (!(await saveProfile(body))) return false;
 
-  for (const m of ['breakfast', 'lunch', 'dinner', 'snack']) {
-    if ($('meal_' + m).checked) {
-      const food = $('food_' + m).value.trim();
-      if (!food) { $('msg').textContent = 'Enter what you ate for ' + m + '.'; return; }
-      if (!await once('meal_' + m, '/meal-logs', {
-        meal_type: m, food_name: food, calories: $('cal_' + m).value || 0, log_date: date
-      })) return;
+  if (answers.period_status === 'active') {
+    if (lastPeriod) {
+      const period = await upsert('period', '/period-logs', { start_date: lastPeriod });
+      if (!period) return false;
+    }
+
+    const prediction = await api('/period-predict');
+    if (prediction && prediction.predicted_next_start) {
+      answers.prediction = prediction;
     }
   }
 
-  show(3);
+  return true;
 }
 
-async function saveStep3() {
-  const date = ld(new Date());
+async function saveActivity() {
+  const type = $('w_activity_type').value;
+  const stepsValue = $('w_steps').value.trim();
+  const minutesValue = $('w_minutes').value.trim();
 
-  if (!$('height_cm').value || !$('weight_kg').value) {
-    $('msg').textContent = 'Enter your height and weight.';
+  if (!stepsValue && !minutesValue) {
+    setError('Add steps or active minutes, or choose “Skip for now”.');
+    return false;
+  }
+
+  const body = { activity_type: type, log_date: today() };
+  if (stepsValue) body.steps = stepsValue;
+  if (minutesValue) body.minutes = minutesValue;
+
+  const result = await upsert('activity', '/walking-logs', body);
+  if (result) answers.activity = { activity_type: type, steps: stepsValue, minutes: minutesValue };
+  return Boolean(result);
+}
+
+async function saveWater() {
+  const amount = $('w_water').value.trim();
+  if (!amount) {
+    setError('Enter an amount, or choose “Skip for now”.');
+    return false;
+  }
+
+  const result = await upsert('water', '/water-logs', { amount_ml: amount, log_date: today() });
+  if (result) answers.water_ml = amount;
+  return Boolean(result);
+}
+
+async function saveSleep() {
+  const bedtime = $('w_bedtime').value;
+  const wakeTime = $('w_wake_time').value;
+  const hours = $('w_hours').value.trim();
+
+  if (!bedtime && !wakeTime && !hours) {
+    setError('Add your sleep details, or choose “Skip for now”.');
+    return false;
+  }
+
+  if ((bedtime && !wakeTime) || (!bedtime && wakeTime)) {
+    setError('Please add both bedtime and wake-up time, or use total hours instead.');
+    return false;
+  }
+
+  const body = { log_date: today() };
+
+  if (bedtime && wakeTime) {
+    body.bedtime = bedtime;
+    body.wake_time = wakeTime;
+    body.hours = null;
+  } else {
+    body.hours = hours;
+    body.bedtime = null;
+    body.wake_time = null;
+  }
+
+  const result = await upsert('sleep', '/sleep-logs', body);
+  if (result) answers.sleep = { bedtime, wake_time: wakeTime, hours };
+  return Boolean(result);
+}
+
+async function saveMeal() {
+  const mealType = $('w_meal_type').value;
+  const foodName = $('w_food_name').value.trim();
+  const calories = $('w_calories').value.trim();
+
+  if (!foodName) {
+    setError('Tell us what you ate, or choose “Skip for now”.');
+    return false;
+  }
+
+  const result = await upsert('meal', '/meal-logs', {
+    meal_type: mealType,
+    food_name: foodName,
+    calories: calories || 0,
+    log_date: today()
+  });
+
+  if (result) answers.meal = { meal_type: mealType, food_name: foodName, calories };
+  return Boolean(result);
+}
+
+async function saveBody() {
+  const height = $('w_height_cm').value.trim();
+  const weight = $('w_weight_kg').value.trim();
+
+  if (!height || !weight) {
+    setError('Add both height and weight, or choose “Skip for now”.');
+    return false;
+  }
+
+  const result = await upsert('body', '/weight-logs', {
+    height_cm: height,
+    weight_kg: weight,
+    log_date: today()
+  });
+
+  if (result) answers.body = { height_cm: height, weight_kg: weight };
+  return Boolean(result);
+}
+
+async function saveWeightGoal() {
+  if (!answers.weight_goal_choice) {
+    setError('Please choose an option.');
+    return false;
+  }
+
+  if (answers.weight_goal_choice === 'yes') {
+    const goal = $('w_weight_goal').value.trim();
+    if (!goal) {
+      setError('Enter your goal weight, or choose “Not right now”.');
+      return false;
+    }
+    answers.weight_goal = goal;
+    return saveProfile({ weight_goal: goal });
+  }
+
+  answers.weight_goal = '';
+  return saveProfile({ weight_goal: null });
+}
+
+async function saveMood() {
+  const mood = $('w_mood').value;
+  const intensity = $('w_intensity').value;
+  const reflection = $('w_reflection').value.trim();
+
+  const body = { mood, intensity, log_date: today() };
+  if (reflection) body.reflection = reflection;
+
+  const result = await upsert('mood', '/mood-logs', body);
+  if (result) {
+    answers.mood = mood;
+    answers.intensity = intensity;
+    answers.reflection = reflection;
+  }
+  return Boolean(result);
+}
+
+function saveIllness() {
+  if (!answers.illness) {
+    setError('Please choose an option.');
+    return false;
+  }
+  return true;
+}
+
+async function saveSymptoms() {
+  const symptom = $('w_symptom').value.trim();
+  const severity = $('w_severity').value;
+  const illnessName = $('w_illness_name').value.trim();
+  const notes = $('w_notes').value.trim();
+
+  if (!symptom) {
+    setError('Add a symptom, or choose “Skip for now”.');
+    return false;
+  }
+
+  const body = { symptom, severity, log_date: today() };
+  if (illnessName) body.illness_name = illnessName;
+  if (notes) body.notes = notes;
+
+  const result = await upsert('symptom', '/symptom-logs', body);
+  if (result) answers.symptom = { symptom, severity, illness_name: illnessName, notes };
+  return Boolean(result);
+}
+
+async function saveVitals() {
+  const fields = ['systolic', 'diastolic', 'heart_rate', 'temperature_c', 'oxygen_saturation'];
+  const body = { log_date: today() };
+  let hasValue = false;
+
+  fields.forEach(field => {
+    const value = $('w_' + field).value.trim();
+    body[field] = value || null;
+    if (value) hasValue = true;
+  });
+
+  if (!hasValue) {
+    setError('Add at least one reading, or choose “Skip for now”.');
+    return false;
+  }
+
+  if ((body.systolic && !body.diastolic) || (!body.systolic && body.diastolic)) {
+    setError('Please add both blood pressure numbers.');
+    return false;
+  }
+
+  const result = await upsert('vitals', '/vital-sign-logs', body);
+  if (result) answers.vitals = body;
+  return Boolean(result);
+}
+
+async function saveMedication() {
+  const name = $('w_med_name').value.trim();
+  if (!name) {
+    setError('Add the medication name, or choose “Skip for now”.');
+    return false;
+  }
+
+  const rawTimes = $('w_med_times').value.trim();
+  const times = rawTimes ? rawTimes.split(',').map(item => item.trim()).filter(Boolean) : [];
+
+  if (times.some(time => !/^\d{2}:\d{2}$/.test(time))) {
+    setError('Use 24-hour times like 08:00, 20:00.');
+    return false;
+  }
+
+  const body = {
+    name,
+    times,
+    start_date: $('w_start_date').value || today(),
+    food_instruction: $('w_food_instruction').value,
+    is_active: $('w_is_active').checked
+  };
+
+  const dosage = $('w_med_dosage').value.trim();
+  const notes = $('w_med_notes').value.trim();
+  if (dosage) body.dosage = dosage;
+  if (notes) body.notes = notes;
+
+  const result = await upsert('medication', '/medications', body);
+  if (result) {
+    answers.medication = {
+      name,
+      dosage,
+      times: times.join(', '),
+      food_instruction: body.food_instruction,
+      start_date: body.start_date,
+      is_active: body.is_active,
+      notes
+    };
+  }
+  return Boolean(result);
+}
+
+async function saveReminders() {
+  if (!answers.reminders_enabled) {
+    setError('Please choose an option.');
+    return false;
+  }
+
+  return saveProfile({ reminders_enabled: answers.reminders_enabled === 'yes' });
+}
+
+async function saveGoals() {
+  const water = $('w_water_goal').value.trim();
+  const sleep = $('w_sleep_goal').value.trim();
+  const stepsGoal = $('w_steps_goal').value.trim();
+  const calories = $('w_calorie_goal').value.trim();
+
+  if (!water || !sleep || !stepsGoal) {
+    setError('Please complete the water, sleep, and steps goals.');
+    return false;
+  }
+
+  const body = {
+    water_goal_ml: water,
+    sleep_goal_hours: sleep,
+    walking_goal_steps: stepsGoal,
+    calorie_goal: calories || null
+  };
+
+  answers.water_goal_ml = water;
+  answers.sleep_goal_hours = sleep;
+  answers.walking_goal_steps = stepsGoal;
+  answers.calorie_goal = calories;
+
+  if (!(await saveProfile(body))) return false;
+
+  const completed = await api('/profile/complete', 'POST');
+  if (!completed || !completed.id) {
+    setError(errText(completed));
+    return false;
+  }
+
+  profile = Object.assign({}, profile, completed);
+  return true;
+}
+
+window.wizardNext = async () => {
+  if (busy) return;
+  busy = true;
+  clearError();
+
+  const key = steps[current];
+  let ok = true;
+
+  try {
+    if (key === 'cycle') ok = await saveCycle();
+    else if (key === 'activity') ok = await saveActivity();
+    else if (key === 'water') ok = await saveWater();
+    else if (key === 'sleep') ok = await saveSleep();
+    else if (key === 'meals') ok = await saveMeal();
+    else if (key === 'body') ok = await saveBody();
+    else if (key === 'weight_goal') ok = await saveWeightGoal();
+    else if (key === 'mood') ok = await saveMood();
+    else if (key === 'illness') {
+      ok = saveIllness();
+      if (ok) buildSteps();
+    } else if (key === 'symptoms') ok = await saveSymptoms();
+    else if (key === 'vitals') ok = await saveVitals();
+    else if (key === 'medications') ok = await saveMedication();
+    else if (key === 'reminders') ok = await saveReminders();
+    else if (key === 'goals') ok = await saveGoals();
+
+    if (ok && key !== 'done') advance();
+  } catch (error) {
+    setError('Something went wrong. Please check your connection and try again.');
+  } finally {
+    busy = false;
+  }
+};
+
+(async function initWizard() {
+  profile = await api('/profile');
+
+  if (!profile || !profile.id) {
+    $('wizard-body').innerHTML = `<p class="wizard-copy">We could not load your profile. Please <a href="/login">log in again</a>.</p>`;
     return;
   }
 
-  if (!await once('weight', '/weight-logs', {
-    weight_kg: $('weight_kg').value, height_cm: $('height_cm').value, log_date: date
-  })) return;
-
-  if ($('has_goal').checked) {
-    if (!$('weight_goal').value) { $('msg').textContent = 'Enter your target weight.'; return; }
-    const p = await api('/profile', 'POST', { weight_goal: $('weight_goal').value });
-    if (!p.id) { $('msg').textContent = errText(p); return; }
+  if (profile.onboarding_completed_at) {
+    location.replace('/dashboard');
+    return;
   }
 
-  if (!await once('mood', '/mood-logs', {
-    mood: $('mood').value, intensity: $('mood_intensity').value, log_date: date
-  })) return;
+  const moodResponse = await api('/moods');
+  if (Array.isArray(moodResponse)) moods = moodResponse;
 
-  // PANSAMANTALA: papalitan ito sa susunod na step ng Step 4 ng wizard
-  location.href = '/dashboard';
-}
+  answers = {
+    period_status: profile.period_status || '',
+    cycle_length: profile.cycle_length || 28,
+    last_period: '',
+    weight_goal_choice: profile.weight_goal ? 'yes' : '',
+    weight_goal: profile.weight_goal || '',
+    water_goal_ml: profile.water_goal_ml || 2000,
+    sleep_goal_hours: profile.sleep_goal_hours || 8,
+    walking_goal_steps: profile.walking_goal_steps || 8000,
+    calorie_goal: profile.calorie_goal || '',
+    reminders_enabled: profile.reminders_enabled ? 'yes' : 'no',
+    illness: '',
+    mood: 'neutral',
+    intensity: 3
+  };
 
-async function init() {
-  $('nav').style.display = 'none';
-  const profile = await api('/profile');
-  togglePeriodFields();
-  show(profile && profile.sex === 'female' ? 1 : 2);
-}
+  if (profile.show_period_tracker) {
+    const logs = await api('/period-logs');
+    if (Array.isArray(logs) && logs.length > 0) {
+      answers.last_period = ld(logs[0].start_date);
+    }
+  }
 
-init();
+  buildSteps();
+  render();
+})();
 </script>
 @endpush

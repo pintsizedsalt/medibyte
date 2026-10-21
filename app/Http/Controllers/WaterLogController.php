@@ -54,7 +54,7 @@ class WaterLogController extends Controller
         $log = $request->user()->dailyLogs()->findOrFail($id);
 
         $data = $request->validate([
-            'amount_ml' => 'required|integer|min:100|max:10000',
+            'amount_ml' => 'required|integer|min:1|max:10000',
         ]);
 
         $log->update(['water_ml' => $data['amount_ml']]);

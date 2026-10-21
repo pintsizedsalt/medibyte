@@ -1,15 +1,24 @@
 @extends('layouts.app')
 
+@section('title', 'Vitals · MediByte')
+
 @section('content')
-  <h2>Vitals</h2>
-  <p id="msg"></p>
-  <div id="log"></div>
+  @include('partials.record-header', [
+    'title' => 'Vitals',
+    'description' => 'Record blood pressure, heart rate, temperature, and oxygen readings in one place.',
+    'eyebrow' => 'Wellbeing',
+  ])
 @endsection
 
 @push('scripts')
 <script>
 logPage({
+  title: 'Vitals',
+  icon: 'heart',
+  tone: 'rose',
   url: '/vital-sign-logs',
+  formTitle: 'Add a vital sign reading',
+  formNote: 'Add the readings you have. Leave the fields you did not measure blank.',
   fields: [
     ['systolic', 'BP top number', 'number'],
     ['diastolic', 'BP bottom number', 'number'],
@@ -18,7 +27,13 @@ logPage({
     ['oxygen_saturation', 'Oxygen (%)', 'number'],
     ['log_date', 'Date', 'today']
   ],
-  show: r => `BP ${r.systolic ?? '-'}/${r.diastolic ?? '-'}, HR ${r.heart_rate ?? '-'}, ${r.temperature_c ?? '-'} C, O2 ${r.oxygen_saturation ?? '-'}%`
+  value: r => r.systolic && r.diastolic ? 'BP ' + r.systolic + '/' + r.diastolic : (r.heart_rate ? r.heart_rate + ' bpm' : 'Vital signs'),
+  meta: r => [
+    r.heart_rate ? 'HR ' + r.heart_rate : null,
+    r.temperature_c ? r.temperature_c + '°C' : null,
+    r.oxygen_saturation ? 'O₂ ' + r.oxygen_saturation + '%' : null,
+    dateLabel(r.log_date)
+  ].filter(Boolean).join(' · ')
 });
 </script>
 @endpush

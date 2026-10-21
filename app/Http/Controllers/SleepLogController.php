@@ -19,7 +19,8 @@ class SleepLogController extends Controller
 
     private function withHours(array $data)
     {
-        if (!empty($data['bedtime']) && !empty($data['wake_time'])) {
+        // Only calculate hours from bedtime/wake_time if hours wasn't explicitly provided
+        if (!empty($data['bedtime']) && !empty($data['wake_time']) && !isset($data['hours'])) {
             $bed = Carbon::createFromFormat('H:i', $data['bedtime']);
             $wake = Carbon::createFromFormat('H:i', $data['wake_time']);
 
@@ -35,6 +36,8 @@ class SleepLogController extends Controller
 
     public function index(Request $request)
     {
+        $request->validate(['date' => 'nullable|date']);
+
         return $request->user()->sleepLogs()->latest('log_date')->get();
     }
 

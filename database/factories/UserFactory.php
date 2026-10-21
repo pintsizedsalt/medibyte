@@ -24,8 +24,16 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $first = fake()->firstName();
+        $last = fake()->lastName();
+        $username = Str::lower(preg_replace('/[^A-Za-z0-9_]/', '', $first.$last));
+        $username = substr($username ?: 'user', 0, 20).fake()->unique()->numerify('####');
+
         return [
-            'name' => fake()->name(),
+            'name' => $first.' '.$last,
+            'first_name' => $first,
+            'last_name' => $last,
+            'username' => $username,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
