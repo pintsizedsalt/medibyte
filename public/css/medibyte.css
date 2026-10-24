@@ -4,14 +4,13 @@
    Placeholder circles replace product icons so the front-end
    team can design the final icon set later.
    ========================================================= */
-
 :root {
-  --ink: #111111;
-  --paper: #ffffff;
-  --soft: #f6f6f6;
-  --line: #d3d3d3;
-  --line-strong: #999999;
-  --muted: #5f5f5f;
+  --ink: #1f4d36;
+  --paper: #fbf7ee;
+  --soft: #f1e8d6;
+  --line: #dccfb4;
+  --line-strong: #b9a97f;
+  --muted: #5e6c5b;
   --radius: 6px;
   --sidebar-w: 252px;
   --topbar-h: 64px;
@@ -25,6 +24,7 @@
 html {
   -webkit-text-size-adjust: 100%;
 }
+
 
 body {
   margin: 0;
@@ -2111,4 +2111,133 @@ body.drawer-open #drawerScrim {
   .toast {
     bottom: 22px;
   }
+}
+
+
+/* =========================================================
+   Login 
+   ========================================================= */
+
+.auth-card {
+  max-width: 440px;
+  padding: 32px;
+  border: 5px solid var(--paper);
+  border-radius: 40px;
+  background: linear-gradient(0deg, var(--paper) 0%, var(--soft) 100%);
+  box-shadow: rgba(31, 77, 54, 0.35) 0 30px 30px -22px;
+}
+
+.auth-card .eyebrow,
+.auth-card h2,
+.auth-card .auth-intro {
+  text-align: center;
+}
+
+.auth-card h2 {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.auth-card .field {
+  margin-bottom: 14px;
+}
+
+.auth-card .field > span {
+  padding-left: 10px;
+}
+
+.auth-card .field input {
+  padding: 15px 20px;
+  border: 0;
+  border-inline: 2px solid transparent;
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: var(--line) 0 10px 10px -5px;
+}
+
+.auth-card .field input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.auth-card .field input:focus {
+  outline: none;
+  border-inline: 2px solid var(--ink);
+}
+
+.auth-card .password-wrap input {
+  padding-right: 76px;
+}
+
+.auth-card .password-toggle {
+  right: 12px;
+  border-radius: 999px;
+}
+
+.auth-card .auth-row {
+  justify-content: flex-start;
+  margin: -4px 0 0 10px;
+}
+
+.auth-card .auth-row a {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-card .auth-submit {
+  display: block;
+  margin: 18px auto 20px;
+  padding: 15px;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(45deg, #1f4d36 0%, #4c8a66 100%);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: rgba(31, 77, 54, 0.45) 0 20px 10px -15px;
+  transition: transform 0.2s ease-in-out;
+}
+
+.auth-card .auth-submit:hover {
+  transform: scale(1.03);
+}
+
+.auth-card .auth-submit:active {
+  transform: scale(0.96);
+}
+
+.auth-card .auth-switch a {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card .auth-submit {
+    transition: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-card {
+    padding: 24px 20px;
+    border-radius: 28px;
+  }
+}
+
+/* =========================================================
+   Real icons
+   ========================================================= */
+.icon {
+  border: 0;
+  border-radius: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.icon * {
+  display: inline;
 }
