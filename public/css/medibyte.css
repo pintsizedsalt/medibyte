@@ -2224,9 +2224,6 @@ body.drawer-open #drawerScrim {
   }
 }
 
-/* =========================================================
-   Real icons
-   ========================================================= */
 .icon {
   border: 0;
   border-radius: 0;
@@ -2240,4 +2237,185 @@ body.drawer-open #drawerScrim {
 
 .icon * {
   display: inline;
+}
+
+.app-main {
+  background: var(--soft);
+}
+
+.calendar-card {
+  margin-bottom: 12px;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cal-head h3 {
+  margin: 0;
+}
+
+.cal-head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+
+.cal-dow {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cal-day {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  height: 50px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.cal-day span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.cal-day.on span {
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.cal-day.sel span {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.cal-day.today::before {
+  content: "TODAY";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.cal-day.empty {
+  visibility: hidden;
+  cursor: default;
+}
+
+.cal-day:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-radius: 8px;
+}
+
+.cal-day.mood-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 66px;
+  gap: 2px;
+  padding-top: 4px;
+}
+
+.cal-day.mood-cell b {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cal-day.mood-cell i {
+  font-style: normal;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.cal-day.mood-cell.sel {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+
+.cal-day.mood-cell.today::before {
+  display: none;
+}
+
+.cal-day.mood-cell.today b {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cal-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--ink);
+  vertical-align: -1px;
+}
+
+.cal-day-panel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.cal-empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .cal-day {
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .cal-day span {
+    width: 34px;
+    height: 34px;
+  }
+
+  .cal-day.mood-cell {
+    height: 58px;
+  }
+
+  .cal-day.mood-cell i {
+    font-size: 22px;
+  }
 }

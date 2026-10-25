@@ -520,9 +520,167 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ---------------------------------------------------------
    Generic record page
    --------------------------------------------------------- */
+/* ---------------------------------------------------------
+   Calendar helpers (used by logPage)
+   --------------------------------------------------------- */
+const MOOD_EMOJI = {
+  happy: '😄', excited: '🤩', grateful: '🙏', calm: '😌', content: '😊',
+  hopeful: '🌈', proud: '🏆', loved: '🥰', energetic: '⚡', motivated: '💪',
+  relaxed: '🧘', bored: '😑', tired: '😴', neutral: '😐', confused: '😕',
+  lonely: '🥺', sad: '😢', anxious: '😰', stressed: '😣', overwhelmed: '😵',
+  angry: '😠', frustrated: '😤', irritated: '😒', disappointed: '😞',
+  guilty: '😔', embarrassed: '😳', scared: '😨', numb: '😶'
+};
+
+function moodEmoji(row) {
+  if (!row || !row.mood) return '';
+  return MOOD_EMOJI[String(row.mood).toLowerCase()] || '🙂';
+}
+
 function logPage(cfg) {
   let rows = [];
   let edit = null;
+
+  /* ---- Calendar ------------------------------------------------------
+     Shows every record on a month grid. It reads the same `rows` the
+     history list uses, so nothing extra is fetched. Set `calendar: false`
+     in a page's logPage() config to turn it off for that page.        */
+  const dateField = cfg.fields.find(f => ['today', 'date', 'datetime-local'].includes(f[2]));
+  const dateKey = dateField ? dateField[0] : null;
+  const endKey = cfg.fields.some(f => f[0] === 'end_date') ? 'end_date' : null;
+  const showCalendar = cfg.calendar !== false && Boolean(dateKey);
+  const pad2 = n => String(n).padStart(2, '0');
+  const dayKey = (y, m, d) => y + '-' + pad2(m + 1) + '-' + pad2(d);
+  const nowDate = new Date();
+  let calYear = nowDate.getFullYear();
+  let calMonth = nowDate.getMonth();
+  let calSel = today();
+
+  function addDays(day, n) {
+    const d = new Date(day + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return dayKey(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function dayMap() {
+    const map = {};
+    rows.forEach(row => {
+      const first = dateKey && row[dateKey] ? ld(row[dateKey]) : '';
+      if (!first) return;
+      let last = endKey && row[endKey] ? ld(row[endKey]) : first;
+      if (!last || last < first) last = first;
+      let day = first;
+      let guard = 0;
+      while (day <= last && guard++ < 60) {
+        (map[day] = map[day] || []).push(row);
+        day = addDays(day, 1);
+      }
+    });
+    return map;
+  }
+
+  function drawCalendar() {
+    const host = $('logCalendar');
+    if (!host) return;
+
+    const map = dayMap();
+    const t = today();
+    const moodMode = cfg.title === 'Mood' || rows.some(r => moodEmoji(r));
+    const firstOfMonth = new Date(calYear, calMonth, 1);
+    const lead = firstOfMonth.getDay();
+    const total = new Date(calYear, calMonth + 1, 0).getDate();
+    const title = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    let cells = '';
+    for (let i = 0; i < lead; i++) cells += '<span class="cal-day empty" aria-hidden="true"></span>';
+
+    for (let d = 1; d <= total; d++) {
+      const key = dayKey(calYear, calMonth, d);
+      const list = map[key];
+      const emoji = list ? moodEmoji(list[list.length - 1]) : '';
+      const classes = ['cal-day'];
+      if (moodMode) classes.push('mood-cell');
+      if (list && !moodMode) classes.push('on');
+      if (key === t) classes.push('today');
+      if (key === calSel) classes.push('sel');
+      const label = key + (list ? ', ' + list.length + (list.length === 1 ? ' record' : ' records') : '');
+      const face = moodMode
+        ? `<b>${d}</b>${emoji ? `<i aria-hidden="true">${emoji}</i>` : (list ? '<i aria-hidden="true">•</i>' : '')}`
+        : `<span>${d}</span>`;
+      cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
+    }
+
+    let legend = '<span><i class="cal-dot"></i>Logged</span>';
+    if (moodMode) {
+      const used = [...new Set(rows.filter(r => r.mood).map(r => String(r.mood).toLowerCase()))];
+      legend = used.map(m => `<span>${MOOD_EMOJI[m] || '🙂'} ${esc(m.charAt(0).toUpperCase() + m.slice(1))}</span>`).join('');
+    }
+
+    const picked = map[calSel] || [];
+    const pickedLabel = new Date(calSel + 'T00:00:00')
+      .toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+    host.innerHTML = `
+      <section class="card calendar-card">
+        <div class="cal-head">
+          <button type="button" class="btn btn-small" onclick="window.calMove(-1)" aria-label="Previous month">‹</button>
+          <h3>${esc(title)}</h3>
+          <span class="cal-head-actions">
+            <button type="button" class="btn btn-small" onclick="window.calToday()">Today</button>
+            <button type="button" class="btn btn-small" onclick="window.calMove(1)" aria-label="Next month">›</button>
+          </span>
+        </div>
+        <div class="cal-grid">
+          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
+          ${cells}
+        </div>
+        ${legend ? `<div class="cal-legend">${legend}</div>` : ''}
+        <div class="cal-day-panel">
+          <div class="card-head">
+            <strong>${esc(pickedLabel)}</strong>
+            <button type="button" class="btn btn-small btn-primary" onclick="window.calAddForDay()">Add for this day</button>
+          </div>
+          ${picked.length
+            ? `<div class="record-list">${picked.map(rowHtml).join('')}</div>`
+            : '<p class="muted cal-empty">Nothing logged for this day.</p>'}
+        </div>
+      </section>`;
+  }
+
+  window.calMove = n => {
+    const d = new Date(calYear, calMonth + n, 1);
+    calYear = d.getFullYear();
+    calMonth = d.getMonth();
+    drawCalendar();
+  };
+
+  window.calToday = () => {
+    const n = new Date();
+    calYear = n.getFullYear();
+    calMonth = n.getMonth();
+    calSel = today();
+    drawCalendar();
+  };
+
+  window.calPick = day => {
+    calSel = day;
+    drawCalendar();
+  };
+
+  window.calAddForDay = () => {
+    if (edit) {
+      edit = null;
+      msg('');
+      draw();
+    }
+    const el = $('f_' + dateKey);
+    if (el) {
+      el.value = el.type === 'datetime-local'
+        ? calSel + 'T' + ((el.value || '').slice(11, 16) || '09:00')
+        : calSel;
+    }
+    window.addLogRecord();
+  };
 
   const tone = cfg.tone || 'blue';
   const icon = cfg.icon || 'file';
@@ -609,6 +767,7 @@ function logPage(cfg) {
     const form = cfg.fields.map(field => input(field, current[field[0]])).join('');
 
     $('log').innerHTML = `
+      ${showCalendar ? '<div id="logCalendar"></div>' : ''}
       <section class="card record-form-card" id="recordFormCard">
         <div class="card-head">
           <div>
@@ -645,6 +804,8 @@ function logPage(cfg) {
                <p>Add your first entry above and it will appear here.</p>
              </div>`}
       </section>`;
+
+    if (showCalendar) drawCalendar();
   }
 
   async function load() {
