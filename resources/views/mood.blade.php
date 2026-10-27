@@ -22,7 +22,6 @@ api('/moods').then(moods => logPage({
   fields: [
     ['mood', 'Mood', 'select', moods],
     ['intensity', 'Intensity (1 to 5)'],
-    ['event_note', 'What was the event?', 'text'],
     ['reflection', 'What happened? Share your thoughts.', 'text'],
     ['log_date', 'Date', 'today']
   ],
