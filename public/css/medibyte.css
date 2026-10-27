@@ -1655,6 +1655,13 @@ body.drawer-open #drawerScrim { display: block; }
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+.cal-day.on.today span {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 400;
+}
+
 .cal-day.empty { visibility: hidden; cursor: default; }
 .cal-day:focus-visible {
   outline: 2px solid var(--ink);
