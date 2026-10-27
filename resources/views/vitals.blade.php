@@ -20,8 +20,8 @@ logPage({
   formTitle: 'Add a vital sign reading',
   formNote: 'Add the readings you have. Leave the fields you did not measure blank.',
   fields: [
-    ['systolic', 'BP top number', 'number'],
-    ['diastolic', 'BP bottom number', 'number'],
+    ['systolic', 'Systolic', 'number'],
+    ['diastolic', 'Diastolic', 'number'],
     ['heart_rate', 'Heart rate (bpm)', 'number'],
     ['temperature_c', 'Temperature (C)', 'number'],
     ['oxygen_saturation', 'Oxygen (%)', 'number'],
