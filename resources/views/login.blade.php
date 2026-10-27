@@ -36,7 +36,6 @@
       </form>
 
       <p class="auth-switch">New to MediByte? <a href="/register">Create an account</a></p>
-      <p class="auth-legal">Private by design. Read our <a href="/privacy">privacy notice</a>.</p>
     </section>
   </div>
 @endsection
