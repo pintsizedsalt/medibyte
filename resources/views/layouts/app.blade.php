@@ -97,7 +97,6 @@
         <a class="side-link" data-nav href="/documents"><svg class="icon"><use href="#i-file"/></svg><span>Documents</span></a>
 
         <p class="nav-label">Account</p>
-        <a class="side-link" data-nav href="/notifications"><svg class="icon"><use href="#i-bell"/></svg><span>Notifications</span></a>
         <a class="side-link" data-nav href="/settings"><svg class="icon"><use href="#i-settings"/></svg><span>Settings</span></a>
       </nav>
 
