@@ -10,18 +10,16 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css">
+  <link rel="stylesheet" href="/css/medibyte.css?v=2">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
   <script>
     try {
-      if (!sessionStorage.getItem('medibyte-sidebar')) {
+      if (sessionStorage.getItem('medibyte-sidebar') === 'hidden') {
         document.body.classList.add('sidebar-collapsed');
       }
-    } catch (error) {
-      document.body.classList.add('sidebar-collapsed');
-    }
+    } catch (error) {}
   </script>
   <svg class="svg-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></symbol>
@@ -243,7 +241,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js"></script>
+  <script src="/js/medibyte.js?v=2"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
