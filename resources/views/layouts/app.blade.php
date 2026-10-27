@@ -118,10 +118,6 @@
           <span class="topbar-date">{{ now()->format('D, M j') }}</span>
         </div>
         <div class="topbar-actions">
-          <button type="button" class="btn btn-quick" onclick="openQuickSheet()">
-            <svg class="icon"><use href="#i-plus"/></svg>
-            <span>Quick add</span>
-          </button>
           <button type="button" class="icon-btn notif-btn" onclick="openNotificationDrawer()" aria-label="Open notifications" title="Notifications" aria-controls="notificationDrawer">
             <svg class="icon"><use href="#i-bell"/></svg>
             <span class="icon-dot" id="notifDot" hidden></span>
