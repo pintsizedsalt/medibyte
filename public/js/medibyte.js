@@ -157,7 +157,86 @@ function compactNumber(value) {
 }
 
 /* ---------------------------------------------------------
-   Sidebar, account menu, drawer, sheet, confirm dialog, toast
+   Field-level errors
+   --------------------------------------------------------- */
+function showFieldError(inputOrId, message, fadeMs = 8000) {
+  const input = typeof inputOrId === 'string' ? $(inputOrId) : inputOrId;
+  if (!input) return;
+
+  input.classList.add('is-invalid');
+
+  const parent = input.closest('.field') || input.parentElement;
+  const prev = parent?.querySelector('.field-error');
+  if (prev) prev.remove();
+
+  const err = document.createElement('div');
+  err.className = 'field-error';
+  err.setAttribute('role', 'alert');
+  err.textContent = message;
+
+  const anchor = input.closest('.password-wrap') || input;
+  anchor.insertAdjacentElement('afterend', err);
+
+  if (fadeMs > 0) {
+    setTimeout(() => {
+      err.classList.add('is-fading');
+      setTimeout(() => {
+        err.remove();
+        input.classList.remove('is-invalid');
+      }, 400);
+    }, fadeMs);
+  }
+}
+
+function clearFieldError(inputOrId) {
+  const input = typeof inputOrId === 'string' ? $(inputOrId) : inputOrId;
+  if (!input) return;
+  input.classList.remove('is-invalid');
+  const parent = input.closest('.field') || input.parentElement;
+  parent?.querySelector('.field-error')?.remove();
+}
+
+/* ---------------------------------------------------------
+   Intensity as colored stars (for Mood)
+   --------------------------------------------------------- */
+function enhanceIntensitySlider(inputId, opts = {}) {
+  const el = $(inputId);
+  if (!el || el.dataset.enhanced === '1') return;
+
+  const min = opts.min ?? 1;
+  const max = opts.max ?? 5;
+  let value = Number(el.value) || 3;
+  if (value < min) value = min;
+  if (value > max) value = max;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'intensity-stars';
+  wrap.setAttribute('role', 'radiogroup');
+  wrap.setAttribute('aria-label', 'Intensity from 1 to 5');
+
+  // right-to-left so the CSS ~ selector works
+  for (let i = max; i >= min; i--) {
+    const id = inputId + '_' + i;
+    wrap.innerHTML += `
+      <input type="radio" id="${id}" name="${inputId}_stars" value="${i}" ${i === value ? 'checked' : ''}>
+      <label for="${id}" title="${i}">★</label>
+    `;
+  }
+
+  el.type = 'hidden';
+  el.value = String(value);
+  el.dataset.enhanced = '1';
+  el.parentNode.insertBefore(wrap, el);
+
+  wrap.querySelectorAll('input').forEach(radio => {
+    radio.addEventListener('change', () => {
+      el.value = radio.value;
+    });
+  });
+}
+
+/* ---------------------------------------------------------
+   Sidebar, account menu, drawer, sheet, confirm, toast
    --------------------------------------------------------- */
 function isDesktop() {
   return window.matchMedia('(min-width: 901px)').matches;
@@ -506,7 +585,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshNotificationBadge();
   }
 
-  // New accounts finish the guided setup before using the dashboard.
   if (profile && profile.id && !profile.onboarding_completed_at && location.pathname !== '/profile-setup') {
     location.replace('/profile-setup');
   }
@@ -526,6 +604,9 @@ function moodEmoji(row) {
   return MOOD_EMOJI[String(row.mood).toLowerCase()] || '🙂';
 }
 
+/* ---------------------------------------------------------
+   Shared log page (calendar + form + history)
+   --------------------------------------------------------- */
 function logPage(cfg) {
   let rows = [];
   let edit = null;
@@ -595,11 +676,8 @@ function logPage(cfg) {
       cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
     }
 
-    let legend = '<span><i class="cal-dot"></i>Logged</span>';
-    if (moodMode) {
-      const used = [...new Set(rows.filter(r => r.mood).map(r => String(r.mood).toLowerCase()))];
-      legend = used.map(m => `<span>${MOOD_EMOJI[m] || '🙂'} ${esc(m.charAt(0).toUpperCase() + m.slice(1))}</span>`).join('');
-    }
+    // simple "Logged" legend only (no per-mood list)
+    const legend = '<span><i class="cal-dot"></i>Logged</span>';
 
     const picked = map[calSel] || [];
     const pickedLabel = new Date(calSel + 'T00:00:00')
@@ -619,7 +697,7 @@ function logPage(cfg) {
           ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
           ${cells}
         </div>
-        ${legend ? `<div class="cal-legend">${legend}</div>` : ''}
+        <div class="cal-legend">${legend}</div>
         <div class="cal-day-panel">
           <div class="card-head">
             <strong>${esc(pickedLabel)}</strong>
@@ -704,6 +782,10 @@ function logPage(cfg) {
 
     if (type === 'textarea') {
       return `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+    }
+
+    if (name === 'intensity' || type === 'intensity') {
+      return `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
     }
 
     const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
@@ -791,6 +873,15 @@ function logPage(cfg) {
       </section>`;
 
     if (showCalendar) drawCalendar();
+
+    // Auto-upgrade intensity field to stars
+    if ($('f_intensity')) {
+      enhanceIntensitySlider('f_intensity', {
+        min: 1,
+        max: 5,
+        label: 'Intensity (1 = very mild, 5 = very strong)'
+      });
+    }
   }
 
   async function load() {
