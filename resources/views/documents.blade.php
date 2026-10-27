@@ -56,7 +56,6 @@
               <small>Up to 10 MB. Your file stays on a private disk.</small>
             </span>
           </label>
-          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png" required onchange="updateFileLabel()" style="margin-top:0.45rem">
         </div>
 
         <label class="field span-full">
