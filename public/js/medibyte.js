@@ -3,8 +3,6 @@ const publicPages = ['/login', '/register', '/privacy', '/forgot-password'];
 const isPublicPage = () => publicPages.includes(location.pathname) || location.pathname.startsWith('/reset-password/');
 const API_BASE = '/api/v1';
 
-// Clear bearer tokens left by the earlier client. Web requests now use the
-// HttpOnly Laravel session cookie and a CSRF header.
 localStorage.removeItem('token');
 
 /* ---------------------------------------------------------
@@ -477,9 +475,6 @@ function bindShell() {
   });
 }
 
-/* ---------------------------------------------------------
-   Boot
-   --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', async () => {
   bindShell();
 
@@ -517,12 +512,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-/* ---------------------------------------------------------
-   Generic record page
-   --------------------------------------------------------- */
-/* ---------------------------------------------------------
-   Calendar helpers (used by logPage)
-   --------------------------------------------------------- */
 const MOOD_EMOJI = {
   happy: '😄', excited: '🤩', grateful: '🙏', calm: '😌', content: '😊',
   hopeful: '🌈', proud: '🏆', loved: '🥰', energetic: '⚡', motivated: '💪',
@@ -541,10 +530,6 @@ function logPage(cfg) {
   let rows = [];
   let edit = null;
 
-  /* ---- Calendar ------------------------------------------------------
-     Shows every record on a month grid. It reads the same `rows` the
-     history list uses, so nothing extra is fetched. Set `calendar: false`
-     in a page's logPage() config to turn it off for that page.        */
   const dateField = cfg.fields.find(f => ['today', 'date', 'datetime-local'].includes(f[2]));
   const dateKey = dateField ? dateField[0] : null;
   const endKey = cfg.fields.some(f => f[0] === 'end_date') ? 'end_date' : null;
@@ -838,9 +823,6 @@ function logPage(cfg) {
         return;
       }
 
-      // Do not send blank optional fields. This is what caused 422 errors on
-      // forms such as walking logs, where steps and minutes are both optional
-      // but at least one is required.
       if (el.value === '') return;
       body[name] = el.value;
     });
