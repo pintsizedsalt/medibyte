@@ -54,15 +54,13 @@
               maxlength="255"
               required
             >
-
-    @error('email')
-        <p class="mt-2 text-sm text-red-600">
-            {{ $message }}
-        </p>
-    @enderror
-        </label>
-
-        </div>
+            @error('email')
+              <p class="mt-2 text-sm text-red-600">
+               {{ $message }}
+              </p>
+           @enderror
+           </label>
+           </div>
 
         <p class="settings-note">Usernames are unique and can contain letters, numbers, and underscores only.</p>
       </section>
