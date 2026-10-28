@@ -1878,3 +1878,47 @@ body.drawer-open #drawerScrim { display: block; }
     box-shadow: 0 0 0 20px rgba(255, 255, 255, 0.1), 0 0 0 40px rgba(255, 255, 255, 0.1), 0 0 0 60px rgba(255, 255, 255, 0.1), 0 0 0 80px rgba(255, 255, 255, 0);
   }
 }
+
+.mood-label {
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: .65;
+  margin: 14px 0 8px;
+}
+.mood-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.mood-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.mood-chip.on { background: var(--ink); color: var(--paper); }
+.seg { display: flex; }
+.seg-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 0; }
+.seg-btn:first-child { border-radius: 8px 0 0 8px; }
+.seg-btn:last-child { border-radius: 0 8px 8px 0; }
+.seg-btn.on { background: var(--ink); color: var(--paper); }
+.seg-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink);
+  opacity: .65;
+  margin-top: 6px;
+}
+
+.mood-chip { text-transform: capitalize; }

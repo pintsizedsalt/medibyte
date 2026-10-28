@@ -6,6 +6,95 @@ const API_BASE = '/api/v1';
 localStorage.removeItem('token');
 
 /* ---------------------------------------------------------
+   Mood chips (replaces the mood <select> with grouped chips)
+   --------------------------------------------------------- */
+function mountMoodChips(select) {
+  if (!select || select.dataset.chips) return;
+  select.dataset.chips = '1';
+
+  var groups = {
+    'Positive': ['happy', 'excited', 'grateful', 'calm', 'content', 'hopeful', 'proud', 'loved', 'energetic', 'motivated', 'relaxed'],
+    'Neutral': ['bored', 'tired', 'neutral', 'confused'],
+    'Low': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
+  };
+  var wrap = document.createElement('div');
+  var used = {};
+
+  function addGroup(title, labels) {
+    var opts = Array.prototype.filter.call(select.options, function (o) {
+      return labels.indexOf(o.text.trim().toLowerCase()) !== -1;
+    });
+    if (!opts.length) return;
+    var h = document.createElement('div');
+    h.className = 'mood-label';
+    h.textContent = title;
+    var row = document.createElement('div');
+    row.className = 'mood-row';
+    opts.forEach(function (o) {
+      used[o.value] = true;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mood-chip' + (o.value === select.value ? ' on' : '');
+      b.textContent = o.text;
+      b.dataset.value = o.value;
+      b.addEventListener('click', function () {
+        select.value = o.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        wrap.querySelectorAll('.mood-chip').forEach(function (c) {
+          c.classList.toggle('on', c === b);
+        });
+      });
+      row.appendChild(b);
+    });
+    wrap.appendChild(h);
+    wrap.appendChild(row);
+  }
+
+  Object.keys(groups).forEach(function (k) { addGroup(k, groups[k]); });
+
+  var rest = Array.prototype.filter.call(select.options, function (o) {
+    return o.value !== '' && !used[o.value];
+  }).map(function (o) { return o.text.trim().toLowerCase(); });
+  if (rest.length) addGroup('Other', rest);
+
+  select.hidden = true;
+  select.insertAdjacentElement('afterend', wrap);
+}
+
+/* ---------------------------------------------------------
+   Segmented 1-5 buttons (optional, for other screens)
+   --------------------------------------------------------- */
+function mountSegments(field, endLabels) {
+  if (!field || field.dataset.seg) return;
+  field.dataset.seg = '1';
+  var seg = document.createElement('div');
+  seg.className = 'seg';
+  for (var i = 1; i <= 5; i++) {
+    (function (n) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'seg-btn' + (String(field.value) === String(n) ? ' on' : '');
+      b.textContent = n;
+      b.addEventListener('click', function () {
+        field.value = n;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        seg.querySelectorAll('.seg-btn').forEach(function (x) {
+          x.classList.toggle('on', x === b);
+        });
+      });
+      seg.appendChild(b);
+    })(i);
+  }
+  var ends = document.createElement('div');
+  ends.className = 'seg-ends';
+  ends.innerHTML = '<span>' + endLabels[0] + '</span><span>' + endLabels[1] + '</span>';
+  field.hidden = true;
+  field.insertAdjacentElement('afterend', seg);
+  seg.insertAdjacentElement('afterend', ends);
+}
+
+/* ---------------------------------------------------------
    Small utilities
    --------------------------------------------------------- */
 function esc(value) {
@@ -882,6 +971,9 @@ function logPage(cfg) {
         label: 'Intensity (1 = very mild, 5 = very strong)'
       });
     }
+
+    // Auto-upgrade mood dropdown to grouped chips (no-op on pages without a mood field)
+    mountMoodChips($('f_mood'));
   }
 
   async function load() {
