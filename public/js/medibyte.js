@@ -17,48 +17,107 @@ function mountMoodChips(select) {
     'Neutral': ['bored', 'tired', 'neutral', 'confused'],
     'Low': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
   };
-  var wrap = document.createElement('div');
-  var used = {};
 
-  function addGroup(title, labels) {
+  var wrap = document.createElement('div');
+  var tones = document.createElement('div');
+  tones.className = 'mood-tones';
+  var panel = document.createElement('div');
+  var hint = document.createElement('p');
+  hint.className = 'mood-hint';
+  hint.textContent = 'Pick a feeling to see more moods.';
+
+  var used = {};
+  var sections = [];
+  var active = null;
+
+  function fireChange() {
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function markChips() {
+    panel.querySelectorAll('.mood-chip').forEach(function (c) {
+      c.classList.toggle('on', c.dataset.value === select.value && select.value !== '');
+    });
+  }
+
+  function show(sec, clear) {
+    // Switching to a different tone clears the old mood so a hidden one can't be saved by accident
+    if (clear && active && active !== sec) {
+      select.value = '';
+      fireChange();
+      markChips();
+    }
+    sections.forEach(function (s) {
+      var on = s === sec;
+      s.row.hidden = !on;
+      s.btn.classList.toggle('on', on);
+      s.btn.setAttribute('aria-pressed', String(on));
+    });
+    hint.hidden = true;
+    active = sec;
+  }
+
+  function build(title, labels) {
     var opts = Array.prototype.filter.call(select.options, function (o) {
-      return labels.indexOf(o.text.trim().toLowerCase()) !== -1;
+      return o.value !== '' && labels.indexOf(o.text.trim().toLowerCase()) !== -1;
     });
     if (!opts.length) return;
-    var h = document.createElement('div');
-    h.className = 'mood-label';
-    h.textContent = title;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-tone';
+    btn.textContent = title;
+    btn.setAttribute('aria-pressed', 'false');
+
     var row = document.createElement('div');
     row.className = 'mood-row';
+    row.hidden = true;
+
     opts.forEach(function (o) {
       used[o.value] = true;
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'mood-chip' + (o.value === select.value ? ' on' : '');
+      b.className = 'mood-chip';
       b.textContent = o.text;
       b.dataset.value = o.value;
       b.addEventListener('click', function () {
         select.value = o.value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        wrap.querySelectorAll('.mood-chip').forEach(function (c) {
-          c.classList.toggle('on', c === b);
-        });
+        fireChange();
+        markChips();
       });
       row.appendChild(b);
     });
-    wrap.appendChild(h);
-    wrap.appendChild(row);
+
+    var sec = { title: title, opts: opts, btn: btn, row: row };
+    btn.addEventListener('click', function () { show(sec, true); });
+    sections.push(sec);
+    tones.appendChild(btn);
+    panel.appendChild(row);
   }
 
-  Object.keys(groups).forEach(function (k) { addGroup(k, groups[k]); });
+  Object.keys(groups).forEach(function (k) { build(k, groups[k]); });
 
+  // Any option not named above still gets a place
   var rest = Array.prototype.filter.call(select.options, function (o) {
     return o.value !== '' && !used[o.value];
   }).map(function (o) { return o.text.trim().toLowerCase(); });
-  if (rest.length) addGroup('Other', rest);
+  if (rest.length) build('Other', rest);
+
+  wrap.appendChild(tones);
+  wrap.appendChild(hint);
+  wrap.appendChild(panel);
 
   select.hidden = true;
   select.insertAdjacentElement('afterend', wrap);
+
+  // Editing or default value: open the matching tone and mark the chip
+  var current = sections.filter(function (s) {
+    return s.opts.some(function (o) { return o.value === select.value; });
+  })[0];
+  if (current && select.value !== '') {
+    show(current, false);
+    markChips();
+  }
 }
 
 /* ---------------------------------------------------------
