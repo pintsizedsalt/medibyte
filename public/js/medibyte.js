@@ -345,7 +345,7 @@ function clearFieldError(inputOrId) {
 }
 
 /* ---------------------------------------------------------
-   Intensity as colored stars (for Mood)
+   Intensity segmented control (1–5)
    --------------------------------------------------------- */
 function enhanceIntensitySlider(inputId, opts = {}) {
   const el = $(inputId);
@@ -358,16 +358,15 @@ function enhanceIntensitySlider(inputId, opts = {}) {
   if (value > max) value = max;
 
   const wrap = document.createElement('div');
-  wrap.className = 'intensity-stars';
+  wrap.className = 'intensity-seg';
   wrap.setAttribute('role', 'radiogroup');
-  wrap.setAttribute('aria-label', 'Intensity from 1 to 5');
+  wrap.setAttribute('aria-label', 'Intensity from 1 (lowest) to 5 (highest)');
 
-  // right-to-left so the CSS ~ selector works
-  for (let i = max; i >= min; i--) {
+  for (let i = min; i <= max; i++) {
     const id = inputId + '_' + i;
     wrap.innerHTML += `
-      <input type="radio" id="${id}" name="${inputId}_stars" value="${i}" ${i === value ? 'checked' : ''}>
-      <label for="${id}" title="${i}">★</label>
+      <input type="radio" id="${id}" name="${inputId}_seg" value="${i}" ${i === value ? 'checked' : ''}>
+      <label for="${id}">${i}</label>
     `;
   }
 
