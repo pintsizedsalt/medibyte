@@ -256,26 +256,57 @@ function stepWeightGoal() {
 }
 
 function stepMood() {
-  const mood = answers.mood || 'neutral';
-  const intensity = answers.intensity || 3;
+  const intensity = Number(answers.intensity || 3);
+  const selectedMood = answers.mood || '';
+
+  const groups = {
+    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
+    neutral:  ['neutral','bored','tired','confused'],
+    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
+  };
+
+  let activeCat = answers._moodCat || 'positive';
+if (!answers._moodCat && selectedMood) {
+  if (groups.low.includes(selectedMood)) activeCat = 'low';
+  else if (groups.neutral.includes(selectedMood)) activeCat = 'neutral';
+}
+
+  const chips = (groups[activeCat] || groups.positive).map(m => {
+    const label = m.charAt(0).toUpperCase() + m.slice(1);
+    const on = selectedMood === m ? ' active' : '';
+    return `<button type="button" class="mood-chip${on}" data-mood="${m}" onclick="window.wizardPickMood('${m}')">${label}</button>`;
+  }).join('');
+
+  const segs = [1,2,3,4,5].map(n => {
+    const on = intensity === n ? 'checked' : '';
+    return `<input type="radio" id="w_int_${n}" name="w_intensity" value="${n}" ${on} onchange="window.wizardSetIntensity(${n})">
+            <label for="w_int_${n}">${n}</label>`;
+  }).join('');
 
   return stepForm(stepHeader(
     'How are you feeling?',
     'Choose the mood that fits you best right now and how strong it feels.'
   ) + `
     <div class="wizard-fields">
-      <label class="field">
+      <div class="field">
         <span>Mood</span>
-        <select id="w_mood">
-          ${moods.map(item => `<option value="${esc(item)}" ${mood === item ? 'selected' : ''}>${esc(item.charAt(0).toUpperCase() + item.slice(1))}</option>`).join('')}
-        </select>
-      </label>
-      <label class="field">
-        <span>Intensity (1 = very mild, 5 = very strong)</span>
-        <select id="w_intensity">
-          ${[1, 2, 3, 4, 5].map(level => `<option value="${level}" ${Number(intensity) === level ? 'selected' : ''}>${level} / 5</option>`).join('')}
-        </select>
-      </label>
+        <div class="mood-cat-tabs">
+          <button type="button" class="mood-cat${activeCat==='positive'?' active':''}" onclick="window.wizardMoodCat('positive')">Positive</button>
+          <button type="button" class="mood-cat${activeCat==='neutral'?' active':''}" onclick="window.wizardMoodCat('neutral')">Neutral</button>
+          <button type="button" class="mood-cat${activeCat==='low'?' active':''}" onclick="window.wizardMoodCat('low')">Low</button>
+        </div>
+        <div class="mood-chips" id="w_mood_chips">${chips}</div>
+        <input type="hidden" id="w_mood" value="${esc(selectedMood)}">
+      </div>
+
+      <div class="field">
+        <span>Intensity (1 to 5)</span>
+        <div class="intensity-seg" role="radiogroup" aria-label="Intensity from 1 to 5">
+          ${segs}
+        </div>
+        <input type="hidden" id="w_intensity" value="${intensity}">
+      </div>
+
       <label class="field">
         <span>Anything you want to note? (optional)</span>
         <textarea id="w_reflection" rows="3" placeholder="A short note about your day or how you feel.">${esc(answers.reflection || '')}</textarea>
@@ -283,6 +314,34 @@ function stepMood() {
     </div>
   `);
 }
+
+window.wizardMoodCat = function(cat) {
+  answers._moodCat = cat;
+  const groups = {
+    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
+    neutral:  ['neutral','bored','tired','confused'],
+    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
+  };
+  if (answers.mood && !(groups[cat] || []).includes(answers.mood)) {
+    answers.mood = '';
+  }
+  render();
+};
+
+window.wizardPickMood = function(mood) {
+  answers.mood = mood;
+  const el = $('w_mood');
+  if (el) el.value = mood;
+  document.querySelectorAll('#w_mood_chips .mood-chip').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('data-mood') === mood);
+  });
+};
+
+window.wizardSetIntensity = function(n) {
+  answers.intensity = n;
+  const el = $('w_intensity');
+  if (el) el.value = n;
+};
 
 function stepIllness() {
   return stepForm(stepHeader(
@@ -720,9 +779,14 @@ async function saveWeightGoal() {
 }
 
 async function saveMood() {
-  const mood = $('w_mood').value;
-  const intensity = $('w_intensity').value;
-  const reflection = $('w_reflection').value.trim();
+  const mood = ($('w_mood')?.value || answers.mood || '').trim();
+  if (!mood) {
+    setError('Please choose a mood, or skip for now.');
+    return false;
+  }
+
+  const intensity = $('w_intensity')?.value || answers.intensity || 3;
+  const reflection = ($('w_reflection')?.value || '').trim();
 
   const body = { mood, intensity, log_date: today() };
   if (reflection) body.reflection = reflection;

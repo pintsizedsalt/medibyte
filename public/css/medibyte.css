@@ -1956,3 +1956,49 @@ body.drawer-open #drawerScrim { display: block; }
 .mood-tone.on { box-shadow: inset 0 0 0 2px var(--ink); }
 .mood-row[hidden] { display: none; }
 .mood-hint { font-size: 12px; color: var(--ink); opacity: .65; margin: 0; }
+
+/* Mood category tabs + chips (setup wizard + mood page) */
+.mood-cat-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 10px;
+  flex-wrap: wrap;
+}
+.mood-cat {
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mood-cat:hover { background: var(--soft); }
+.mood-cat.active {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.mood-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mood-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mood-chip:hover { background: var(--soft); }
+.mood-chip.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
