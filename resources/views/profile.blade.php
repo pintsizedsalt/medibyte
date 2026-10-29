@@ -266,10 +266,10 @@ function stepMood() {
   };
 
   let activeCat = answers._moodCat || 'positive';
-if (!answers._moodCat && selectedMood) {
-  if (groups.low.includes(selectedMood)) activeCat = 'low';
-  else if (groups.neutral.includes(selectedMood)) activeCat = 'neutral';
-}
+  if (!answers._moodCat && selectedMood) {
+    if (groups.low.includes(selectedMood)) activeCat = 'low';
+    else if (groups.neutral.includes(selectedMood)) activeCat = 'neutral';
+  }
 
   const chips = (groups[activeCat] || groups.positive).map(m => {
     const label = m.charAt(0).toUpperCase() + m.slice(1);
@@ -499,24 +499,54 @@ function stepGoals() {
 }
 
 function stepDone() {
-  const goalText = [
-    answers.water_goal_ml ? answers.water_goal_ml + ' ml water' : null,
-    answers.sleep_goal_hours ? answers.sleep_goal_hours + ' hours sleep' : null,
-    answers.walking_goal_steps ? answers.walking_goal_steps + ' steps' : null
-  ].filter(Boolean).join(' · ');
+  const fullName = String(
+    (profile && (profile.first_name || profile.name || profile.full_name)) ||
+    answers.first_name || answers.name || ''
+  ).trim();
+  const first = fullName.split(' ')[0];
+
+  const svg = d => `<svg class="done-ic" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const icons = {
+    water: svg('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>'),
+    sleep: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+    steps: svg('<path d="M3 12h4l3-8 4 16 3-8h4"/>')
+  };
+
+  const goals = [
+    [answers.water_goal_ml, v => Number(v).toLocaleString() + ' ml', 'Water', icons.water],
+    [answers.sleep_goal_hours, v => Number(v) + ' hours', 'Sleep', icons.sleep],
+    [answers.walking_goal_steps, v => Number(v).toLocaleString(), 'Steps', icons.steps]
+  ].filter(g => g[0]).map(g => `
+    <div class="done-tile">
+      <div class="done-ic-wrap">${g[3]}</div>
+      <strong>${esc(g[1](g[0]))}</strong>
+      <small>${esc(g[2])}</small>
+    </div>`).join('');
+
+  const goalsHtml = goals
+    ? `<p class="done-label">Your daily goals</p><div class="done-goals">${goals}</div>`
+    : '<p class="done-note">You can set daily goals in your profile.</p>';
+
+  const prediction = answers.prediction && answers.prediction.predicted_next_start
+    ? '<p class="done-note">Estimated next period: ' + esc(answers.prediction.predicted_next_start) + '</p>'
+    : '';
 
   return `<div class="wizard-step">
-    ${stepHeader(
-      'You are all set',
-      'Your profile is ready. You can update any of these details later from your profile.'
-    )}
-    <div class="wizard-success">
-      <strong>Welcome to MediByte.</strong><br>
-      ${goalText ? 'Your daily goals: ' + esc(goalText) + '.' : 'You can set daily goals in your profile.'}
-      ${answers.prediction && answers.prediction.predicted_next_start ? '<br>Estimated next period: ' + esc(answers.prediction.predicted_next_start) + '.' : ''}
+    <p class="wizard-kicker">Step ${current + 1} of ${steps.length}</p>
+    <div class="done-hero">
+      <div class="done-check"><svg class="icon"><use href="#i-check"/></svg></div>
+      <h2 class="done-title">Welcome to MediByte${first ? ', ' + esc(first) : ''}</h2>
+      <p class="done-copy">Your profile is ready. You can change any of these details later from your profile.</p>
     </div>
-    <div class="wizard-actions">
-      <button type="button" class="btn btn-primary" onclick="location.replace('/dashboard')">Go to dashboard</button>
+    ${goalsHtml}
+    ${prediction}
+    <div class="done-actions">
+      <button type="button" class="btn-ripple" onclick="location.replace('/dashboard')">
+        <span class="animation"></span>
+        Go to dashboard
+        <span class="animation"></span>
+      </button>
+      <span class="done-note">Adjust goals anytime in Profile</span>
     </div>
   </div>`;
 }

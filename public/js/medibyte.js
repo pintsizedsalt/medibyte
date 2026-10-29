@@ -6,7 +6,7 @@ const API_BASE = '/api/v1';
 localStorage.removeItem('token');
 
 /* ---------------------------------------------------------
-   Mood chips (replaces the mood <select> with grouped chips)
+   Mood chips
    --------------------------------------------------------- */
 function mountMoodChips(select) {
   if (!select || select.dataset.chips) return;
@@ -41,7 +41,6 @@ function mountMoodChips(select) {
   }
 
   function show(sec, clear) {
-    // Switching to a different tone clears the old mood so a hidden one can't be saved by accident
     if (clear && active && active !== sec) {
       select.value = '';
       fireChange();
@@ -97,7 +96,6 @@ function mountMoodChips(select) {
 
   Object.keys(groups).forEach(function (k) { build(k, groups[k]); });
 
-  // Any option not named above still gets a place
   var rest = Array.prototype.filter.call(select.options, function (o) {
     return o.value !== '' && !used[o.value];
   }).map(function (o) { return o.text.trim().toLowerCase(); });
@@ -110,7 +108,6 @@ function mountMoodChips(select) {
   select.hidden = true;
   select.insertAdjacentElement('afterend', wrap);
 
-  // Editing or default value: open the matching tone and mark the chip
   var current = sections.filter(function (s) {
     return s.opts.some(function (o) { return o.value === select.value; });
   })[0];
@@ -118,39 +115,6 @@ function mountMoodChips(select) {
     show(current, false);
     markChips();
   }
-}
-
-/* ---------------------------------------------------------
-   Segmented 1-5 buttons (optional, for other screens)
-   --------------------------------------------------------- */
-function mountSegments(field, endLabels) {
-  if (!field || field.dataset.seg) return;
-  field.dataset.seg = '1';
-  var seg = document.createElement('div');
-  seg.className = 'seg';
-  for (var i = 1; i <= 5; i++) {
-    (function (n) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'seg-btn' + (String(field.value) === String(n) ? ' on' : '');
-      b.textContent = n;
-      b.addEventListener('click', function () {
-        field.value = n;
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        seg.querySelectorAll('.seg-btn').forEach(function (x) {
-          x.classList.toggle('on', x === b);
-        });
-      });
-      seg.appendChild(b);
-    })(i);
-  }
-  var ends = document.createElement('div');
-  ends.className = 'seg-ends';
-  ends.innerHTML = '<span>' + endLabels[0] + '</span><span>' + endLabels[1] + '</span>';
-  field.hidden = true;
-  field.insertAdjacentElement('afterend', seg);
-  seg.insertAdjacentElement('afterend', ends);
 }
 
 /* ---------------------------------------------------------
@@ -823,7 +787,6 @@ function logPage(cfg) {
       cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
     }
 
-    // simple "Logged" legend only (no per-mood list)
     const legend = '<span><i class="cal-dot"></i>Logged</span>';
 
     const picked = map[calSel] || [];
@@ -1021,7 +984,7 @@ function logPage(cfg) {
 
     if (showCalendar) drawCalendar();
 
-    // Auto-upgrade intensity field to stars
+    // Auto-upgrade intensity field to the 1-5 segmented control
     if ($('f_intensity')) {
       enhanceIntensitySlider('f_intensity', {
         min: 1,
@@ -1030,7 +993,6 @@ function logPage(cfg) {
       });
     }
 
-    // Auto-upgrade mood dropdown to grouped chips (no-op on pages without a mood field)
     mountMoodChips($('f_mood'));
   }
 

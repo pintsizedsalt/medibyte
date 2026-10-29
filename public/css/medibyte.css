@@ -1,5 +1,5 @@
 /* =========================================================
-   MediByte – polished UI
+   MediByte
    ========================================================= */
 :root {
   --ink: #1f4d36;
@@ -483,7 +483,7 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
 .quick-card, .metric-strip, .dash-lower, .dash-layout, .dash-side,
 .welcome-chip, .next-card, .snapshot-list { display: none; }
 
-/* Gender picker (icon style) */
+/* Gender picker*/
 .gender-picker {
   text-align: center;
   margin: 16px 0 8px;
@@ -1858,16 +1858,8 @@ body.drawer-open #drawerScrim { display: block; }
 }
 
 /* =========================================================
-   Mood chips (grouped), segmented control
+   Mood page: tone buttons + grouped chips
    ========================================================= */
-.mood-label {
-  font-size: 11px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--ink);
-  opacity: .65;
-  margin: 14px 0 8px;
-}
 .mood-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .mood-chip {
   padding: 6px 14px;
@@ -1879,28 +1871,6 @@ body.drawer-open #drawerScrim { display: block; }
   cursor: pointer;
 }
 .mood-chip.on { background: var(--ink); color: var(--paper); }
-.seg { display: flex; }
-.seg-btn {
-  flex: 1;
-  padding: 8px 0;
-  border: 1px solid var(--line-strong);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
-}
-.seg-btn + .seg-btn { border-left: 0; }
-.seg-btn:first-child { border-radius: 8px 0 0 8px; }
-.seg-btn:last-child { border-radius: 0 8px 8px 0; }
-.seg-btn.on { background: var(--ink); color: var(--paper); }
-.seg-ends {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--ink);
-  opacity: .65;
-  margin-top: 6px;
-}
 
 .mood-chip { text-transform: capitalize; }
 
@@ -1967,7 +1937,6 @@ body.drawer-open #drawerScrim { display: block; }
   border-color: var(--ink);
 }
 
-/* Selected chip stays readable on hover */
 .mood-chip.on,
 .mood-chip.on:hover {
   background: var(--ink);
@@ -2006,7 +1975,35 @@ body.drawer-open #drawerScrim { display: block; }
   text-align: center;
 }
 .done-tile strong { display: block; font-size: 18px; }
-.done-tile span { font-size: 12px; opacity: .65; }
+.done-tile small { font-size: 12px; opacity: .65; }
+.done-title { font-size: 24px; margin: 0 0 6px; text-align: center; }
+.done-copy {
+  max-width: 420px;
+  margin: 0 auto 8px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.done-ic-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+.done-ic {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .done-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .done-label {
   font-size: 11px;
