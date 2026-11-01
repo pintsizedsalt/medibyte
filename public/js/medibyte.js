@@ -750,10 +750,18 @@ function logPage(cfg) {
   const msg = text => {
     const el = $('msg');
     if (el) el.textContent = text || '';
+    const formEl = $('formMsg');
+    if (formEl) {
+      formEl.textContent = text || '';
+      formEl.style.display = text ? 'block' : 'none';
+    }
   };
 
   function fieldValue(type, value, def) {
-    if (value === undefined || value === null || value === '') return def;
+    if (value === undefined || value === null || value === '') {
+      if (def !== undefined) return def;
+      return type === 'today' ? today() : def;
+    }
     if (type === 'check') return Boolean(value);
     if (type === 'list') return Array.isArray(value) ? value.join(', ') : value;
     if (type === 'today' || type === 'date') return ld(value);
@@ -844,6 +852,7 @@ function logPage(cfg) {
           ${edit ? '<span class="badge pill-primary">Editing</span>' : ''}
         </div>
         <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
+        <p id="formMsg" class="form-message" role="alert" style="display:none; color: var(--rose-600, #dc2626); font-weight: 500; margin-top: 8px;"></p>
         <form onsubmit="event.preventDefault(); window.saveLog()">
           <div class="form-grid">${form}</div>
           <div class="form-actions">
@@ -927,8 +936,20 @@ function logPage(cfg) {
       await load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      msg(errText(data));
-      toast(errText(data), 'error');
+      const err = errText(data);
+      msg(err);
+      toast(err, 'error');
+      const card = $('recordFormCard');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (data && data.errors) {
+          const firstErrKey = Object.keys(data.errors)[0];
+          const targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
+          if (targetField) {
+            targetField.focus({ preventScroll: true });
+          }
+        }
+      }
     }
   };
 

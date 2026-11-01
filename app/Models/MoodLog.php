@@ -24,5 +24,12 @@ class MoodLog extends Model
         'impacts' => 'array',
         'cried' => 'boolean',
         'has_big_event' => 'boolean',
+        'intensity' => 'integer',
+        'log_date' => 'date:Y-m-d',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

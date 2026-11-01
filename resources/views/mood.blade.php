@@ -20,8 +20,12 @@ api('/moods').then(moods => logPage({
   formTitle: 'Check in with yourself',
   formNote: 'Choose the mood that fits best. The reflection and event notes are optional.',
   fields: [
-    ['mood', 'Mood', 'select', moods],
+    ['mood', 'Mood', 'select', ['', ...moods]],
     ['intensity', 'Intensity (1 to 5)'],
+    ['cried', 'I cried today', 'check'],
+    ['has_big_event', 'Something big happened today', 'check'],
+    ['event_note', 'What was the event?', 'text'],
+    ['impacts', 'What affected your mood? (separate with commas)', 'list'],
     ['reflection', 'What happened? Share your thoughts.', 'text'],
     ['log_date', 'Date', 'today']
   ],
