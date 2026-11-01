@@ -8,10 +8,23 @@ use Illuminate\Validation\Rule;
 
 class MoodLogController extends Controller
 {
-    private function rules(): array
+    private function rules(Request $request, ?MoodLog $log = null): array
     {
+        $allowed = array_merge(
+            MoodLog::MOODS,
+            $request->user()->customMoods()->pluck('name')->all()
+        );
+
+        if ($log && $log->mood) {
+            $allowed[] = $log->mood;
+        }
+
         return [
-            'mood' => ['required', 'string', Rule::in(MoodLog::MOODS)],
+            'mood' => [
+                'required',
+                'string',
+                Rule::in(array_unique($allowed)),
+            ],
             'intensity' => 'required|integer|min:1|max:5',
             'cried' => 'nullable|boolean',
             'has_big_event' => 'nullable|boolean',
@@ -32,9 +45,15 @@ class MoodLogController extends Controller
         ];
     }
 
-    public function moods()
+    public function moods(Request $request)
     {
-        return response()->json(MoodLog::MOODS);
+        $customMoods = $request->user()
+            ? $request->user()->customMoods()->orderBy('name')->pluck('name')->all()
+            : [];
+
+        return response()->json(
+            array_values(array_unique(array_merge(MoodLog::MOODS, $customMoods)))
+        );
     }
 
     public function index(Request $request)
@@ -56,7 +75,7 @@ class MoodLogController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules(), [], $this->attributes());
+        $data = $request->validate($this->rules($request), [], $this->attributes());
         $data['cried'] = $request->boolean('cried');
         $data['has_big_event'] = $request->boolean('has_big_event');
 
@@ -67,7 +86,7 @@ class MoodLogController extends Controller
     {
         $log = $request->user()->moodLogs()->findOrFail($id);
 
-        $data = $request->validate($this->rules(), [], $this->attributes());
+        $data = $request->validate($this->rules($request, $log), [], $this->attributes());
         $data['cried'] = $request->boolean('cried');
         $data['has_big_event'] = $request->boolean('has_big_event');
 
