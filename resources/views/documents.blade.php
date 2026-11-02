@@ -47,9 +47,9 @@
           <input id="doc_title" type="text" maxlength="150" placeholder="e.g. Blood test — October" required>
         </label>
 
-        <div class="field span-full">
+       <div class="field span-full">
           <span>File</span>
-          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden onchange="updateFileLabel()">
+          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden onchange="updateFileLabel(); clearFileError()">
           <label class="document-drop" for="doc_file">
             <svg class="icon"><use href="#i-file"/></svg>
             <span>
@@ -57,7 +57,8 @@
               <small>Up to 10 MB (under 8 MB recommended). Your file stays on a private disk.</small>
             </span>
           </label>
-        </div>
+          <p id="doc-file-error" class="field-error" role="alert" hidden></p>
+      </div>
 
         <label class="field span-full">
           <span>Notes (optional)</span>
