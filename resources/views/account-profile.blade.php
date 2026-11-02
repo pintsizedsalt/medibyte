@@ -3,11 +3,12 @@
 @section('title', 'Profile · MediByte')
 
 @section('content')
-  <div class="page-heading">
+  <div class="page-heading tone-mint">
     <div class="heading-main">
       <a class="back-link" href="/dashboard" aria-label="Back to dashboard">
         <svg class="icon"><use href="#i-chevron-left"/></svg>
       </a>
+      <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-user"/></svg></span>
       <div>
         <p class="eyebrow">Your account</p>
         <h2>Profile</h2>

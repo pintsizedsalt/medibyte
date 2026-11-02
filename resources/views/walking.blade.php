@@ -15,7 +15,7 @@
 logPage({
   title: 'Activity',
   icon: 'activity',
-  tone: 'mint',
+  tone: 'amber',
   url: '/walking-logs',
   formTitle: 'Log some movement',
   formNote: 'Steps and active minutes are both optional, but add at least one.',

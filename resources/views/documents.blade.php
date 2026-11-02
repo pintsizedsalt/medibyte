@@ -49,11 +49,12 @@
 
         <div class="field span-full">
           <span>File</span>
+          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden onchange="updateFileLabel()">
           <label class="document-drop" for="doc_file">
             <svg class="icon"><use href="#i-file"/></svg>
             <span>
               <strong id="doc-file-label">Choose a PDF, JPG, or PNG</strong>
-              <small>Up to 10 MB. Your file stays on a private disk.</small>
+              <small>Up to 10 MB. Your file stays on a private disk. It uploads when you submit.</small>
             </span>
           </label>
         </div>
@@ -85,6 +86,28 @@
       <p class="muted">Loading…</p>
     </div>
   </section>
+
+  <div id="doc-preview-modal" class="doc-preview-modal" hidden>
+    <div class="doc-preview-backdrop" onclick="closeDocPreview()"></div>
+    <div class="doc-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="doc-preview-title">
+      <header class="doc-preview-header">
+        <div>
+          <p class="eyebrow" id="doc-preview-type">Document</p>
+          <h3 id="doc-preview-title">Preview</h3>
+        </div>
+        <div class="doc-preview-actions">
+          <button type="button" class="btn btn-ghost" id="doc-preview-download" onclick="">
+            <svg class="icon"><use href="#i-arrow"/></svg>
+            Download
+          </button>
+          <button type="button" class="icon-btn" onclick="closeDocPreview()" aria-label="Close preview">
+            <svg class="icon"><use href="#i-close"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="doc-preview-body" id="doc-preview-body"></div>
+    </div>
+  </div>
 @endsection
 
 @push('scripts')
@@ -105,10 +128,40 @@ function formatBytes(bytes) {
   return (value / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+function isImageMime(mime) {
+  return typeof mime === 'string' && mime.startsWith('image/');
+}
+
+function isPdfMime(mime) {
+  return mime === 'application/pdf' || (typeof mime === 'string' && mime.includes('pdf'));
+}
+
+function previewUrl(id) {
+  return '/api/v1/documents/' + id + '/preview';
+}
+
 function updateFileLabel() {
   const file = $('doc_file').files[0];
   const label = $('doc-file-label');
   if (label) label.textContent = file ? file.name : 'Choose a PDF, JPG, or PNG';
+}
+
+function docThumb(doc) {
+  const id = Number(doc.id);
+  if (isImageMime(doc.mime_type)) {
+    return `<button type="button" class="doc-thumb" onclick="openDocPreview(${id})" aria-label="Preview ${esc(doc.title)}">
+      <img src="${previewUrl(id)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('doc-thumb-fallback')">
+    </button>`;
+  }
+  if (isPdfMime(doc.mime_type)) {
+    return `<button type="button" class="doc-thumb doc-thumb-pdf" onclick="openDocPreview(${id})" aria-label="Preview ${esc(doc.title)}">
+      <svg class="icon"><use href="#i-file"/></svg>
+      <span>PDF</span>
+    </button>`;
+  }
+  return `<button type="button" class="doc-thumb doc-thumb-file" onclick="openDocPreview(${id})" aria-label="Preview ${esc(doc.title)}">
+    <svg class="icon"><use href="#i-file"/></svg>
+  </button>`;
 }
 
 function renderDocuments() {
@@ -127,17 +180,20 @@ function renderDocuments() {
 
   list.innerHTML = '<div class="record-list">' + documentRows.map(doc => `
     <div class="record document-row">
-      <span class="record-icon tone-blue"><svg class="icon"><use href="#i-file"/></svg></span>
+      ${docThumb(doc)}
       <div class="record-main">
         <strong>${esc(doc.title)} · ${esc(DOCUMENT_TYPES[doc.type] || 'Other')}</strong>
         <span class="record-meta">${esc(doc.original_name)} · ${formatBytes(doc.size)} · ${esc(dateLabel(doc.created_at))}</span>
         ${doc.notes ? `<span class="record-meta">${esc(doc.notes)}</span>` : ''}
       </div>
       <div class="record-actions">
-        <button type="button" class="record-row-action" onclick="downloadDocument(${Number(doc.id)})" aria-label="Download document">
+        <button type="button" class="record-row-action" onclick="openDocPreview(${Number(doc.id)})" aria-label="Preview document" title="Preview">
+          <svg class="icon"><use href="#i-file"/></svg>
+        </button>
+        <button type="button" class="record-row-action" onclick="downloadDocument(${Number(doc.id)})" aria-label="Download document" title="Download">
           <svg class="icon"><use href="#i-arrow"/></svg>
         </button>
-        <button type="button" class="record-row-action danger" onclick="deleteDocument(${Number(doc.id)})" aria-label="Delete document">
+        <button type="button" class="record-row-action danger" onclick="deleteDocument(${Number(doc.id)})" aria-label="Delete document" title="Delete">
           <svg class="icon"><use href="#i-trash"/></svg>
         </button>
       </div>
@@ -164,9 +220,14 @@ async function uploadDocument() {
     return;
   }
 
+  if (!$('doc_title').value.trim()) {
+    const base = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    if (base) $('doc_title').value = base.slice(0, 150);
+  }
+
   const formData = new FormData();
   formData.append('type', $('doc_type').value);
-  formData.append('title', $('doc_title').value.trim());
+  formData.append('title', $('doc_title').value.trim() || 'Untitled document');
   formData.append('notes', $('doc_notes').value.trim());
   formData.append('file', file);
 
@@ -217,6 +278,60 @@ async function downloadDocument(id) {
   URL.revokeObjectURL(url);
 }
 
+function openDocPreview(id) {
+  const doc = documentRows.find(item => Number(item.id) === Number(id));
+  if (!doc) return;
+
+  const modal = $('doc-preview-modal');
+  const body = $('doc-preview-body');
+  const titleEl = $('doc-preview-title');
+  const typeEl = $('doc-preview-type');
+  const downloadBtn = $('doc-preview-download');
+
+  titleEl.textContent = doc.title || doc.original_name || 'Document';
+  typeEl.textContent = DOCUMENT_TYPES[doc.type] || 'Document';
+  downloadBtn.onclick = () => downloadDocument(id);
+
+  body.innerHTML = '';
+
+  if (isImageMime(doc.mime_type)) {
+    const img = document.createElement('img');
+    img.src = previewUrl(id);
+    img.alt = doc.title || 'Document preview';
+    img.className = 'doc-preview-image';
+    body.appendChild(img);
+  } else if (isPdfMime(doc.mime_type)) {
+    const frame = document.createElement('iframe');
+    frame.src = previewUrl(id);
+    frame.title = doc.title || 'PDF preview';
+    frame.className = 'doc-preview-pdf';
+    body.appendChild(frame);
+  } else {
+    body.innerHTML = `<div class="doc-preview-fallback">
+      <svg class="icon"><use href="#i-file"/></svg>
+      <p>Preview is not available for this file type.</p>
+      <button type="button" class="btn btn-primary" onclick="downloadDocument(${Number(id)})">Download file</button>
+    </div>`;
+  }
+
+  modal.hidden = false;
+  document.body.classList.add('doc-preview-open');
+}
+
+function closeDocPreview() {
+  const modal = $('doc-preview-modal');
+  const body = $('doc-preview-body');
+  if (body) body.innerHTML = '';
+  if (modal) modal.hidden = true;
+  document.body.classList.remove('doc-preview-open');
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && !$('doc-preview-modal')?.hidden) {
+    closeDocPreview();
+  }
+});
+
 async function deleteDocument(id) {
   const doc = documentRows.find(item => Number(item.id) === Number(id));
   const ok = await confirmAction({
@@ -231,6 +346,7 @@ async function deleteDocument(id) {
   if (result && result.message === 'Deleted') {
     $('msg').textContent = '';
     toast('Document deleted.');
+    closeDocPreview();
     await loadDocuments();
   } else {
     $('msg').textContent = errText(result);

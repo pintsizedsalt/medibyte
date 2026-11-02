@@ -857,6 +857,28 @@ function logPage(cfg) {
 
   const tone = cfg.tone || 'blue';
   const icon = cfg.icon || 'file';
+  document.getElementById('main')?.classList.add('tone-' + tone);
+
+  function statsHtml() {
+    const tiles = [{ icon, label: 'Total records', value: String(rows.length) }];
+
+    if (dateKey) {
+      const monthPrefix = nowDate.getFullYear() + '-' + pad2(nowDate.getMonth() + 1);
+      const days = rows.map(r => (r[dateKey] ? ld(r[dateKey]) : '')).filter(Boolean).sort();
+      const thisMonth = days.filter(d => d.startsWith(monthPrefix)).length;
+      const last = days.length ? days[days.length - 1] : '';
+
+      tiles.push({ icon: 'calendar', label: 'This month', value: String(thisMonth) });
+      tiles.push({ icon: 'clock', label: 'Last entry', value: last ? dateLabel(last) : 'None yet' });
+    }
+
+    return `<div class="log-stats">${tiles.map(t => `
+      <div class="log-stat">
+        <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-${esc(t.icon)}"/></svg></span>
+        <div><small>${esc(t.label)}</small><strong>${esc(t.value)}</strong></div>
+      </div>`).join('')}</div>`;
+  }
+
   const msg = text => {
     const el = $('msg');
     if (el) el.textContent = text || '';
@@ -944,6 +966,7 @@ function logPage(cfg) {
     const form = cfg.fields.map(field => input(field, current[field[0]])).join('');
 
     $('log').innerHTML = `
+      ${statsHtml()}
       ${showCalendar ? '<div id="logCalendar"></div>' : ''}
       <section class="card record-form-card" id="recordFormCard">
         <div class="card-head">
@@ -984,7 +1007,6 @@ function logPage(cfg) {
 
     if (showCalendar) drawCalendar();
 
-    // Auto-upgrade intensity field to the 1-5 segmented control
     if ($('f_intensity')) {
       enhanceIntensitySlider('f_intensity', {
         min: 1,

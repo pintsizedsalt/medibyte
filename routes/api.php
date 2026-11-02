@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('appointments', AppointmentController::class)->except('show');
 
         Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
+        Route::get('/documents/{id}/preview', [DocumentController::class, 'preview']);
         Route::apiResource('documents', DocumentController::class)->except(['show', 'update']);
 
         Route::get('/reminders', [ReminderController::class, 'index']);
