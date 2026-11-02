@@ -54,7 +54,7 @@
             <svg class="icon"><use href="#i-file"/></svg>
             <span>
               <strong id="doc-file-label">Choose a PDF, JPG, or PNG</strong>
-              <small>Up to 10 MB. Your file stays on a private disk. It uploads when you submit.</small>
+              <small>Up to 10 MB (under 8 MB recommended). Your file stays on a private disk.</small>
             </span>
           </label>
         </div>
@@ -207,6 +207,29 @@ async function loadDocuments() {
   renderDocuments();
 }
 
+function uploadErrorMessage(result, file) {
+  const raw = errText(result) || '';
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('content-length') ||
+    lower.includes('post content-length') ||
+    lower.includes('exceeds the limit') ||
+    lower.includes('upload_max_filesize') ||
+    lower.includes('post_max_size') ||
+    lower.includes('file is too large') ||
+    (file && file.size > 8 * 1024 * 1024 && (!result || !result.errors))
+  ) {
+    return 'This file is too large for the server to accept right now. Please use a file under 8 MB.';
+  }
+
+  const plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!plain || plain === 'Something went wrong. Please try again.') {
+    return 'Upload failed. Please try a smaller file or try again.';
+  }
+  return plain;
+}
+
 async function uploadDocument() {
   const file = $('doc_file').files[0];
 
@@ -218,6 +241,10 @@ async function uploadDocument() {
   if (file.size > 10 * 1024 * 1024) {
     $('msg').textContent = 'The file must be 10 MB or smaller.';
     return;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    $('msg').textContent = 'This file is over 8 MB. The server may reject it — try a smaller file if upload fails.';
   }
 
   if (!$('doc_title').value.trim()) {
@@ -241,7 +268,9 @@ async function uploadDocument() {
     updateFileLabel();
     await loadDocuments();
   } else {
-    $('msg').textContent = errText(result);
+    const message = uploadErrorMessage(result, file);
+    $('msg').textContent = message;
+    toast(message, 'error');
   }
 }
 
