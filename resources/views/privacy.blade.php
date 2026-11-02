@@ -10,11 +10,19 @@
 
     <div class="pv-wrap">
       <header class="pv-top">
-        <a class="pv-brand" href="/login">MediByte</a>
-        <a class="pv-back" href="/login">
-          <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>
-          Back to login
-        </a>
+        @auth
+          <a class="pv-brand" href="/dashboard">MediByte</a>
+          <a class="pv-back" href="/dashboard">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            Back to dashboard
+          </a>
+        @else
+          <a class="pv-brand" href="/login">MediByte</a>
+          <a class="pv-back" href="/login">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            Back to login
+          </a>
+        @endauth
       </header>
 
       <section class="pv-hero">
@@ -122,8 +130,13 @@
           </section>
 
           <div class="pv-actions">
-            <a class="btn btn-primary" href="/register">Create an account</a>
-            <a class="btn btn-ghost" href="/login">Back to login</a>
+            @auth
+              <a class="btn btn-primary" href="/dashboard">Back to dashboard</a>
+              <a class="btn btn-ghost" href="/settings">Back to settings</a>
+            @else
+              <a class="btn btn-primary" href="/register">Create an account</a>
+              <a class="btn btn-ghost" href="/login">Back to login</a>
+            @endauth
           </div>
         </div>
       </div>
