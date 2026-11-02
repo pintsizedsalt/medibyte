@@ -964,6 +964,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   --row-bg: #f7f1e3;
 }
 
+/* Accent colors per metric: --tone (fills), --tint (soft background),
+   --tn (icon/text on tint), --lt (fill on the dark hero card) */
 .dash-page [data-tone="sleep"]  { --tone: #6a6acb; --tint: #e8e8f6; --tn: #4a4aa3; --lt: #8f8fe0; }
 .dash-page [data-tone="water"]  { --tone: #3d8fd0; --tint: #e3eef8; --tn: #1f6aa5; --lt: #6bb4e8; }
 .dash-page [data-tone="move"]   { --tone: #e0803a; --tint: #fbe9db; --tn: #b4551a; --lt: #f2a064; }
@@ -973,8 +975,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .dash-page [data-tone="ok"]     { --tone: #4c8a66; --tint: #dcefe3; --tn: #1d6b3f; --lt: #a8d5a2; }
 
 .dash-heading {
+  display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -997,6 +1001,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   font-weight: 600;
 }
 
+/* Cards on the dashboard: lighter than the page so they stand out */
 .dash-page .card {
   padding: 24px;
   border-color: var(--card-line);
@@ -1014,6 +1019,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .card-head p.muted { margin: 3px 0 0; font-size: 12px; }
 .dash-page .card-head h3 { font-size: 20px; }
 
+/* Hero: dark green health progress card */
 .dash-page .health-score-card {
   padding: 28px;
   border-color: var(--ink);
@@ -1125,6 +1131,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 }
 .score-components .meter span { background: var(--lt, #a8d5a2); }
 
+/* Last 7 days */
 .week-average { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; }
 .week-chart {
   display: grid;
@@ -1162,6 +1169,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .week-day.today small { color: var(--ink); font-weight: 700; }
 .week-note { margin: 14px 0 0; font-size: 12px; }
 
+/* Icon chip used on quick-log buttons, metric cards and care rows */
 .dm-ic {
   display: inline-flex;
   align-items: center;
@@ -1212,6 +1220,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .qlog-btn .dm-ic { width: 30px; height: 30px; border-radius: 50%; }
 .qlog-btn .dm-ic .icon { width: 16px; height: 16px; stroke-width: 2.2; }
 
+/* Metric cards */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -1280,6 +1289,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   border-radius: 999px;
 }
 
+/* Next up + Wellbeing check */
 .dash-page .card-head { margin-bottom: 16px; }
 .dash-page .card-head h3 { margin: 0; }
 .care-list, .wellbeing-list { display: grid; gap: 12px; }
@@ -2452,6 +2462,8 @@ html:has(.pv-page) { scroll-behavior: smooth; }
   position: relative;
   min-height: 100vh;
   padding: 28px 24px 64px;
+  /* clip (not hidden): hidden makes this a scroll container, so anchor links
+     scroll it internally and the page can't be scrolled back up */
   overflow: clip;
   background: var(--paper);
 }
