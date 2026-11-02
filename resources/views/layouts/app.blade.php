@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=3">
+  <link rel="stylesheet" href="/css/medibyte.css?v=4">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -240,7 +240,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=3"></script>
+  <script src="/js/medibyte.js?v=4"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
