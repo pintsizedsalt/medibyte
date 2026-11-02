@@ -47,9 +47,9 @@
           <input id="doc_title" type="text" maxlength="150" placeholder="e.g. Blood test — October" required>
         </label>
 
-       <div class="field span-full">
+        <div class="field span-full">
           <span>File</span>
-          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden onchange="updateFileLabel(); clearFileError()">
+          <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden onchange="updateFileLabel()">
           <label class="document-drop" for="doc_file">
             <svg class="icon"><use href="#i-file"/></svg>
             <span>
@@ -58,7 +58,7 @@
             </span>
           </label>
           <p id="doc-file-error" class="field-error" role="alert" hidden></p>
-      </div>
+        </div>
 
         <label class="field span-full">
           <span>Notes (optional)</span>
@@ -141,10 +141,34 @@ function previewUrl(id) {
   return '/api/v1/documents/' + id + '/preview';
 }
 
+function setFileError(message) {
+  const el = $('doc-file-error');
+  if (!el) return;
+  if (message) {
+    el.textContent = message;
+    el.hidden = false;
+  } else {
+    el.textContent = '';
+    el.hidden = true;
+  }
+}
+
+function clearFileError() {
+  setFileError('');
+}
+
 function updateFileLabel() {
   const file = $('doc_file').files[0];
   const label = $('doc-file-label');
   if (label) label.textContent = file ? file.name : 'Choose a PDF, JPG, or PNG';
+
+  if (file && file.size > 10 * 1024 * 1024) {
+    setFileError('The file must be 10 MB or smaller.');
+  } else if (file && file.size > 8 * 1024 * 1024) {
+    setFileError('This file is over 8 MB. The server may reject it — try a smaller file if upload fails.');
+  } else {
+    clearFileError();
+  }
 }
 
 function docThumb(doc) {
@@ -233,19 +257,17 @@ function uploadErrorMessage(result, file) {
 
 async function uploadDocument() {
   const file = $('doc_file').files[0];
+  clearFileError();
+  $('msg').textContent = '';
 
   if (!file) {
-    $('msg').textContent = 'Choose a file to upload.';
+    setFileError('Choose a file to upload.');
     return;
   }
 
   if (file.size > 10 * 1024 * 1024) {
-    $('msg').textContent = 'The file must be 10 MB or smaller.';
+    setFileError('The file must be 10 MB or smaller.');
     return;
-  }
-
-  if (file.size > 8 * 1024 * 1024) {
-    $('msg').textContent = 'This file is over 8 MB. The server may reject it — try a smaller file if upload fails.';
   }
 
   if (!$('doc_title').value.trim()) {
@@ -264,13 +286,23 @@ async function uploadDocument() {
 
   if (result && result.id) {
     $('msg').textContent = '';
+    clearFileError();
     toast('Document uploaded.');
     $('doc-form').reset();
     updateFileLabel();
     await loadDocuments();
   } else {
     const message = uploadErrorMessage(result, file);
-    $('msg').textContent = message;
+    if (
+      message.toLowerCase().includes('too large') ||
+      message.toLowerCase().includes('10 mb') ||
+      message.toLowerCase().includes('8 mb')
+    ) {
+      setFileError(message);
+      $('msg').textContent = '';
+    } else {
+      $('msg').textContent = message;
+    }
     toast(message, 'error');
   }
 }
