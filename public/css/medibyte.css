@@ -2305,7 +2305,7 @@ html:has(.pv-page) { scroll-behavior: smooth; }
   position: relative;
   min-height: 100vh;
   padding: 28px 24px 64px;
-  overflow: hidden;
+  overflow: clip;
   background: var(--paper);
 }
 .pv-wrap { position: relative; max-width: 980px; margin: 0 auto; }
