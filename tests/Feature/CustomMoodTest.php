@@ -313,5 +313,92 @@ class CustomMoodTest extends TestCase
         // Does NOT contain other user's custom mood
         $this->assertFalse(in_array('Other User Mood', $moods, true));
     }
+
+    public function test_deleting_custom_mood_preserves_historical_mood_log_and_history_api_access(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        Sanctum::actingAs($user);
+
+        // 1. Create a custom mood
+        $createMoodRes = $this->postJson('/api/v1/custom-moods', [
+            'name' => 'Euphoric',
+        ]);
+        $createMoodRes->assertCreated();
+        $customMoodId = $createMoodRes->json('id');
+
+        // 2. Create a historical mood log using that custom mood
+        $createLogRes = $this->postJson('/api/v1/mood-logs', [
+            'mood' => 'Euphoric',
+            'intensity' => 5,
+            'log_date' => now()->toDateString(),
+            'reflection' => 'Feeling on top of the world',
+        ]);
+        $createLogRes->assertCreated();
+        $logId = $createLogRes->json('id');
+
+        // 3. Delete the custom mood from user\'s custom moods library
+        $deleteMoodRes = $this->deleteJson('/api/v1/custom-moods/'.$customMoodId);
+        $deleteMoodRes->assertOk();
+
+        // Proves: Deleting a saved custom mood deletes ONLY custom_moods entry
+        $this->assertDatabaseMissing('custom_moods', [
+            'id' => $customMoodId,
+        ]);
+
+        // Proves: Deleting a saved custom mood does not delete its historical mood log
+        $this->assertDatabaseHas('mood_logs', [
+            'id' => $logId,
+            'mood' => 'Euphoric',
+            'intensity' => 5,
+        ]);
+
+        // Proves: The historical entry remains available through the History API
+        $historyRes = $this->getJson('/api/v1/mood-logs');
+        $historyRes->assertOk()
+            ->assertJsonFragment([
+                'id' => $logId,
+                'mood' => 'Euphoric',
+                'intensity' => 5,
+            ]);
+
+        // Proves: The historical entry can still be retrieved and filtered by date
+        $filteredRes = $this->getJson('/api/v1/mood-logs?date='.now()->toDateString());
+        $filteredRes->assertOk()
+            ->assertJsonFragment([
+                'id' => $logId,
+                'mood' => 'Euphoric',
+            ]);
+
+        // Proves: The historical entry can still be edited while retaining its mood
+        $editRes = $this->putJson('/api/v1/mood-logs/'.$logId, [
+            'mood' => 'Euphoric',
+            'intensity' => 4,
+            'log_date' => now()->toDateString(),
+            'reflection' => 'Still joyful even after mood library deletion',
+        ]);
+        $editRes->assertOk()
+            ->assertJsonPath('mood', 'Euphoric')
+            ->assertJsonPath('intensity', 4)
+            ->assertJsonPath('reflection', 'Still joyful even after mood library deletion');
+
+        // Proves: Other users cannot access another user\'s custom moods or mood logs
+        Sanctum::actingAs($otherUser);
+
+        $otherHistoryRes = $this->getJson('/api/v1/mood-logs');
+        $otherHistoryRes->assertOk()
+            ->assertJsonMissing(['id' => $logId]);
+
+        $otherEditRes = $this->putJson('/api/v1/mood-logs/'.$logId, [
+            'mood' => 'happy',
+            'intensity' => 3,
+            'log_date' => now()->toDateString(),
+        ]);
+        $otherEditRes->assertNotFound();
+
+        $otherDeleteRes = $this->deleteJson('/api/v1/mood-logs/'.$logId);
+        $otherDeleteRes->assertNotFound();
+    }
 }
 

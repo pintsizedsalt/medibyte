@@ -807,11 +807,14 @@ function logPage(cfg) {
       const selectHTML = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
 
       if (name === 'mood') {
-        return selectHTML + `
-          <label class="field" id="customMoodField" style="display:none">
-            <span>Enter your own mood</span>
-            <input type="text" id="f_custom_mood" maxlength="50" placeholder="Type your mood">
-          </label>
+        return `
+          <div class="mood-field-group">
+            ${selectHTML}
+            <label class="field" id="customMoodField" style="display:none">
+              <span>Enter your own mood</span>
+              <input type="text" id="f_custom_mood" maxlength="50" placeholder="Type your mood">
+            </label>
+          </div>
         `;
       }
 
