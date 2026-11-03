@@ -769,6 +769,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 14px;
 }
+.form-grid .check-row {
+  margin-bottom: 14px;
+}
+.mood-field-group {
+  display: flex;
+  flex-direction: column;
+}
 .span-full { grid-column: 1 / -1; }
 
 .form-note, .form-card-note {

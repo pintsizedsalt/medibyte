@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomMoodController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\MealLogController;
@@ -56,6 +57,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/moods', [MoodLogController::class, 'moods']);
         Route::apiResource('mood-logs', MoodLogController::class)->except('show');
+
+	Route::apiResource('custom-moods', CustomMoodController::class)
+    	->only(['index', 'store', 'update', 'destroy']);
 
         Route::get('/period-predict', [PeriodLogController::class, 'predict']);
         Route::apiResource('period-logs', PeriodLogController::class)->except('show');

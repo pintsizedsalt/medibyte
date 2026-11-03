@@ -6,14 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class MoodLog extends Model
 {
-    public const MOODS = [
+   public const MOODS = [
     'happy', 'excited', 'grateful', 'calm', 'content', 'hopeful',
     'proud', 'loved', 'energetic', 'motivated', 'relaxed',
     'bored', 'tired', 'neutral', 'confused',
     'lonely', 'sad', 'anxious', 'stressed', 'overwhelmed',
     'angry', 'frustrated', 'irritated', 'disappointed',
     'guilty', 'embarrassed', 'scared', 'numb',
-    ];
+    'sleepy', 'curious', 'confident', 'worried', 'restless',
+    'drained', 'peaceful', 'playful', 'disgusted', 'regretful',
+];
 
     protected $fillable = [
         'user_id', 'mood', 'intensity', 'cried',
@@ -24,5 +26,12 @@ class MoodLog extends Model
         'impacts' => 'array',
         'cried' => 'boolean',
         'has_big_event' => 'boolean',
+        'intensity' => 'integer',
+        'log_date' => 'date:Y-m-d',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

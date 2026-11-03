@@ -89,6 +89,11 @@ class User extends Authenticatable
         return $this->hasMany(MoodLog::class);
     }
 
+    public function customMoods()
+    {
+    return $this->hasMany(CustomMood::class);
+    }
+
     public function periodLogs()
     {
         return $this->hasMany(PeriodLog::class);

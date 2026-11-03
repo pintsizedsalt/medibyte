@@ -180,7 +180,7 @@ async function logout() {
   closeAccountMenu();
   try {
     sessionStorage.removeItem('medibyte-sidebar');
-  } catch (error) {}
+  } catch (error) { }
   await api('/logout', 'POST');
   location.replace('/login');
 }
@@ -357,7 +357,7 @@ function setDesktopSidebarCollapsed(collapsed) {
   document.body.classList.toggle('sidebar-collapsed', collapsed);
   try {
     sessionStorage.setItem('medibyte-sidebar', collapsed ? 'hidden' : 'visible');
-  } catch (error) {}
+  } catch (error) { }
 }
 
 function toggleSidebar(force) {
@@ -676,7 +676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (isPublicPage()) {
     try {
       sessionStorage.removeItem('medibyte-sidebar');
-    } catch (error) {}
+    } catch (error) { }
     document.body.classList.add('is-public');
     return;
   }
@@ -721,6 +721,7 @@ function moodEmoji(row) {
 function logPage(cfg) {
   let rows = [];
   let edit = null;
+  let customMoods = [];
 
   const dateField = cfg.fields.find(f => ['today', 'date', 'datetime-local'].includes(f[2]));
   const dateKey = dateField ? dateField[0] : null;
@@ -814,8 +815,8 @@ function logPage(cfg) {
             <button type="button" class="btn btn-small btn-primary" onclick="window.calAddForDay()">Add for this day</button>
           </div>
           ${picked.length
-            ? `<div class="record-list">${picked.map(rowHtml).join('')}</div>`
-            : '<p class="muted cal-empty">Nothing logged for this day.</p>'}
+        ? `<div class="record-list">${picked.map(rowHtml).join('')}</div>`
+        : '<p class="muted cal-empty">Nothing logged for this day.</p>'}
         </div>
       </section>`;
   }
@@ -882,10 +883,18 @@ function logPage(cfg) {
   const msg = text => {
     const el = $('msg');
     if (el) el.textContent = text || '';
+    const formEl = $('formMsg');
+    if (formEl) {
+      formEl.textContent = text || '';
+      formEl.style.display = text ? 'block' : 'none';
+    }
   };
 
   function fieldValue(type, value, def) {
-    if (value === undefined || value === null || value === '') return def;
+    if (value === undefined || value === null || value === '') {
+      if (def !== undefined) return def;
+      return type === 'today' ? today() : def;
+    }
     if (type === 'check') return Boolean(value);
     if (type === 'list') return Array.isArray(value) ? value.join(', ') : value;
     if (type === 'today' || type === 'date') return ld(value);
@@ -904,12 +913,44 @@ function logPage(cfg) {
     }
 
     if (type === 'select') {
-      const options = (opts || []).map(o => {
+      const moodOptions = [...(opts || [])];
+
+      if (
+        name === 'mood' &&
+        v &&
+        v !== '__custom__' &&
+        !moodOptions.some(o => String(o) === String(v))
+      ) {
+        moodOptions.push(v);
+      }
+
+      const options = moodOptions.map(o => {
         const optionValue = String(o ?? '');
         const text = optionValue === '' ? 'Choose…' : optionValue.replace(/_/g, ' ');
         return `<option value="${esc(optionValue)}" ${String(o) === String(v) ? 'selected' : ''}>${esc(text)}</option>`;
-      }).join('');
-      return `<label class="field"><span>${safeLabel}</span><select id="${id}">${options}</select></label>`;
+      });
+
+      if (name === 'mood') {
+        options.push(
+          `<option value="__custom__" ${v === '__custom__' ? 'selected' : ''}>Other / Add your own mood</option>`
+        );
+      }
+
+      const selectHTML = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
+
+      if (name === 'mood') {
+        return `
+          <div class="mood-field-group">
+            ${selectHTML}
+            <label class="field" id="customMoodField" style="display:none">
+              <span>Enter your own mood</span>
+              <input type="text" id="f_custom_mood" maxlength="50" placeholder="Type your mood">
+            </label>
+          </div>
+        `;
+      }
+
+      return selectHTML;
     }
 
     if (type === 'textarea') {
@@ -945,20 +986,20 @@ function logPage(cfg) {
     const label = rowLabel(row);
     const meta = rowMeta(row);
     return `<div class="record">
-      <span class="record-icon tone-${esc(tone)}"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
-      <div class="record-main">
-        <strong>${esc(label)}</strong>
-        ${meta ? `<span class="record-meta">${esc(meta)}</span>` : ''}
-      </div>
-      <div class="record-actions">
-        <button type="button" class="record-row-action" onclick="window.editLog(${Number(row.id)})" aria-label="Edit record">
-          <svg class="icon"><use href="#i-pencil"/></svg>
-        </button>
-        <button type="button" class="record-row-action danger" onclick="window.deleteLog(${Number(row.id)})" aria-label="Delete record">
-          <svg class="icon"><use href="#i-trash"/></svg>
-        </button>
-      </div>
-    </div>`;
+        <span class="record-icon tone-${esc(tone)}"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
+        <div class="record-main">
+          <strong>${esc(label)}</strong>
+          ${meta ? `<span class="record-meta">${esc(meta)}</span>` : ''}
+        </div>
+        <div class="record-actions">
+          <button type="button" class="record-row-action" onclick="window.editLog(${Number(row.id)})" aria-label="Edit record">
+            <svg class="icon"><use href="#i-pencil"/></svg>
+          </button>
+          <button type="button" class="record-row-action danger" onclick="window.deleteLog(${Number(row.id)})" aria-label="Delete record">
+            <svg class="icon"><use href="#i-trash"/></svg>
+          </button>
+        </div>
+      </div>`;
   }
 
   function draw() {
@@ -977,6 +1018,7 @@ function logPage(cfg) {
           ${edit ? '<span class="badge pill-primary">Editing</span>' : ''}
         </div>
         <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
+        <p id="formMsg" class="form-message" role="alert" style="display:none; color: var(--rose-600, #dc2626); font-weight: 500; margin-top: 8px;"></p>
         <form onsubmit="event.preventDefault(); window.saveLog()">
           <div class="form-grid">${form}</div>
           <div class="form-actions">
@@ -988,6 +1030,41 @@ function logPage(cfg) {
           </div>
         </form>
       </section>
+      ${cfg.url === '/mood-logs' ? `
+      <section class="card" id="customMoodsCard">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Personalize</p>
+            <h3>Saved custom moods</h3>
+          </div>
+          <span class="history-count">${customMoods.length}</span>
+        </div>
+        ${customMoods.length ? `
+          <div class="record-list">
+            ${customMoods.map(cm => `
+              <div class="record">
+                <span class="record-icon tone-rose"><svg class="icon"><use href="#i-smile"/></svg></span>
+                <div class="record-main">
+                  <strong>${esc(cm.name)}</strong>
+                </div>
+                <div class="record-actions">
+                  <button type="button" class="record-row-action" onclick="event.preventDefault(); event.stopPropagation(); window.renameCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Rename custom mood">
+                    <svg class="icon" style="pointer-events: none;"><use href="#i-pencil"/></svg>
+                  </button>
+                  <button type="button" class="record-row-action danger" onclick="event.preventDefault(); event.stopPropagation(); window.deleteCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Delete custom mood">
+                    <svg class="icon" style="pointer-events: none;"><use href="#i-trash"/></svg>
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div class="empty-state" style="padding: 20px;">
+            <p class="muted" style="margin: 0;">No custom moods saved yet. Select "Other / Add your own mood" above to create one.</p>
+          </div>
+        `}
+      </section>
+      ` : ''}
       <section class="card">
         <div class="card-head">
           <div>
@@ -997,12 +1074,12 @@ function logPage(cfg) {
           <span class="history-count">${rows.length}</span>
         </div>
         ${rows.length
-          ? `<div class="record-list">${rows.map(rowHtml).join('')}</div>`
-          : `<div class="empty-state">
-               <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
-               <h4>No records yet</h4>
-               <p>Add your first entry above and it will appear here.</p>
-             </div>`}
+        ? `<div class="record-list">${rows.map(rowHtml).join('')}</div>`
+        : `<div class="empty-state">
+                 <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
+                 <h4>No records yet</h4>
+                 <p>Add your first entry above and it will appear here.</p>
+               </div>`}
       </section>`;
 
     if (showCalendar) drawCalendar();
@@ -1015,10 +1092,44 @@ function logPage(cfg) {
       });
     }
 
+    const moodSelect = $('f_mood');
+    const customMoodField = $('customMoodField');
+
+    if (moodSelect && customMoodField) {
+      const syncCustomMood = () => {
+        const isCustom = moodSelect.value === '__custom__';
+        customMoodField.style.display = isCustom ? '' : 'none';
+
+        if (isCustom) {
+          $('f_custom_mood')?.focus();
+        }
+      };
+
+      moodSelect.addEventListener('change', syncCustomMood);
+      syncCustomMood();
+    }
+
     mountMoodChips($('f_mood'));
   }
 
+  async function reloadCustomMoods() {
+    if (cfg.url !== '/mood-logs') return;
+
+    const cms = await api('/custom-moods');
+    customMoods = Array.isArray(cms) ? cms : (cms.data || []);
+
+    const allMoods = await api('/moods');
+    const moodField = cfg.fields.find(f => f[0] === 'mood');
+
+    if (moodField && Array.isArray(allMoods)) {
+      moodField[3] = ['', ...allMoods];
+    }
+  }
+
   async function load() {
+    if (cfg.url === '/mood-logs') {
+      await reloadCustomMoods();
+    }
     const data = await api(cfg.url);
     rows = Array.isArray(data) ? data : (data.data || []);
     draw();
@@ -1029,6 +1140,80 @@ function logPage(cfg) {
     if (!card) return;
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setTimeout(() => card.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 260);
+  };
+
+  window.renameCustomMood = async (eventOrId, idOrOldName, maybeOldName) => {
+    let e = null;
+    let id = eventOrId;
+    let oldName = idOrOldName;
+    if (eventOrId && typeof eventOrId === 'object' && typeof eventOrId.stopPropagation === 'function') {
+      e = eventOrId;
+      id = idOrOldName;
+      oldName = maybeOldName;
+    } else if (typeof window !== 'undefined' && window.event) {
+      e = window.event;
+    }
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    }
+
+    if (!oldName) {
+      const found = customMoods.find(cm => Number(cm.id) === Number(id));
+      oldName = found ? found.name : '';
+    }
+    const newName = window.prompt('Rename custom mood:', oldName);
+    if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+
+    const res = await api('/custom-moods/' + id, 'PUT', { name: newName.trim() });
+    if (res.id) {
+      toast('Custom mood renamed.');
+      await reloadCustomMoods();
+      draw();
+    } else {
+      const err = errText(res);
+      toast(err, 'error');
+    }
+  };
+
+  window.deleteCustomMood = async (eventOrId, idOrName, maybeName) => {
+    let e = null;
+    let id = eventOrId;
+    let name = idOrName;
+    if (eventOrId && typeof eventOrId === 'object' && typeof eventOrId.stopPropagation === 'function') {
+      e = eventOrId;
+      id = idOrName;
+      name = maybeName;
+    } else if (typeof window !== 'undefined' && window.event) {
+      e = window.event;
+    }
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    }
+
+    if (!name) {
+      const found = customMoods.find(cm => Number(cm.id) === Number(id));
+      name = found ? found.name : '';
+    }
+    const ok = await confirmAction({
+      title: 'Delete custom mood?',
+      body: `"${name}" will be removed from your saved moods. Historical records will keep this mood.`,
+      confirmLabel: 'Delete'
+    });
+    if (!ok) return;
+
+    const res = await api('/custom-moods/' + id, 'DELETE');
+    if (res.message) {
+      toast('Custom mood deleted.');
+      await reloadCustomMoods();
+      draw();
+    } else {
+      const err = errText(res);
+      toast(err, 'error');
+    }
   };
 
   window.saveLog = async () => {
@@ -1052,6 +1237,38 @@ function logPage(cfg) {
       body[name] = el.value;
     });
 
+    let createdCustomMood = false;
+    if (cfg.url === '/mood-logs' && body.mood === '__custom__') {
+      const customInput = $('f_custom_mood');
+      const customName = customInput?.value.trim();
+
+      if (!customName) {
+        msg('Please enter your own mood.');
+        customInput?.focus();
+        return;
+      }
+
+      const savedMood = await api('/custom-moods', 'POST', {
+        name: customName
+      });
+
+      if (savedMood.id) {
+        body.mood = savedMood.name;
+        createdCustomMood = true;
+      } else {
+        const allMoods = await api('/moods');
+        const matched = Array.isArray(allMoods) && allMoods.find(m => m.toLowerCase() === customName.toLowerCase());
+        if (matched) {
+          body.mood = matched;
+        } else {
+          const err = errText(savedMood);
+          msg(err);
+          toast(err, 'error');
+          return;
+        }
+      }
+    }
+
     const data = await api(cfg.url + (edit ? '/' + edit.id : ''), edit ? 'PUT' : 'POST', body);
     if (data.id) {
       const wasEditing = Boolean(edit);
@@ -1059,18 +1276,39 @@ function logPage(cfg) {
       msg('');
       toast(wasEditing ? 'Changes saved.' : 'Record added.');
       await load();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (wasEditing) {
+        $('recordFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (createdCustomMood && $('customMoodsCard')) {
+        $('customMoodsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } else {
-      msg(errText(data));
-      toast(errText(data), 'error');
+      const err = errText(data);
+      msg(err);
+      toast(err, 'error');
+      const card = $('recordFormCard');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (data && data.errors) {
+          const firstErrKey = Object.keys(data.errors)[0];
+          const targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
+          if (targetField) {
+            targetField.focus({ preventScroll: true });
+          }
+        }
+      }
     }
   };
 
   window.editLog = id => {
     edit = rows.find(r => Number(r.id) === Number(id)) || null;
     draw();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => $('recordFormCard')?.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 260);
+    const card = $('recordFormCard');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => card.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 260);
+    }
   };
 
   window.cancelLogEdit = () => {
