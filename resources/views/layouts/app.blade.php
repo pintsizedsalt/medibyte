@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=8">
+  <link rel="stylesheet" href="/css/medibyte.css?v=10">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
