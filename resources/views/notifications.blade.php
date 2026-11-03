@@ -3,11 +3,12 @@
 @section('title', 'Notifications · MediByte')
 
 @section('content')
-  <div class="page-heading">
+  <div class="page-heading tone-violet">
     <div class="heading-main">
       <a class="back-link" href="/dashboard" aria-label="Back to dashboard">
         <svg class="icon"><use href="#i-chevron-left"/></svg>
       </a>
+      <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-bell"/></svg></span>
       <div>
         <p class="eyebrow">Inbox</p>
         <h2>Notifications</h2>

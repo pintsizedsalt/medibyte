@@ -3,11 +3,12 @@
 @section('title', 'Settings · MediByte')
 
 @section('content')
-  <div class="page-heading">
+  <div class="page-heading tone-slate">
     <div class="heading-main">
       <a class="back-link" href="/dashboard" aria-label="Back to dashboard">
         <svg class="icon"><use href="#i-chevron-left"/></svg>
       </a>
+      <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-settings"/></svg></span>
       <div>
         <p class="eyebrow">Your account</p>
         <h2>Settings</h2>

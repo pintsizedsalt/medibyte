@@ -15,7 +15,7 @@
 api('/moods').then(moods => logPage({
   title: 'Mood',
   icon: 'smile',
-  tone: 'rose',
+  tone: 'gold',
   url: '/mood-logs',
   formTitle: 'Check in with yourself',
   formNote: 'Choose the mood that fits best. The reflection and event notes are optional.',

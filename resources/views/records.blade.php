@@ -20,15 +20,15 @@
       'Everyday' => [
         ['Water', 'Hydration and daily intake', '/water', 'droplet', 'blue'],
         ['Sleep', 'Bedtime, wake-up, and hours', '/sleep', 'moon', 'violet'],
-        ['Activity', 'Steps, walks, and workouts', '/walking', 'activity', 'mint'],
-        ['Meals', 'Food, snacks, and calories', '/meals', 'meal', 'amber'],
+        ['Activity', 'Steps, walks, and workouts', '/walking', 'activity', 'amber'],
+        ['Meals', 'Food, snacks, and calories', '/meals', 'meal', 'mint'],
       ],
       'Wellbeing' => [
         ['Weight & BMI', 'Weight history and body mass index', '/weight', 'scale', 'slate'],
-        ['Mood', 'Feelings, intensity, and reflections', '/mood', 'smile', 'rose'],
+        ['Mood', 'Feelings, intensity, and reflections', '/mood', 'smile', 'gold'],
         ['Symptoms', 'Symptoms, severity, and notes', '/symptoms', 'thermometer', 'amber'],
         ['Vitals', 'Blood pressure, heart rate, and more', '/vitals', 'heart', 'rose'],
-        ['Cycle', 'Periods and estimated next start', '/period', 'cycle', 'violet', true],
+        ['Cycle', 'Periods and estimated next start', '/period', 'cycle', 'rose', true],
       ],
       'Care' => [
         ['Medications', 'Dosage, times, and instructions', '/medications', 'pill', 'plum'],

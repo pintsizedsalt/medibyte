@@ -46,6 +46,22 @@ class DocumentController extends Controller
         return Storage::disk('local')->download($document->path, $document->original_name);
     }
 
+    public function preview(Request $request, $id)
+    {
+        $document = $request->user()->documents()->findOrFail($id);
+
+        abort_unless(Storage::disk('local')->exists($document->path), 404);
+
+        $mime = $document->mime_type ?: 'application/octet-stream';
+        $headers = [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="'.addslashes($document->original_name).'"',
+            'Cache-Control' => 'private, max-age=3600',
+        ];
+
+        return Storage::disk('local')->response($document->path, $document->original_name, $headers);
+    }
+
     public function destroy(Request $request, $id)
     {
         $document = $request->user()->documents()->findOrFail($id);

@@ -15,7 +15,7 @@
 logPage({
   title: 'Meals',
   icon: 'meal',
-  tone: 'amber',
+  tone: 'mint',
   url: '/meal-logs',
   formTitle: 'Add a meal',
   formNote: 'A short description is enough. Calories are optional.',

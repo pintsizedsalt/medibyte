@@ -29,13 +29,13 @@
 
         <label class="field">
           <span>Username</span>
-          <input id="username" type="text" autocomplete="username" placeholder="letters_numbers_only" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required oninput="queueUsernameCheck()">
+          <input id="username" type="text" autocomplete="username" placeholder="letters_numbers_only" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required oninput="clearFieldError('username'); queueUsernameCheck()">
           <small class="form-note" id="username-status">Letters, numbers, and underscores only. Usernames are unique.</small>
         </label>
 
         <label class="field">
           <span>Email address</span>
-          <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+          <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required oninput="clearFieldError('email')">
         </label>
 
         <label class="field">
@@ -110,6 +110,13 @@ function queueUsernameCheck() {
 }
 
 async function doRegister() {
+  clearFieldError('first_name');
+  clearFieldError('last_name');
+  clearFieldError('username');
+  clearFieldError('email');
+  clearFieldError('password');
+  $('msg').textContent = '';
+
   const data = await api('/register', 'POST', {
     first_name: $('first_name').value.trim(),
     last_name: $('last_name').value.trim(),
@@ -122,6 +129,43 @@ async function doRegister() {
 
   if (data.user) {
     location.replace('/profile-setup');
+    return;
+  }
+
+  if (data && data.errors) {
+    const fieldMap = {
+      first_name: 'first_name',
+      last_name: 'last_name',
+      username: 'username',
+      email: 'email',
+      password: 'password',
+      consent: 'consent'
+    };
+
+    let focused = false;
+    for (const [key, messages] of Object.entries(data.errors)) {
+      const fieldId = fieldMap[key];
+      if (fieldId && $(fieldId)) {
+        const message = Array.isArray(messages) ? messages[0] : messages;
+        showFieldError(fieldId, message, 0); // keep visible until user edits
+        if (!focused) {
+          $(fieldId).focus();
+          focused = true;
+        }
+      }
+    }
+
+    const general = errText({
+      ...data,
+      errors: Object.fromEntries(
+        Object.entries(data.errors).filter(([k]) => !fieldMap[k])
+      )
+    });
+    if (general && general !== 'Something went wrong. Please try again.') {
+      $('msg').textContent = general;
+    } else if (!focused) {
+      $('msg').textContent = errText(data);
+    }
   } else {
     $('msg').textContent = errText(data);
   }

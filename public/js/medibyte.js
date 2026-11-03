@@ -6,6 +6,118 @@ const API_BASE = '/api/v1';
 localStorage.removeItem('token');
 
 /* ---------------------------------------------------------
+   Mood chips
+   --------------------------------------------------------- */
+function mountMoodChips(select) {
+  if (!select || select.dataset.chips) return;
+  select.dataset.chips = '1';
+
+  var groups = {
+    'Positive': ['happy', 'excited', 'grateful', 'calm', 'content', 'hopeful', 'proud', 'loved', 'energetic', 'motivated', 'relaxed'],
+    'Neutral': ['bored', 'tired', 'neutral', 'confused'],
+    'Low': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
+  };
+
+  var wrap = document.createElement('div');
+  var tones = document.createElement('div');
+  tones.className = 'mood-tones';
+  var panel = document.createElement('div');
+  var hint = document.createElement('p');
+  hint.className = 'mood-hint';
+  hint.textContent = 'Pick a feeling to see more moods.';
+
+  var used = {};
+  var sections = [];
+  var active = null;
+
+  function fireChange() {
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function markChips() {
+    panel.querySelectorAll('.mood-chip').forEach(function (c) {
+      c.classList.toggle('on', c.dataset.value === select.value && select.value !== '');
+    });
+  }
+
+  function show(sec, clear) {
+    if (clear && active && active !== sec) {
+      select.value = '';
+      fireChange();
+      markChips();
+    }
+    sections.forEach(function (s) {
+      var on = s === sec;
+      s.row.hidden = !on;
+      s.btn.classList.toggle('on', on);
+      s.btn.setAttribute('aria-pressed', String(on));
+    });
+    hint.hidden = true;
+    active = sec;
+  }
+
+  function build(title, labels) {
+    var opts = Array.prototype.filter.call(select.options, function (o) {
+      return o.value !== '' && labels.indexOf(o.text.trim().toLowerCase()) !== -1;
+    });
+    if (!opts.length) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-tone';
+    btn.textContent = title;
+    btn.setAttribute('aria-pressed', 'false');
+
+    var row = document.createElement('div');
+    row.className = 'mood-row';
+    row.hidden = true;
+
+    opts.forEach(function (o) {
+      used[o.value] = true;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mood-chip';
+      b.textContent = o.text;
+      b.dataset.value = o.value;
+      b.addEventListener('click', function () {
+        select.value = o.value;
+        fireChange();
+        markChips();
+      });
+      row.appendChild(b);
+    });
+
+    var sec = { title: title, opts: opts, btn: btn, row: row };
+    btn.addEventListener('click', function () { show(sec, true); });
+    sections.push(sec);
+    tones.appendChild(btn);
+    panel.appendChild(row);
+  }
+
+  Object.keys(groups).forEach(function (k) { build(k, groups[k]); });
+
+  var rest = Array.prototype.filter.call(select.options, function (o) {
+    return o.value !== '' && !used[o.value];
+  }).map(function (o) { return o.text.trim().toLowerCase(); });
+  if (rest.length) build('Other', rest);
+
+  wrap.appendChild(tones);
+  wrap.appendChild(hint);
+  wrap.appendChild(panel);
+
+  select.hidden = true;
+  select.insertAdjacentElement('afterend', wrap);
+
+  var current = sections.filter(function (s) {
+    return s.opts.some(function (o) { return o.value === select.value; });
+  })[0];
+  if (current && select.value !== '') {
+    show(current, false);
+    markChips();
+  }
+}
+
+/* ---------------------------------------------------------
    Small utilities
    --------------------------------------------------------- */
 function esc(value) {
@@ -197,7 +309,7 @@ function clearFieldError(inputOrId) {
 }
 
 /* ---------------------------------------------------------
-   Intensity as colored stars (for Mood)
+   Intensity segmented control (1–5)
    --------------------------------------------------------- */
 function enhanceIntensitySlider(inputId, opts = {}) {
   const el = $(inputId);
@@ -210,16 +322,15 @@ function enhanceIntensitySlider(inputId, opts = {}) {
   if (value > max) value = max;
 
   const wrap = document.createElement('div');
-  wrap.className = 'intensity-stars';
+  wrap.className = 'intensity-seg';
   wrap.setAttribute('role', 'radiogroup');
-  wrap.setAttribute('aria-label', 'Intensity from 1 to 5');
+  wrap.setAttribute('aria-label', 'Intensity from 1 (lowest) to 5 (highest)');
 
-  // right-to-left so the CSS ~ selector works
-  for (let i = max; i >= min; i--) {
+  for (let i = min; i <= max; i++) {
     const id = inputId + '_' + i;
     wrap.innerHTML += `
-      <input type="radio" id="${id}" name="${inputId}_stars" value="${i}" ${i === value ? 'checked' : ''}>
-      <label for="${id}" title="${i}">★</label>
+      <input type="radio" id="${id}" name="${inputId}_seg" value="${i}" ${i === value ? 'checked' : ''}>
+      <label for="${id}">${i}</label>
     `;
   }
 
@@ -677,7 +788,6 @@ function logPage(cfg) {
       cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
     }
 
-    // simple "Logged" legend only (no per-mood list)
     const legend = '<span><i class="cal-dot"></i>Logged</span>';
 
     const picked = map[calSel] || [];
@@ -748,6 +858,28 @@ function logPage(cfg) {
 
   const tone = cfg.tone || 'blue';
   const icon = cfg.icon || 'file';
+  document.getElementById('main')?.classList.add('tone-' + tone);
+
+  function statsHtml() {
+    const tiles = [{ icon, label: 'Total records', value: String(rows.length) }];
+
+    if (dateKey) {
+      const monthPrefix = nowDate.getFullYear() + '-' + pad2(nowDate.getMonth() + 1);
+      const days = rows.map(r => (r[dateKey] ? ld(r[dateKey]) : '')).filter(Boolean).sort();
+      const thisMonth = days.filter(d => d.startsWith(monthPrefix)).length;
+      const last = days.length ? days[days.length - 1] : '';
+
+      tiles.push({ icon: 'calendar', label: 'This month', value: String(thisMonth) });
+      tiles.push({ icon: 'clock', label: 'Last entry', value: last ? dateLabel(last) : 'None yet' });
+    }
+
+    return `<div class="log-stats">${tiles.map(t => `
+      <div class="log-stat">
+        <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-${esc(t.icon)}"/></svg></span>
+        <div><small>${esc(t.label)}</small><strong>${esc(t.value)}</strong></div>
+      </div>`).join('')}</div>`;
+  }
+
   const msg = text => {
     const el = $('msg');
     if (el) el.textContent = text || '';
@@ -875,6 +1007,7 @@ function logPage(cfg) {
     const form = cfg.fields.map(field => input(field, current[field[0]])).join('');
 
     $('log').innerHTML = `
+      ${statsHtml()}
       ${showCalendar ? '<div id="logCalendar"></div>' : ''}
       <section class="card record-form-card" id="recordFormCard">
         <div class="card-head">
@@ -951,7 +1084,6 @@ function logPage(cfg) {
 
     if (showCalendar) drawCalendar();
 
-    // Auto-upgrade intensity field to stars
     if ($('f_intensity')) {
       enhanceIntensitySlider('f_intensity', {
         min: 1,
@@ -962,25 +1094,33 @@ function logPage(cfg) {
 
     const moodSelect = $('f_mood');
     const customMoodField = $('customMoodField');
+
     if (moodSelect && customMoodField) {
       const syncCustomMood = () => {
         const isCustom = moodSelect.value === '__custom__';
         customMoodField.style.display = isCustom ? '' : 'none';
+
         if (isCustom) {
           $('f_custom_mood')?.focus();
         }
       };
+
       moodSelect.addEventListener('change', syncCustomMood);
       syncCustomMood();
     }
+
+    mountMoodChips($('f_mood'));
   }
 
   async function reloadCustomMoods() {
     if (cfg.url !== '/mood-logs') return;
+
     const cms = await api('/custom-moods');
     customMoods = Array.isArray(cms) ? cms : (cms.data || []);
+
     const allMoods = await api('/moods');
     const moodField = cfg.fields.find(f => f[0] === 'mood');
+
     if (moodField && Array.isArray(allMoods)) {
       moodField[3] = ['', ...allMoods];
     }
