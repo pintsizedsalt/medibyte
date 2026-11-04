@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class ProgressController extends Controller
 {
@@ -11,7 +11,7 @@ class ProgressController extends Controller
     {
         $actual = (float) $actual;
 
-        if (!$goal) {
+        if (! $goal) {
             return ['goal' => null, 'actual' => $actual, 'status' => 'no_goal'];
         }
 
@@ -20,7 +20,7 @@ class ProgressController extends Controller
         $result = [
             'goal' => $goal,
             'actual' => $actual,
-            'percent' => round($actual / $goal * 100),
+            'percent' => max(0, min(100, (int) round($actual / $goal * 100))),
             'remaining' => max(0, $goal - $actual),
         ];
 
@@ -31,21 +31,24 @@ class ProgressController extends Controller
         return $result;
     }
 
-    private function sleepHours($log)
+    private function sleepHours($log): float
     {
-        // Prefer calculated hours from bedtime/wake_time, fall back to stored hours
         if ($log->bedtime && $log->wake_time) {
-            $bed = Carbon::createFromFormat('H:i', $log->bedtime);
-            $wake = Carbon::createFromFormat('H:i', $log->wake_time);
+            try {
+                $bed = Carbon::parse($log->bedtime);
+                $wake = Carbon::parse($log->wake_time);
 
-            if ($wake->lessThanOrEqualTo($bed)) {
-                $wake->addDay();
+                if ($wake->lessThanOrEqualTo($bed)) {
+                    $wake->addDay();
+                }
+
+                return round($bed->diffInMinutes($wake) / 60, 2);
+            } catch (\Throwable $exception) {
+                // Fall back to the stored hours when the time values are incomplete.
             }
-
-            return round($bed->diffInMinutes($wake) / 60, 2);
         }
 
-        return $log->hours ?? 0;
+        return round((float) ($log->hours ?? 0), 2);
     }
 
     public function index(Request $request)
@@ -56,7 +59,7 @@ class ProgressController extends Controller
         $date = $request->query('date', now()->toDateString());
 
         $water = $user->dailyLogs()->whereDate('log_date', $date)->sum('water_ml');
-        $sleep = $user->sleepLogs()->whereDate('log_date', $date)->sum('hours');
+        $sleep = $user->sleepLogs()->whereDate('log_date', $date)->get()->sum(fn ($log) => $this->sleepHours($log));
         $steps = $user->walkingLogs()->whereDate('log_date', $date)->sum('steps');
         $calories = $user->mealLogs()->whereDate('log_date', $date)->sum('calories');
 

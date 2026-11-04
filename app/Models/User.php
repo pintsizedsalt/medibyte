@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
@@ -35,7 +36,7 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $appends = ['show_period_tracker'];
+    protected $appends = ['show_period_tracker', 'avatar_url'];
 
     /**
      * Get the attributes that should be cast.
@@ -57,6 +58,24 @@ class User extends Authenticatable
     {
         // Only users who menstruate should see the cycle tracker.
         return $this->sex === 'female' && $this->period_status === 'active';
+    }
+
+    /**
+     * Address of the uploaded photo, cache-busted from the file's own timestamp.
+     * A new crop overwrites the same path, which leaves updated_at untouched, so
+     * the record could never prove the photo changed.
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        $version = Storage::disk('local')->lastModified($this->avatar_path)
+            ?: $this->updated_at?->getTimestamp()
+            ?: time();
+
+        return '/avatar?v='.$version;
     }
 
     public function dailyLogs()
@@ -91,7 +110,7 @@ class User extends Authenticatable
 
     public function customMoods()
     {
-    return $this->hasMany(CustomMood::class);
+        return $this->hasMany(CustomMood::class);
     }
 
     public function periodLogs()

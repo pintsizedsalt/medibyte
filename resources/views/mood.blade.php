@@ -21,12 +21,12 @@ api('/moods').then(moods => logPage({
   formNote: 'Choose the mood that fits best. The reflection and event notes are optional.',
   fields: [
     ['mood', 'Mood', 'select', ['', ...moods]],
-    ['intensity', 'Intensity (1 to 5)'],
+    ['intensity', 'Intensity', 'slider', null, 3],
     ['cried', 'I cried today', 'check'],
     ['has_big_event', 'Something big happened today', 'check'],
-    ['event_note', 'What was the event?', 'text'],
+    ['reflection', 'What happened? Share your thoughts.', 'textarea', null, null, 'Write as much as you like — this page is just for you.', ['cried', 'true']],
+    ['event_note', 'What was the event?', 'textarea', null, null, 'A sentence is enough.', ['has_big_event', 'true']],
     ['impacts', 'What affected your mood? (separate with commas)', 'list'],
-    ['reflection', 'What happened? Share your thoughts.', 'text'],
     ['log_date', 'Date', 'today']
   ],
   value: r => (r.mood || 'Mood').replace(/^./, c => c.toUpperCase()) + ' · ' + r.intensity + '/5',

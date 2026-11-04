@@ -49,7 +49,10 @@ let notificationRows = [];
 let notificationFilter = 'all';
 
 function notificationTypeIcon(item) {
+  const kind = String(item?.data?.kind || '');
   const url = String(item?.data?.url || '');
+  if (kind === 'welcome') return 'heart';
+  if (kind === 'symptom') return 'thermometer';
   if (url.includes('medication')) return 'pill';
   if (url.includes('appointment')) return 'calendar';
   return 'bell';
@@ -77,6 +80,22 @@ function renderNotifications() {
 
   list.innerHTML = '<div class="record-list">' + visible.map(item => {
     const payload = item.data || {};
+    const isWelcome = payload.kind === 'welcome';
+
+    if (isWelcome) {
+      return `
+        <div class="record welcome-row ${item.read_at ? '' : 'record-unread'}">
+          <div class="record-main">
+            <strong>${esc(payload.title || 'Welcome to MediByte')}</strong>
+            <span class="record-meta">${esc(payload.body || '')}</span>
+            <span class="record-meta">${esc(relativeTime(item.created_at))}</span>
+          </div>
+          <div class="record-actions">
+            <button type="button" class="record-row-action danger" onclick="dismissNotification('${esc(item.id)}')" aria-label="Close welcome message" title="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+          </div>
+        </div>`;
+    }
+
     return `
       <div class="record ${item.read_at ? '' : 'record-unread'}">
         <span class="record-icon"><svg class="icon"><use href="#i-${notificationTypeIcon(item)}"/></svg></span>
@@ -86,8 +105,9 @@ function renderNotifications() {
           <span class="record-meta">${esc(relativeTime(item.created_at))}</span>
         </div>
         <div class="record-actions">
-          ${payload.url ? `<a class="record-row-action" href="${esc(payload.url)}" aria-label="Open notification"><svg class="icon"><use href="#i-arrow"/></svg></a>` : ''}
-          ${item.read_at ? '' : `<button type="button" class="record-row-action" onclick="markRead('${esc(item.id)}')" aria-label="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
+          ${payload.url ? `<a class="record-row-action" href="${esc(payload.url)}" aria-label="Open notification" title="Open"><svg class="icon"><use href="#i-arrow"/></svg></a>` : ''}
+          ${item.read_at ? '' : `<button type="button" class="record-row-action" onclick="markRead('${esc(item.id)}')" aria-label="Mark as read" title="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
+          <button type="button" class="record-row-action danger" onclick="dismissNotification('${esc(item.id)}')" aria-label="Dismiss notification" title="Dismiss"><svg class="icon"><use href="#i-close"/></svg></button>
         </div>
       </div>
     `;
@@ -128,6 +148,18 @@ async function markAllRead() {
     toast('All notifications marked as read.');
     await loadNotificationsPage();
     refreshNotificationBadge();
+  } else {
+    $('msg').textContent = errText(result);
+  }
+}
+
+async function dismissNotification(id) {
+  const result = await api('/notifications/' + encodeURIComponent(id), 'DELETE');
+
+  if (result && result.message === 'Dismissed') {
+    await loadNotificationsPage();
+    refreshNotificationBadge();
+    toast('Notification dismissed.');
   } else {
     $('msg').textContent = errText(result);
   }

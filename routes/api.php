@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\CustomMoodController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -13,7 +14,9 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PeriodLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
+use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SleepLogController;
 use App\Http\Controllers\SymptomLogController;
 use App\Http\Controllers\VitalSignLogController;
@@ -41,6 +44,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::post('/profile', [ProfileController::class, 'store']);
         Route::post('/profile/complete', [ProfileController::class, 'complete']);
+        Route::post('/avatar', [AvatarController::class, 'store']);
 
         Route::get('/account/export', [AccountController::class, 'export']);
         Route::delete('/account', [AccountController::class, 'destroy']);
@@ -58,8 +62,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/moods', [MoodLogController::class, 'moods']);
         Route::apiResource('mood-logs', MoodLogController::class)->except('show');
 
-	Route::apiResource('custom-moods', CustomMoodController::class)
-    	->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('custom-moods', CustomMoodController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
 
         Route::get('/period-predict', [PeriodLogController::class, 'predict']);
         Route::apiResource('period-logs', PeriodLogController::class)->except('show');
@@ -71,13 +75,17 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
         Route::get('/documents/{id}/preview', [DocumentController::class, 'preview']);
-        Route::apiResource('documents', DocumentController::class)->except(['show', 'update']);
+        Route::apiResource('documents', DocumentController::class)->except(['show']);
 
         Route::get('/reminders', [ReminderController::class, 'index']);
         Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/search', SearchController::class);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
         Route::get('/progress', [ProgressController::class, 'index']);
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/records/summary', [RecordsController::class, 'summary']);
+        Route::get('/records/day', [RecordsController::class, 'day']);
     });
 });

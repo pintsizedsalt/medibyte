@@ -5,9 +5,6 @@
 @section('content')
   <div class="page-heading tone-blue">
     <div class="heading-main">
-      <a class="back-link" href="/records" aria-label="Back to all records">
-        <svg class="icon"><use href="#i-chevron-left"/></svg>
-      </a>
       <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-file"/></svg></span>
       <div>
         <p class="eyebrow">Health records</p>
@@ -15,10 +12,6 @@
         <p>Store prescriptions, lab results, and medical certificates in your private record.</p>
       </div>
     </div>
-    <button type="button" class="btn btn-primary" onclick="openUploadModal()">
-      <svg class="icon"><use href="#i-plus"/></svg>
-      Upload
-    </button>
   </div>
 
   <p id="msg" class="form-message" role="alert"></p>
@@ -52,9 +45,13 @@
     <div>
       <svg class="icon"><use href="#i-file"/></svg>
       <strong>Drop to upload</strong>
-      <span>PDF, JPG, or PNG up to 10 MB</span>
+      <span>PDF, JPG, or PNG up to 5 MB</span>
     </div>
   </div>
+
+  <button type="button" id="doc-fab" class="fab" onclick="openUploadModal()" aria-label="Upload a file" title="Upload a file" hidden>
+    <svg class="icon"><use href="#i-plus"/></svg>
+  </button>
 
   {{-- Upload pop-up --}}
   <div id="doc-upload-modal" class="doc-preview-modal" hidden>
@@ -65,9 +62,6 @@
           <p class="eyebrow">Upload</p>
           <h3 id="doc-upload-title">Add a document</h3>
         </div>
-        <button type="button" class="icon-btn" onclick="closeUploadModal()" aria-label="Close upload">
-          <svg class="icon"><use href="#i-close"/></svg>
-        </button>
       </header>
 
       <form id="doc-form" class="doc-upload-body" onsubmit="event.preventDefault(); uploadDocument()">
@@ -87,14 +81,14 @@
             <input id="doc_title" type="text" maxlength="150" placeholder="e.g. Blood test — October">
           </label>
 
-          <div class="field span-full">
+          <div class="field span-full" id="doc-file-field">
             <span>File</span>
             <input id="doc_file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden onchange="updateFileLabel()">
             <label class="document-drop" for="doc_file">
               <svg class="icon"><use href="#i-file"/></svg>
               <span>
                 <strong id="doc-file-label">Choose a PDF, JPG, or PNG</strong>
-                <small>Up to 10 MB (under 8 MB recommended). Your file stays on a private disk.</small>
+                <small>Up to 5 MB. Your file stays on a private disk.</small>
               </span>
             </label>
             <p id="doc-file-error" class="field-error" role="alert" hidden></p>
@@ -141,6 +135,19 @@
       <div class="doc-preview-body" id="doc-preview-body"></div>
     </div>
   </div>
+
+  {{-- Per-file action menu --}}
+  <div id="doc-menu" class="doc-menu" role="menu" hidden>
+    <button type="button" role="menuitem" onclick="editDocument()">
+      <svg class="icon"><use href="#i-file"/></svg>Edit details
+    </button>
+    <button type="button" role="menuitem" onclick="downloadFromMenu()">
+      <svg class="icon"><use href="#i-download"/></svg>Download
+    </button>
+    <button type="button" role="menuitem" class="is-danger" onclick="deleteFromMenu()">
+      <svg class="icon"><use href="#i-trash"/></svg>Delete
+    </button>
+  </div>
 @endsection
 
 @push('scripts')
@@ -150,6 +157,15 @@ let docFilter = 'all';
 let docSearch = '';
 let docView = 'grid';
 let docUploading = false;
+let docMenuId = null;
+let editingDocId = null;
+let docSort = { key: 'modified', dir: 'desc' };
+
+const DOC_COLUMNS = [
+  ['name', 'Name'],
+  ['modified', 'Date modified'],
+  ['size', 'File size']
+];
 
 try {
   docView = localStorage.getItem('medibyte.docView') === 'list' ? 'list' : 'grid';
@@ -175,6 +191,14 @@ function formatBytes(bytes) {
   if (value < 1024) return value + ' B';
   if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
   return (value / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/* Long names are shortened in the lists; the full name stays in the tooltip and the preview. */
+const DOC_NAME_LIMIT = 35;
+
+function docNameLabel(value) {
+  const name = String(value || '');
+  return name.length > DOC_NAME_LIMIT ? name.slice(0, DOC_NAME_LIMIT).trimEnd() + '…' : name;
 }
 
 function isImageMime(mime) {
@@ -212,10 +236,8 @@ function updateFileLabel() {
   const label = $('doc-file-label');
   if (label) label.textContent = file ? file.name : 'Choose a PDF, JPG, or PNG';
 
-  if (file && file.size > 10 * 1024 * 1024) {
-    setFileError('The file must be 10 MB or smaller.');
-  } else if (file && file.size > 8 * 1024 * 1024) {
-    setFileError('This file is over 8 MB. The server may reject it — try a smaller file if upload fails.');
+  if (file && file.size > 5 * 1024 * 1024) {
+    setFileError('The file must be 5 MB or smaller.');
   } else {
     clearFileError();
   }
@@ -234,6 +256,7 @@ function setSelectedFile(file) {
 }
 
 function openUploadModal(file) {
+  resetUploadDialog();
   $('doc-form').reset();
   $('upload-msg').textContent = '';
   clearFileError();
@@ -250,14 +273,35 @@ function closeUploadModal() {
   if (docUploading) return;
   const modal = $('doc-upload-modal');
   if (modal) modal.hidden = true;
+  resetUploadDialog();
   if ($('doc-preview-modal')?.hidden !== false) {
     document.body.classList.remove('doc-preview-open');
   }
 }
 
+function readFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',')[1] : '');
+    };
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function uploadErrorMessage(result, file) {
   const raw = errText(result) || '';
   const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('temporary file') ||
+    lower.includes('upload_tmp_dir') ||
+    lower.includes('failed to upload')
+  ) {
+    return 'The server could not create a temporary upload file. MediByte will retry with a secure direct upload. If it still fails, please ask the administrator to set upload_tmp_dir to a writable folder.';
+  }
 
   if (
     lower.includes('content-length') ||
@@ -266,7 +310,7 @@ function uploadErrorMessage(result, file) {
     lower.includes('upload_max_filesize') ||
     lower.includes('post_max_size') ||
     lower.includes('file is too large') ||
-    (file && file.size > 8 * 1024 * 1024 && (!result || !result.errors))
+    (file && file.size > 5 * 1024 * 1024 && (!result || !result.errors))
   ) {
     return 'This file is too large for the server to accept right now. Please use a file under 8 MB.';
   }
@@ -281,6 +325,26 @@ function uploadErrorMessage(result, file) {
 async function uploadDocument() {
   if (docUploading) return;
 
+  if (editingDocId) {
+    const title = $('doc_title').value.trim() || 'Untitled document';
+    const result = await api('/documents/' + editingDocId, 'PATCH', {
+      type: $('doc_type').value,
+      title,
+      notes: $('doc_notes').value.trim()
+    });
+
+    if (result && result.id) {
+      toast('Document updated.');
+      closeUploadModal();
+      await loadDocuments();
+    } else {
+      const message = errText(result);
+      $('upload-msg').textContent = message;
+      toast(message, 'error');
+    }
+    return;
+  }
+
   const file = $('doc_file').files[0];
   clearFileError();
   $('upload-msg').textContent = '';
@@ -290,8 +354,8 @@ async function uploadDocument() {
     return;
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    setFileError('The file must be 10 MB or smaller.');
+  if (file.size > 5 * 1024 * 1024) {
+    setFileError('The file must be 5 MB or smaller.');
     return;
   }
 
@@ -317,6 +381,28 @@ async function uploadDocument() {
   } finally {
     docUploading = false;
     submit.disabled = false;
+  }
+
+  if (!result || !result.id) {
+    const firstMessage = uploadErrorMessage(result, file);
+    const uploadStartupIssue = /temporary file|failed to upload|request startup|upload_tmp_dir/i.test(firstMessage);
+
+    if (uploadStartupIssue && file.size <= 5 * 1024 * 1024) {
+      try {
+        const encoded = await readFileBase64(file);
+        $('upload-msg').textContent = 'Secure upload retry…';
+        result = await api('/documents', 'POST', {
+          type: $('doc_type').value,
+          title: $('doc_title').value.trim() || 'Untitled document',
+          notes: $('doc_notes').value.trim(),
+          file_name: file.name,
+          mime_type: file.type,
+          file_data: encoded
+        });
+      } catch (error) {
+        result = result || { message: 'The file could not be read. Please choose it again.' };
+      }
+    }
   }
 
   if (result && result.id) {
@@ -404,17 +490,130 @@ function docThumb(doc) {
 
 function docActions(doc) {
   const id = Number(doc.id);
-  return `<div class="record-actions">
-    <button type="button" class="record-row-action" onclick="openDocPreview(${id})" aria-label="Preview document" title="Preview">
-      <svg class="icon"><use href="#i-file"/></svg>
-    </button>
-    <button type="button" class="record-row-action" onclick="downloadDocument(${id})" aria-label="Download document" title="Download">
-      <svg class="icon"><use href="#i-arrow"/></svg>
-    </button>
-    <button type="button" class="record-row-action danger" onclick="deleteDocument(${id})" aria-label="Delete document" title="Delete">
-      <svg class="icon"><use href="#i-trash"/></svg>
-    </button>
+  return `<button type="button" class="doc-more" onclick="openDocMenu(event, ${id})" aria-haspopup="menu" aria-label="More actions for ${esc(doc.title)}" title="More actions">
+    <svg class="icon"><use href="#i-dots"/></svg>
+  </button>`;
+}
+
+function docColumnHead() {
+  return `<div class="doc-table-head">
+    <span class="doc-head-spacer" aria-hidden="true"></span>
+    ${DOC_COLUMNS.map(([key, label]) => {
+      const active = docSort.key === key;
+      return `<button type="button" class="doc-sort${active ? ' is-active' : ''}" data-sort="${key}" onclick="setDocSort('${key}')" aria-label="Sort by ${esc(label)}" title="Sort by ${esc(label)}">
+        <span>${esc(label)}</span>
+        <svg class="icon sort-ind${active && docSort.dir === 'asc' ? ' is-asc' : ''}" aria-hidden="true"${active ? '' : ' style="opacity:.35"'}><use href="#i-chevron-left"/></svg>
+      </button>`;
+    }).join('')}
+    <span class="doc-head-more" aria-hidden="true"></span>
   </div>`;
+}
+
+function setDocSort(key) {
+  if (docSort.key === key) {
+    docSort.dir = docSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    docSort.key = key;
+    docSort.dir = key === 'name' ? 'asc' : 'desc';
+  }
+  renderDocuments();
+}
+
+function docModified(doc) {
+  return String(doc.updated_at || doc.created_at || '');
+}
+
+function sortedDocuments(rows) {
+  const dir = docSort.dir === 'asc' ? 1 : -1;
+
+  return rows.slice().sort((a, b) => {
+    if (docSort.key === 'size') return (Number(a.size || 0) - Number(b.size || 0)) * dir;
+    if (docSort.key === 'name') {
+      return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }) * dir;
+    }
+    return docModified(a).localeCompare(docModified(b)) * dir;
+  });
+}
+
+/* ---------- Per-file action menu ---------- */
+
+function openDocMenu(event, id) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  docMenuId = Number(id);
+  const menu = $('doc-menu');
+  const button = event.currentTarget;
+  if (!menu || !button) return;
+
+  menu.hidden = false;
+  const rect = button.getBoundingClientRect();
+  const menuWidth = menu.offsetWidth || 190;
+  const menuHeight = menu.offsetHeight || 168;
+  const left = Math.min(window.innerWidth - menuWidth - 10, Math.max(10, rect.right - menuWidth));
+  const top = rect.bottom + menuHeight > window.innerHeight - 10
+    ? Math.max(10, rect.top - menuHeight - 6)
+    : rect.bottom + 6;
+
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+}
+
+function closeDocMenu() {
+  const menu = $('doc-menu');
+  if (menu) menu.hidden = true;
+  docMenuId = null;
+}
+
+function menuDocId() {
+  return Number(docMenuId);
+}
+
+function editDocument() {
+  const id = menuDocId();
+  closeDocMenu();
+  openEditModal(id);
+}
+
+function downloadFromMenu() {
+  const id = menuDocId();
+  closeDocMenu();
+  downloadDocument(id);
+}
+
+function deleteFromMenu() {
+  const id = menuDocId();
+  closeDocMenu();
+  deleteDocument(id);
+}
+
+function openEditModal(id) {
+  const doc = documentRows.find(item => Number(item.id) === Number(id));
+  if (!doc) return;
+
+  editingDocId = Number(doc.id);
+  $('doc-form').reset();
+  $('doc_type').value = doc.type || 'other';
+  $('doc_title').value = doc.title || '';
+  $('doc_notes').value = doc.notes || '';
+  $('upload-msg').textContent = '';
+  clearFileError();
+  updateFileLabel();
+
+  $('doc-upload-title').textContent = 'Edit document details';
+  $('doc-submit').innerHTML = '<svg class="icon"><use href="#i-check"/></svg>Save changes';
+  $('doc-file-field').hidden = true;
+
+  $('doc-upload-modal').hidden = false;
+  document.body.classList.add('doc-preview-open');
+  setTimeout(() => $('doc_title')?.focus({ preventScroll: true }), 50);
+}
+
+function resetUploadDialog() {
+  editingDocId = null;
+  $('doc-upload-title').textContent = 'Add a document';
+  $('doc-submit').innerHTML = '<svg class="icon"><use href="#i-plus"/></svg>Upload document';
+  $('doc-file-field').hidden = false;
 }
 
 function docCardPreview(doc) {
@@ -432,6 +631,7 @@ function renderDocuments() {
   const list = $('documents-list');
   const count = $('doc-count');
   if (count) count.textContent = documentRows.length;
+  $('doc-fab')?.toggleAttribute('hidden', documentRows.length === 0);
 
   $('view-grid')?.classList.toggle('is-active', docView === 'grid');
   $('view-list')?.classList.toggle('is-active', docView === 'list');
@@ -454,7 +654,7 @@ function renderDocuments() {
     return;
   }
 
-  const rows = visibleDocuments();
+  const rows = sortedDocuments(visibleDocuments());
 
   if (!rows.length) {
     list.innerHTML = `<div class="empty-state doc-empty">
@@ -466,17 +666,23 @@ function renderDocuments() {
   }
 
   if (docView === 'list') {
-    list.innerHTML = '<div class="record-list">' + rows.map(doc => `
-      <div class="record document-row">
-        ${docThumb(doc)}
-        <div class="record-main">
-          <strong>${esc(doc.title)} · ${esc(DOCUMENT_TYPES[doc.type] || 'Other')}</strong>
-          <span class="record-meta">${esc(doc.original_name)} · ${formatBytes(doc.size)} · ${esc(dateLabel(doc.created_at))}</span>
-          ${doc.notes ? `<span class="record-meta">${esc(doc.notes)}</span>` : ''}
-        </div>
-        ${docActions(doc)}
-      </div>
-    `).join('') + '</div>';
+    list.innerHTML = `<div class="doc-table">
+      ${docColumnHead()}
+      <div class="record-list">${rows.map(doc => {
+        const id = Number(doc.id);
+        return `<div class="record document-row is-clickable" data-doc-row="${id}" role="button" tabindex="0" onclick="openDocPreview(${id})" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openDocPreview(${id}); }">
+          ${docThumb(doc)}
+          <div class="record-main">
+            <strong class="doc-name" title="${esc(doc.title)}">${esc(docNameLabel(doc.title))}</strong>
+            <span class="record-meta" title="${esc(doc.original_name)}">${esc(DOCUMENT_TYPES[doc.type] || 'Other')} · ${esc(docNameLabel(doc.original_name))}</span>
+            ${doc.notes ? `<span class="record-meta">${esc(doc.notes)}</span>` : ''}
+          </div>
+          <span class="doc-cell doc-cell-date">${esc(dateLabel(doc.updated_at || doc.created_at))}</span>
+          <span class="doc-cell doc-cell-size">${formatBytes(doc.size)}</span>
+          <span class="doc-cell doc-cell-more">${docActions(doc)}</span>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
     return;
   }
 
@@ -484,9 +690,9 @@ function renderDocuments() {
     <article class="doc-card">
       ${docCardPreview(doc)}
       <div class="doc-card-info">
-        <strong title="${esc(doc.title)}">${esc(doc.title)}</strong>
+        <strong class="doc-name" title="${esc(doc.title)}">${esc(docNameLabel(doc.title))}</strong>
         <span class="doc-card-type">${esc(DOCUMENT_TYPES[doc.type] || 'Other')}</span>
-        <span class="record-meta">${formatBytes(doc.size)} · ${esc(dateLabel(doc.created_at))}</span>
+        <span class="record-meta">${formatBytes(doc.size)} · ${esc(dateLabel(doc.updated_at || doc.created_at))}</span>
       </div>
       ${docActions(doc)}
     </article>
@@ -586,9 +792,18 @@ function closeDocPreview() {
 
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
-  if (!$('doc-preview-modal')?.hidden) closeDocPreview();
+  if (!$('doc-menu')?.hidden) closeDocMenu();
+  else if (!$('doc-preview-modal')?.hidden) closeDocPreview();
   else if (!$('doc-upload-modal')?.hidden) closeUploadModal();
 });
+
+document.addEventListener('click', function (e) {
+  if (e.target.closest('#doc-menu') || e.target.closest('.doc-more')) return;
+  closeDocMenu();
+});
+
+window.addEventListener('scroll', closeDocMenu, true);
+window.addEventListener('resize', closeDocMenu);
 
 async function deleteDocument(id) {
   const doc = documentRows.find(item => Number(item.id) === Number(id));

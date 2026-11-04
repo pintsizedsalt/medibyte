@@ -18,15 +18,21 @@ logPage({
   tone: 'mint',
   url: '/meal-logs',
   formTitle: 'Add a meal',
-  formNote: 'A short description is enough. Calories are optional.',
+  formNote: 'Calories are optional. Enter 0 if you don\'t have the calorie information.',
   fields: [
     ['meal_type', 'Meal', 'select', ['breakfast', 'lunch', 'dinner', 'snack']],
     ['food_name', 'Food', 'text'],
-    ['calories', 'Calories', 'number'],
+    ['meal_time', 'Time', 'time'],
+    ['calories', 'Calories (optional)', 'number'],
     ['log_date', 'Date', 'today']
   ],
   value: r => r.food_name,
-  meta: r => [(r.meal_type || '').replace(/^./, c => c.toUpperCase()), r.calories ? r.calories + ' cal' : null, dateLabel(r.log_date)].filter(Boolean).join(' · ')
+  meta: r => [
+    (r.meal_type || '').replace(/^./, c => c.toUpperCase()),
+    r.meal_time ? lt(r.meal_time) : null,
+    r.calories !== null && r.calories !== undefined ? r.calories + ' cal' : null,
+    dateLabel(r.log_date)
+  ].filter(Boolean).join(' · ')
 });
 </script>
 @endpush

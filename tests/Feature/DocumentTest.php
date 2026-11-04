@@ -85,6 +85,60 @@ class DocumentTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('file');
     }
 
+    public function test_a_user_can_rename_and_edit_document_details(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        Sanctum::actingAs($user);
+
+        $this->post('/api/v1/documents', [
+            'type' => 'other',
+            'title' => 'Old name',
+            'file' => UploadedFile::fake()->create('scan.pdf', 1, 'application/pdf'),
+        ])->assertCreated();
+
+        $document = Document::firstOrFail();
+
+        $this->patchJson('/api/v1/documents/'.$document->id, [
+            'title' => 'Renamed report',
+            'type' => 'lab_result',
+            'notes' => 'Reviewed with my doctor.',
+        ])->assertOk()
+            ->assertJsonPath('title', 'Renamed report')
+            ->assertJsonPath('type', 'lab_result')
+            ->assertJsonMissingPath('path');
+
+        $this->assertSame('Renamed report', $document->fresh()->title);
+    }
+
+    public function test_document_updates_reject_invalid_values_and_other_owners(): void
+    {
+        Storage::fake('local');
+
+        $owner = User::factory()->create();
+        $owner->forceFill(['sex' => 'male'])->save();
+        $other = User::factory()->create();
+        $other->forceFill(['sex' => 'male'])->save();
+
+        Sanctum::actingAs($owner);
+        $this->post('/api/v1/documents', [
+            'type' => 'prescription',
+            'title' => 'Prescription',
+            'file' => UploadedFile::fake()->create('rx.pdf', 1, 'application/pdf'),
+        ])->assertCreated();
+
+        $document = Document::firstOrFail();
+
+        $this->patchJson('/api/v1/documents/'.$document->id, ['title' => ''])->assertStatus(422);
+        $this->patchJson('/api/v1/documents/'.$document->id, ['type' => 'invoice'])->assertStatus(422);
+        $this->assertSame('Prescription', $document->fresh()->title);
+
+        Sanctum::actingAs($other);
+        $this->patchJson('/api/v1/documents/'.$document->id, ['title' => 'Not yours'])->assertNotFound();
+    }
+
     public function test_deleting_a_document_removes_the_private_file(): void
     {
         Storage::fake('local');

@@ -63,6 +63,10 @@ class AccountDataTest extends TestCase
         $path = 'documents/'.$user->id.'/private.pdf';
         Storage::disk('local')->put($path, 'private content');
 
+        $avatarPath = 'avatars/'.$user->id.'.jpg';
+        Storage::disk('local')->put($avatarPath, 'photo bytes');
+        $user->forceFill(['avatar_path' => $avatarPath])->save();
+
         $document = Document::create([
             'user_id' => $user->id,
             'type' => 'medical_certificate',
@@ -82,6 +86,7 @@ class AccountDataTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
         $this->assertDatabaseMissing('documents', ['id' => $document->id]);
         Storage::disk('local')->assertMissing($path);
+        Storage::disk('local')->assertMissing($avatarPath);
     }
 
     public function test_the_privacy_notice_is_public(): void

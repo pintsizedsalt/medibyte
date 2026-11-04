@@ -109,7 +109,7 @@ function stepCycle() {
     ${active ? `<div class="wizard-fields">
       <label class="field">
         <span>First day of your last period</span>
-        <input id="w_last_period" type="date" value="${esc(answers.last_period || '')}">
+        <input id="w_last_period" type="date" max="${today()}" value="${esc(answers.last_period || '')}">
       </label>
       <label class="field">
         <span>Typical cycle length (days)</span>
@@ -129,12 +129,6 @@ function stepActivity() {
   ) + `
     <div class="wizard-fields">
       <label class="field">
-        <span>Activity type</span>
-        <select id="w_activity_type">
-          ${['walking', 'jogging', 'running', 'workout'].map(type => `<option value="${type}" ${activity.activity_type === type ? 'selected' : ''}>${type.charAt(0).toUpperCase() + type.slice(1)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="field">
         <span>Steps (optional)</span>
         <input id="w_steps" type="number" min="0" placeholder="e.g. 3000" value="${esc(activity.steps || '')}">
       </label>
@@ -142,7 +136,7 @@ function stepActivity() {
         <span>Active minutes (optional)</span>
         <input id="w_minutes" type="number" min="1" max="1440" placeholder="e.g. 30" value="${esc(activity.minutes || '')}">
       </label>
-      <p class="wizard-note">You can log more activities from the Activity page.</p>
+      <p class="wizard-note">You can log more walks from the Activity page.</p>
     </div>
   `);
 }
@@ -166,12 +160,17 @@ function stepWater() {
 
 function stepSleep() {
   const sleep = answers.sleep || {};
+  const method = answers.sleep_method || (sleep.bedtime ? 'times' : sleep.hours ? 'hours' : '');
 
   return stepForm(stepHeader(
     'Sleep',
-    'How did you sleep last night? Add bedtime and wake-up time, or enter the total hours.'
+    'How did you sleep last night? Choose how you would like to log it.'
   ) + `
-    <div class="wizard-fields">
+    <div class="option-grid">
+      ${optionCard('sleep_method', 'times', 'Bedtime and wake-up time', 'Enter both times and we calculate your total sleep.')}
+      ${optionCard('sleep_method', 'hours', 'Total hours slept', 'Enter the number of hours you slept directly.')}
+    </div>
+    ${method === 'times' ? `<div class="wizard-fields">
       <label class="field">
         <span>Bedtime</span>
         <input id="w_bedtime" type="time" value="${esc(sleep.bedtime || '')}">
@@ -180,11 +179,13 @@ function stepSleep() {
         <span>Wake-up time</span>
         <input id="w_wake_time" type="time" value="${esc(sleep.wake_time || '')}">
       </label>
+    </div>` : ''}
+    ${method === 'hours' ? `<div class="wizard-fields">
       <label class="field">
-        <span>Or total hours slept</span>
+        <span>Total hours slept</span>
         <input id="w_hours" type="number" min="0" max="24" step="0.25" placeholder="e.g. 7.5" value="${esc(sleep.hours || '')}">
       </label>
-    </div>
+    </div>` : ''}
   `);
 }
 
@@ -259,53 +260,17 @@ function stepMood() {
   const intensity = Number(answers.intensity || 3);
   const selectedMood = answers.mood || '';
 
-  const groups = {
-    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
-    neutral:  ['neutral','bored','tired','confused'],
-    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
-  };
-
-  let activeCat = answers._moodCat || 'positive';
-  if (!answers._moodCat && selectedMood) {
-    if (groups.low.includes(selectedMood)) activeCat = 'low';
-    else if (groups.neutral.includes(selectedMood)) activeCat = 'neutral';
-  }
-
-  const chips = (groups[activeCat] || groups.positive).map(m => {
-    const label = m.charAt(0).toUpperCase() + m.slice(1);
-    const on = selectedMood === m ? ' active' : '';
-    return `<button type="button" class="mood-chip${on}" data-mood="${m}" onclick="window.wizardPickMood('${m}')">${label}</button>`;
-  }).join('');
-
-  const segs = [1,2,3,4,5].map(n => {
-    const on = intensity === n ? 'checked' : '';
-    return `<input type="radio" id="w_int_${n}" name="w_intensity" value="${n}" ${on} onchange="window.wizardSetIntensity(${n})">
-            <label for="w_int_${n}">${n}</label>`;
-  }).join('');
-
   return stepForm(stepHeader(
     'How are you feeling?',
     'Choose the mood that fits you best right now and how strong it feels.'
   ) + `
     <div class="wizard-fields">
-      <div class="field">
+      <label class="field">
         <span>Mood</span>
-        <div class="mood-cat-tabs">
-          <button type="button" class="mood-cat${activeCat==='positive'?' active':''}" onclick="window.wizardMoodCat('positive')">Positive</button>
-          <button type="button" class="mood-cat${activeCat==='neutral'?' active':''}" onclick="window.wizardMoodCat('neutral')">Neutral</button>
-          <button type="button" class="mood-cat${activeCat==='low'?' active':''}" onclick="window.wizardMoodCat('low')">Low</button>
-        </div>
-        <div class="mood-chips" id="w_mood_chips">${chips}</div>
-        <input type="hidden" id="w_mood" value="${esc(selectedMood)}">
-      </div>
+        <select id="w_mood">${moodOptionHtml(moods, selectedMood)}</select>
+      </label>
 
-      <div class="field">
-        <span>Intensity (1 to 5)</span>
-        <div class="intensity-seg" role="radiogroup" aria-label="Intensity from 1 to 5">
-          ${segs}
-        </div>
-        <input type="hidden" id="w_intensity" value="${intensity}">
-      </div>
+      ${intensitySliderHtml('w_intensity', 'Intensity', intensity)}
 
       <label class="field">
         <span>Anything you want to note? (optional)</span>
@@ -314,34 +279,6 @@ function stepMood() {
     </div>
   `);
 }
-
-window.wizardMoodCat = function(cat) {
-  answers._moodCat = cat;
-  const groups = {
-    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
-    neutral:  ['neutral','bored','tired','confused'],
-    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
-  };
-  if (answers.mood && !(groups[cat] || []).includes(answers.mood)) {
-    answers.mood = '';
-  }
-  render();
-};
-
-window.wizardPickMood = function(mood) {
-  answers.mood = mood;
-  const el = $('w_mood');
-  if (el) el.value = mood;
-  document.querySelectorAll('#w_mood_chips .mood-chip').forEach(c => {
-    c.classList.toggle('active', c.getAttribute('data-mood') === mood);
-  });
-};
-
-window.wizardSetIntensity = function(n) {
-  answers.intensity = n;
-  const el = $('w_intensity');
-  if (el) el.value = n;
-};
 
 function stepIllness() {
   return stepForm(stepHeader(
@@ -371,12 +308,7 @@ function stepSymptoms() {
         <span>Symptom</span>
         <input id="w_symptom" type="text" placeholder="e.g. Headache" value="${esc(symptom.symptom || '')}">
       </label>
-      <label class="field">
-        <span>Severity (1 = mild, 5 = severe)</span>
-        <select id="w_severity">
-          ${[1, 2, 3, 4, 5].map(level => `<option value="${level}" ${Number(symptom.severity || 1) === level ? 'selected' : ''}>${level} / 5</option>`).join('')}
-        </select>
-      </label>
+      ${intensitySliderHtml('w_severity', 'Severity', Number(symptom.severity || 1), ['Mild', 'Severe'])}
       <label class="field">
         <span>Notes (optional)</span>
         <textarea id="w_notes" rows="2" placeholder="Anything else you want to remember.">${esc(symptom.notes || '')}</textarea>
@@ -495,7 +427,7 @@ function stepGoals() {
       </label>
       ${answers.prediction && answers.prediction.predicted_next_start ? `<div class="wizard-success">Estimated next period: <strong>${esc(answers.prediction.predicted_next_start)}</strong> (about ${esc(answers.prediction.days_until_next)} days from today).</div>` : ''}
     </div>
-  `, false, 'Finish setup');
+  `, true, 'Finish setup');
 }
 
 function stepDone() {
@@ -537,11 +469,16 @@ function stepDone() {
       <div class="done-check"><svg class="icon"><use href="#i-check"/></svg></div>
       <h2 class="done-title">Welcome to MediByte${first ? ', ' + esc(first) : ''}</h2>
       <p class="done-copy">Your profile is ready. You can change any of these details later from your profile.</p>
+      <div class="done-perks">
+        <span class="done-perk"><svg class="icon"><use href="#i-shield"/></svg>Private by design</span>
+        <span class="done-perk"><svg class="icon"><use href="#i-heart"/></svg>Track your health</span>
+        <span class="done-perk"><svg class="icon"><use href="#i-bell"/></svg>Gentle reminders</span>
+      </div>
     </div>
     ${goalsHtml}
     ${prediction}
     <div class="done-actions">
-      <button type="button" class="btn-ripple" onclick="location.replace('/dashboard')">
+      <button type="button" class="btn-ripple" onclick="wizardFinish()">
         <span class="animation"></span>
         Go to dashboard
         <span class="animation"></span>
@@ -576,6 +513,7 @@ function render() {
   };
 
   $('wizard-body').innerHTML = builders[key]();
+  bindFieldConditionals($('wizard-body'), 'w_');
   if (key === 'body') window.updateBmiPreview();
 
   const firstField = $('wizard-body').querySelector('input, select, textarea, button.option-card');
@@ -609,7 +547,7 @@ window.wizardBack = () => {
 
 window.wizardSkip = () => {
   const key = steps[current];
-  const required = ['cycle', 'weight_goal', 'illness', 'reminders', 'goals', 'done'];
+  const required = ['cycle', 'weight_goal', 'illness', 'reminders', 'done'];
   if (required.includes(key)) return;
   advance();
 };
@@ -623,13 +561,31 @@ window.updateBmiPreview = () => {
 
   if (height > 0 && weight > 0) {
     const bmi = weight / Math.pow(height / 100, 2);
-    let label = 'Healthy range';
-    if (bmi < 18.5) label = 'Below the healthy range';
-    else if (bmi >= 25 && bmi < 30) label = 'Above the healthy range';
-    else if (bmi >= 30) label = 'Well above the healthy range';
+    const category = bmi < 18.5 ? 'below' : bmi < 25 ? 'healthy' : bmi < 30 ? 'above' : 'obese';
+    const labels = {
+      below: 'Below the healthy range',
+      healthy: 'Healthy range',
+      above: 'Above the healthy range',
+      obese: 'Well above the healthy range',
+    };
+    const tones = { below: 'tone-violet', healthy: 'tone-mint', above: 'tone-amber', obese: 'tone-rose' };
+    const marker = Math.max(4, Math.min(96, ((bmi - 14) / 26) * 100));
 
-    preview.textContent = `Estimated BMI: ${bmi.toFixed(1)} — ${label}`;
+    preview.className = `wizard-success bmi-card ${tones[category]}`;
+    preview.innerHTML = `
+      <span class="bmi-icon" aria-hidden="true"><svg class="icon"><use href="#i-scale"/></svg></span>
+      <div class="bmi-value-row">
+        <strong>${bmi.toFixed(1)}</strong>
+        <span class="bmi-unit">kg/m²</span>
+      </div>
+      <span class="bmi-chip">${labels[category]}</span>
+      <div class="bmi-bar" aria-hidden="true">
+        <span class="bmi-bar-marker" style="left: ${marker.toFixed(1)}%"></span>
+      </div>
+      <p>Estimated from your height and weight. BMI is a screening tool, not a diagnosis.</p>
+    `;
   } else {
+    preview.className = 'wizard-success';
     preview.textContent = 'BMI will appear here.';
   }
 };
@@ -686,21 +642,17 @@ async function saveCycle() {
 }
 
 async function saveActivity() {
-  const type = $('w_activity_type').value;
   const stepsValue = $('w_steps').value.trim();
   const minutesValue = $('w_minutes').value.trim();
 
-  if (!stepsValue && !minutesValue) {
-    setError('Add steps or active minutes, or choose “Skip for now”.');
-    return false;
-  }
+  if (!stepsValue && !minutesValue) return true;
 
-  const body = { activity_type: type, log_date: today() };
+  const body = { activity_type: 'walking', log_date: today() };
   if (stepsValue) body.steps = stepsValue;
   if (minutesValue) body.minutes = minutesValue;
 
   const result = await upsert('activity', '/walking-logs', body);
-  if (result) answers.activity = { activity_type: type, steps: stepsValue, minutes: minutesValue };
+  if (result) answers.activity = { activity_type: 'walking', steps: stepsValue, minutes: minutesValue };
   return Boolean(result);
 }
 
@@ -717,34 +669,50 @@ async function saveWater() {
 }
 
 async function saveSleep() {
-  const bedtime = $('w_bedtime').value;
-  const wakeTime = $('w_wake_time').value;
-  const hours = $('w_hours').value.trim();
+  const method = answers.sleep_method;
 
-  if (!bedtime && !wakeTime && !hours) {
-    setError('Add your sleep details, or choose “Skip for now”.');
-    return false;
-  }
-
-  if ((bedtime && !wakeTime) || (!bedtime && wakeTime)) {
-    setError('Please add both bedtime and wake-up time, or use total hours instead.');
+  if (!method) {
+    setError('Choose how you would like to log your sleep, or choose “Skip for now”.');
     return false;
   }
 
   const body = { log_date: today() };
 
-  if (bedtime && wakeTime) {
+  if (method === 'times') {
+    const bedtime = $('w_bedtime')?.value || '';
+    const wakeTime = $('w_wake_time')?.value || '';
+
+    if (!bedtime && !wakeTime) {
+      setError('Add your sleep details, or choose “Skip for now”.');
+      return false;
+    }
+    if ((bedtime && !wakeTime) || (!bedtime && wakeTime)) {
+      setError('Please add both bedtime and wake-up time.');
+      return false;
+    }
+
     body.bedtime = bedtime;
     body.wake_time = wakeTime;
     body.hours = null;
-  } else {
-    body.hours = hours;
-    body.bedtime = null;
-    body.wake_time = null;
+
+    const result = await upsert('sleep', '/sleep-logs', body);
+    if (result) answers.sleep = { bedtime, wake_time: wakeTime };
+    return Boolean(result);
   }
 
+  const hours = $('w_hours')?.value.trim() || '';
+
+  if (!hours) {
+    setError('Add your sleep details, or choose “Skip for now”.');
+    return false;
+  }
+
+  body.hours = hours;
+  body.bedtime = null;
+  body.wake_time = null;
+
   const result = await upsert('sleep', '/sleep-logs', body);
-  if (result) answers.sleep = { bedtime, wake_time: wakeTime, hours };
+  if (result) answers.sleep = { hours };
   return Boolean(result);
 }
 
@@ -971,8 +939,24 @@ async function saveGoals() {
   return true;
 }
 
-window.wizardNext = async () => {
-  if (busy) return;
+/* The goals step can be skipped, so completion is confirmed here instead. */
+window.wizardFinish = async () => {
+  if (profile.onboarding_completed_at) {
+    location.replace('/dashboard');
+    return;
+  }
+
+  const completed = await api('/profile/complete', 'POST');
+  if (!completed || !completed.id) {
+    setError(errText(completed));
+    return;
+  }
+
+  profile = Object.assign({}, profile, completed);
+  location.replace('/dashboard');
+};
+
+window.wizardNext = async () => {  if (busy) return;
   busy = true;
   clearError();
 
@@ -1018,8 +1002,9 @@ window.wizardNext = async () => {
     return;
   }
 
-  const moodResponse = await api('/moods');
+  const [moodResponse, customMoodResponse] = await Promise.all([api('/moods'), api('/custom-moods')]);
   if (Array.isArray(moodResponse)) moods = moodResponse;
+  rememberPersonalizedMoods(Array.isArray(customMoodResponse) ? customMoodResponse.map(mood => mood.name) : []);
 
   answers = {
     period_status: profile.period_status || '',

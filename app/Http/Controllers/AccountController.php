@@ -25,6 +25,7 @@ class AccountController extends Controller
             'medications',
             'appointments',
             'documents',
+            'customMoods',
         ]);
 
         return response()->json([
@@ -62,6 +63,7 @@ class AccountController extends Controller
             'vital_sign_logs' => $user->vitalSignLogs,
             'medications' => $user->medications,
             'appointments' => $user->appointments,
+            'custom_moods' => $user->customMoods,
             'documents' => $user->documents->map(fn ($document) => [
                 'title' => $document->title,
                 'type' => $document->type,
@@ -93,6 +95,7 @@ class AccountController extends Controller
         }
 
         $documentPaths = $user->documents->pluck('path');
+        $avatarPath = $user->avatar_path;
 
         DB::transaction(function () use ($user) {
             $user->notifications()->delete();
@@ -102,6 +105,10 @@ class AccountController extends Controller
 
         foreach ($documentPaths as $path) {
             Storage::disk('local')->delete($path);
+        }
+
+        if ($avatarPath) {
+            Storage::disk('local')->delete($avatarPath);
         }
 
         return response()->json(['message' => 'Account deleted']);

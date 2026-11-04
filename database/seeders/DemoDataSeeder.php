@@ -220,7 +220,7 @@ class DemoDataSeeder extends Seeder
         );
         WalkingLog::updateOrCreate(
             ['user_id' => $user->id, 'log_date' => $date],
-            ['activity_type' => 'running', 'steps' => 7600, 'minutes' => 35]
+            ['activity_type' => 'walking', 'steps' => 7600, 'minutes' => 35]
         );
         WeightLog::updateOrCreate(
             ['user_id' => $user->id, 'log_date' => $date],
@@ -253,7 +253,7 @@ class DemoDataSeeder extends Seeder
             );
             WalkingLog::updateOrCreate(
                 ['user_id' => $user->id, 'log_date' => $historyDate],
-                ['activity_type' => 'running', 'steps' => $entry['steps'], 'minutes' => 35]
+                ['activity_type' => 'walking', 'steps' => $entry['steps'], 'minutes' => 35]
             );
             MoodLog::updateOrCreate(
                 ['user_id' => $user->id, 'log_date' => $historyDate],

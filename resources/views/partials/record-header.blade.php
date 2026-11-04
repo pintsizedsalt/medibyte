@@ -1,8 +1,5 @@
 @php
   $eyebrow = $eyebrow ?? 'Health record';
-  $back = $back ?? '/dashboard';
-  $backLabel = $backLabel ?? 'Back to dashboard';
-  $add = $add ?? true;
 
   $sections = [
     'water'        => ['blue', 'droplet'],
@@ -22,9 +19,6 @@
 
 <div class="page-heading{{ $tone ? ' tone-'.$tone : '' }}">
   <div class="heading-main">
-    <a class="back-link" href="{{ $back }}" aria-label="{{ $backLabel }}">
-      <svg class="icon"><use href="#i-chevron-left"/></svg>
-    </a>
     @if ($icon)
       <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-{{ $icon }}"/></svg></span>
     @endif
@@ -36,13 +30,6 @@
       @endisset
     </div>
   </div>
-
-  @if ($add)
-    <button type="button" class="btn btn-primary" onclick="window.addLogRecord && window.addLogRecord()">
-      <svg class="icon"><use href="#i-plus"/></svg>
-      Add record
-    </button>
-  @endif
 </div>
 
 @include('partials.record-tabs')

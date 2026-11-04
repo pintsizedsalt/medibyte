@@ -32,12 +32,12 @@
         <div class="form-grid">
           <label class="field">
             <span>First name</span>
-            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required>
+            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required oninput="formatNameInput(this)">
           </label>
 
           <label class="field">
             <span>Last name</span>
-            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required>
+            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required oninput="formatNameInput(this)">
           </label>
 
           <label class="field">
@@ -78,6 +78,7 @@
           <label class="field">
             <span>Sex</span>
             <select id="sex" onchange="toggleCycleSettings()">
+              <option value="">Not set</option>
               <option value="female">Female</option>
               <option value="male">Male</option>
             </select>
@@ -145,11 +146,17 @@
 
     <aside class="settings-side">
       <section class="card account-card">
-        <span class="avatar" id="profileCardAvatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()->first_name ?? auth()->user()->name ?? 'M', 0, 1)) }}</span>
+        <div class="avatar-drop">
+          <span class="avatar {{ auth()->user()?->avatar_url ? 'has-photo' : '' }}" id="profileCardAvatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()->first_name ?? auth()->user()->name ?? 'M', 0, 1)) }}</span>
+          <button type="button" class="avatar-edit" onclick="pickAvatarPhoto()" aria-label="Change profile photo" title="Change profile photo">
+            <svg class="icon"><use href="#i-pencil"/></svg>
+          </button>
+        </div>
         <h3 id="profileCardName">{{ auth()->user()->name ?? 'MediByte account' }}</h3>
         <p class="muted" id="profileCardHandle">{{ auth()->user()->username ? '@'.auth()->user()->username : 'Private account' }}</p>
         <p class="muted" id="profileCardEmail">{{ auth()->user()->email ?? '' }}</p>
         <span class="badge">Private account</span>
+        <input type="file" id="avatarFile" accept="image/jpeg,image/png" hidden onchange="readAvatarPhoto(this)">
       </section>
 
       <section class="card">
@@ -207,7 +214,7 @@ async function loadProfile() {
   $('last_name').value = currentProfile.last_name || '';
   $('username').value = currentProfile.username || '';
   $('email').value = currentProfile.email || '';
-  $('sex').value = currentProfile.sex || 'female';
+  $('sex').value = currentProfile.sex || '';
   $('period_status').value = currentProfile.period_status || 'prefer_not_to_track';
   $('cycle_length').value = currentProfile.cycle_length || 28;
   $('water_goal_ml').value = currentProfile.water_goal_ml || 2000;
@@ -221,14 +228,14 @@ async function loadProfile() {
 }
 
 async function saveProfile() {
-  const female = $('sex').value === 'female';
+  const sex = $('sex').value;
+  const female = sex === 'female';
 
   const body = {
     first_name: $('first_name').value.trim(),
     last_name: $('last_name').value.trim(),
     username: $('username').value.trim(),
     email: $('email').value.trim(),
-    sex: $('sex').value,
     period_status: female ? $('period_status').value : null,
     cycle_length: $('cycle_length').value || 28,
     water_goal_ml: $('water_goal_ml').value,
@@ -237,6 +244,9 @@ async function saveProfile() {
     calorie_goal: $('calorie_goal').value || null,
     weight_goal: $('weight_goal').value || null
   };
+
+  // An untouched "Not set" must not overwrite the sex chosen at sign-up.
+  if (sex) body.sex = sex;
 
   $('msg').textContent = 'Saving…';
   const result = await api('/profile', 'POST', body);

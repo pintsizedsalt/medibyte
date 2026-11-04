@@ -3,15 +3,32 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\HealthReminder;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Mail\Factory;
+use Illuminate\Contracts\Mail\Mailer;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Validator;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
 
 class AuthAndOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Registration checks that the email domain can receive mail. The lookups are
+        // faked so the rest of this file does not depend on the network.
+        Validator::fakeDnsLookups();
+    }
 
     public function test_registration_creates_a_profile_and_starts_onboarding(): void
     {
@@ -35,6 +52,82 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertSame('new_user', $user->username);
         $this->assertNull($user->onboarding_completed_at);
         $this->assertNotNull($user->consented_at);
+    }
+
+    public function test_registration_sends_a_welcome_notification(): void
+    {
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Wendy',
+            'last_name' => 'Wilson',
+            'username' => 'wendy_w',
+            'email' => 'wendy@example.com',
+            'password' => 'password123',
+            'sex' => 'female',
+            'consent' => true,
+        ])->assertCreated();
+
+        $user = User::where('email', 'wendy@example.com')->firstOrFail();
+
+        $welcome = $user->notifications()->first();
+        $this->assertNotNull($welcome);
+        $this->assertSame('Welcome to MediByte', $welcome->data['title']);
+        $this->assertSame('welcome', $welcome->data['kind']);
+        $this->assertSame('/profile-setup', $welcome->data['url']);
+    }
+
+    public function test_registration_title_cases_names_automatically(): void
+    {
+        $response = $this->postJson('/api/v1/register', [
+            'first_name' => 'jUAN',
+            'last_name' => 'dela  CRUZ',
+            'username' => 'title_case',
+            'email' => 'titlecase@example.com',
+            'password' => 'password123',
+            'sex' => 'male',
+            'consent' => true,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('user.first_name', 'Juan')
+            ->assertJsonPath('user.last_name', 'Dela Cruz')
+            ->assertJsonPath('user.name', 'Juan Dela Cruz');
+    }
+
+    public function test_registration_rejects_names_with_numbers_symbols_or_emoji(): void
+    {
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Juan123',
+            'last_name' => 'Cruz! 😊',
+            'username' => 'bad_names',
+            'email' => 'badnames@example.com',
+            'password' => 'password123',
+            'sex' => 'male',
+            'consent' => true,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name', 'last_name']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'badnames@example.com']);
+    }
+
+    public function test_profile_updates_title_case_names_and_reject_non_letters(): void
+    {
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/profile', [
+            'first_name' => 'maria',
+            'last_name' => 'santos',
+        ])->assertStatus(201)
+            ->assertJsonPath('first_name', 'Maria')
+            ->assertJsonPath('last_name', 'Santos')
+            ->assertJsonPath('name', 'Maria Santos');
+
+        $this->postJson('/api/v1/profile', [
+            'first_name' => 'M4ria',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('first_name');
     }
 
     public function test_female_user_must_choose_a_cycle_status_before_finishing_onboarding(): void
@@ -141,7 +234,11 @@ class AuthAndOnboardingTest extends TestCase
 
     public function test_a_user_can_update_their_profile_identity(): void
     {
-        $user = User::factory()->create(['username' => 'old_username']);
+        $user = User::factory()->create([
+            'username' => 'old_username',
+            'sex' => 'male',
+            'period_status' => null,
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -159,6 +256,9 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertSame('Updated Person', $user->name);
         $this->assertSame('updated_name', $user->username);
         $this->assertSame('updated@example.com', $user->email);
+
+        // An edit that leaves sex out must keep the answer given at sign-up.
+        $this->assertSame('male', $user->sex);
     }
 
     public function test_registration_rejects_invalid_and_duplicate_usernames(): void
@@ -184,17 +284,61 @@ class AuthAndOnboardingTest extends TestCase
         ]))->assertStatus(422)->assertJsonValidationErrors('username');
     }
 
+    public function test_registration_rejects_an_email_domain_that_cannot_receive_mail(): void
+    {
+        Validator::fakeDnsLookups(false);
+
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Ghost',
+            'last_name' => 'Mailbox',
+            'username' => 'ghost_mailbox',
+            'email' => 'ghost@mail.example',
+            'password' => 'password123',
+            'sex' => 'female',
+            'consent' => true,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('email')
+            ->assertJsonPath('errors.email.0', 'Enter an email at a domain that can receive mail. Check the spelling, especially the part after the @.');
+
+        $this->assertDatabaseMissing('users', ['email' => 'ghost@mail.example']);
+    }
+
     public function test_a_user_can_log_in_with_their_username(): void
     {
         $user = User::factory()->create(['username' => 'unique_login']);
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
         $this->withHeader('Referer', 'http://localhost/login');
 
         $this->postJson('/api/v1/login', [
             'email' => 'unique_login',
             'password' => 'password',
         ])->assertOk()->assertJsonPath('user.email', $user->email);
+    }
+
+    public function test_logging_in_again_clears_the_welcome_notification(): void
+    {
+        $user = User::factory()->create(['username' => 'returning_user']);
+
+        $user->notify(new HealthReminder([
+            'dedupe_key' => 'welcome',
+            'kind' => 'welcome',
+            'title' => 'Welcome to MediByte',
+            'body' => 'Your account is ready.',
+            'url' => '/profile-setup',
+        ]));
+
+        $this->assertSame(1, $user->notifications()->count());
+
+        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withHeader('Referer', 'http://localhost/login');
+
+        $this->postJson('/api/v1/login', [
+            'email' => 'returning_user',
+            'password' => 'password',
+        ])->assertOk();
+
+        $this->assertSame(0, $user->notifications()->count());
     }
 
     public function test_a_password_reset_link_can_be_requested_and_used(): void
@@ -238,6 +382,23 @@ class AuthAndOnboardingTest extends TestCase
             ->assertJsonPath('message', 'If that email is registered, we have sent a password reset link.');
     }
 
+    public function test_forgot_password_says_so_when_the_mail_server_fails(): void
+    {
+        User::factory()->create(['email' => 'reset@example.com']);
+
+        $mailer = Mockery::mock(Mailer::class);
+        $mailer->shouldReceive('send')->andThrow(new TransportException('Connection refused'));
+
+        $manager = Mockery::mock(Factory::class);
+        $manager->shouldReceive('mailer')->andReturn($mailer);
+
+        Mail::swap($manager);
+
+        $this->postJson('/api/v1/forgot-password', ['email' => 'reset@example.com'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'We could not send the reset email just now. Please try again in a moment.');
+    }
+
     public function test_web_login_creates_a_session(): void
     {
         $user = User::factory()->create();
@@ -246,7 +407,7 @@ class AuthAndOnboardingTest extends TestCase
             'onboarding_completed_at' => now(),
         ])->save();
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
         $this->withHeader('Referer', 'http://localhost/login');
 
         $this->postJson('/api/v1/login', [

@@ -102,6 +102,31 @@ class HealthTrackingTest extends TestCase
             ->assertJsonPath('weight.bmi', 22.86);
     }
 
+    public function test_meal_logs_save_without_calories_and_with_a_meal_time(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/v1/meal-logs', [
+            'meal_type' => 'lunch',
+            'meal_time' => '12:30',
+            'food_name' => 'Rice bowl',
+            'calories' => '',
+            'log_date' => now()->toDateString(),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('calories', null)
+            ->assertJsonPath('meal_time', '12:30');
+
+        $this->assertDatabaseHas('meal_logs', [
+            'user_id' => $user->id,
+            'food_name' => 'Rice bowl',
+            'meal_time' => '12:30',
+            'calories' => null,
+        ]);
+    }
+
     public function test_walking_logs_accept_steps_or_minutes_but_not_neither(): void
     {
         $user = User::factory()->create();
@@ -109,21 +134,42 @@ class HealthTrackingTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->postJson('/api/v1/walking-logs', [
-            'activity_type' => 'walking',
             'minutes' => 30,
             'log_date' => now()->toDateString(),
         ])->assertCreated();
 
         $this->postJson('/api/v1/walking-logs', [
-            'activity_type' => 'running',
             'steps' => 5000,
             'log_date' => now()->toDateString(),
         ])->assertCreated();
 
         $this->postJson('/api/v1/walking-logs', [
-            'activity_type' => 'walking',
             'log_date' => now()->toDateString(),
         ])->assertStatus(422)->assertJsonValidationErrors(['steps', 'minutes']);
+    }
+
+    public function test_walking_logs_always_record_walking_activity(): void
+    {
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/walking-logs', [
+            'steps' => 5000,
+            'log_date' => now()->toDateString(),
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('walking_logs', [
+            'user_id' => $user->id,
+            'activity_type' => 'walking',
+            'steps' => 5000,
+        ]);
+
+        $this->postJson('/api/v1/walking-logs', [
+            'activity_type' => 'running',
+            'steps' => 5000,
+            'log_date' => now()->toDateString(),
+        ])->assertStatus(422)->assertJsonValidationErrors('activity_type');
     }
 
     public function test_sleep_can_be_logged_with_total_hours_or_bedtime(): void
@@ -144,6 +190,36 @@ class HealthTrackingTest extends TestCase
         ])->assertCreated();
 
         $this->assertEquals(8.0, (float) $response->json('hours'));
+    }
+
+    public function test_editing_sleep_to_hours_only_clears_bedtime_and_wake_time(): void
+    {
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        Sanctum::actingAs($user);
+
+        $log = SleepLog::create([
+            'user_id' => $user->id,
+            'log_date' => now()->toDateString(),
+            'bedtime' => '23:00',
+            'wake_time' => '07:00',
+            'hours' => 8,
+        ]);
+
+        $this->putJson('/api/v1/sleep-logs/'.$log->id, [
+            'hours' => 6.5,
+            'log_date' => now()->toDateString(),
+        ])->assertOk()
+            ->assertJsonPath('hours', 6.5)
+            ->assertJsonPath('bedtime', null)
+            ->assertJsonPath('wake_time', null);
+
+        $this->assertDatabaseHas('sleep_logs', [
+            'id' => $log->id,
+            'bedtime' => null,
+            'wake_time' => null,
+            'hours' => 6.5,
+        ]);
     }
 
     public function test_cycle_prediction_uses_the_average_gap_between_periods(): void
@@ -171,6 +247,35 @@ class HealthTrackingTest extends TestCase
             ->assertJsonPath('cycle_day', 1)
             ->assertJsonPath('predicted_next_start', '2026-11-17')
             ->assertJsonPath('days_until_next', 28);
+    }
+
+    public function test_period_logs_reject_future_dates(): void
+    {
+        Carbon::setTestNow('2026-10-20 10:00:00');
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'female',
+            'period_status' => 'active',
+        ])->save();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/period-logs', [
+            'start_date' => '2026-10-21',
+        ])->assertStatus(422)->assertJsonValidationErrors('start_date');
+
+        $this->postJson('/api/v1/period-logs', [
+            'start_date' => '2026-10-18',
+            'end_date' => '2026-10-25',
+        ])->assertStatus(422)->assertJsonValidationErrors('end_date');
+
+        $this->postJson('/api/v1/period-logs', [
+            'start_date' => '2026-10-18',
+            'end_date' => '2026-10-20',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('period_logs', 1);
     }
 
     public function test_reminders_can_be_turned_off_and_on(): void

@@ -5,12 +5,15 @@
 @section('content')
 <div class="dash-page">
   <div class="dash-heading">
-    <div>
-      <p class="eyebrow">Health summary</p>
-      <h2><span id="greeting">Welcome</span>, <span id="hello">there</span></h2>
-      <p id="date-line">Your health at a glance.</p>
+    <div class="dash-heading-main">
+      <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-heart"/></svg></span>
+      <div>
+        <p class="eyebrow">Health summary</p>
+        <h2><span id="greeting">Welcome</span>, <span id="hello">there</span></h2>
+        <p class="dash-tagline">Your health at a glance.</p>
+      </div>
     </div>
-    <a class="btn btn-ghost" href="/records">
+    <a class="btn btn-ghost dash-all-records" href="/records">
       All records
       <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
     </a>
@@ -60,24 +63,23 @@
     </div>
   </section>
 
-  <nav class="qlog-row" aria-label="Quick log">
-    <span class="qlog-label">Quick log</span>
-    <a class="qlog-btn" data-tone="water" href="/water">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Log water
-    </a>
-    <a class="qlog-btn" data-tone="sleep" href="/sleep">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Log sleep
-    </a>
-    <a class="qlog-btn" data-tone="move" href="/meals">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Add meal
-    </a>
-    <a class="qlog-btn" data-tone="mood" href="/mood">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Mood check-in
-    </a>
+  <nav class="dash-rail" aria-label="Quick actions">
+    <button type="button" class="dash-rail-btn" data-tone="water" onclick="openQuickLog('water')" aria-label="Log water">
+      <svg class="icon" aria-hidden="true"><use href="#i-droplet"/></svg>
+      <span class="dash-rail-label">Log water</span>
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="sleep" onclick="openQuickLog('sleep')" aria-label="Log sleep">
+      <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+      <span class="dash-rail-label">Log sleep</span>
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="move" onclick="openQuickLog('meals')" aria-label="Add meal">
+      <svg class="icon" aria-hidden="true"><use href="#i-meal"/></svg>
+      <span class="dash-rail-label">Add meal</span>
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="mood" onclick="openQuickLog('mood')" aria-label="Mood check-in">
+      <svg class="icon" aria-hidden="true"><use href="#i-smile"/></svg>
+      <span class="dash-rail-label">Mood check-in</span>
+    </button>
   </nav>
 
   <section class="metric-grid" id="metric-grid" aria-label="Health metrics">
@@ -92,7 +94,7 @@
     <section class="card">
       <div class="card-head">
         <h3>Next up</h3>
-        <a class="text-link" href="/appointments">Appointments</a>
+        <a class="card-cta" href="/appointments">Appointments<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       </div>
       <div class="care-list" id="care-list">
         <p class="muted">Loading…</p>
@@ -102,7 +104,7 @@
     <section class="card">
       <div class="card-head">
         <h3>Wellbeing check</h3>
-        <a class="text-link" href="/symptoms">Symptoms</a>
+        <a class="card-cta" href="/symptoms">Symptoms<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       </div>
       <div class="wellbeing-list" id="wellbeing-list">
         <p class="muted">Loading…</p>
@@ -379,12 +381,6 @@ async function loadDashboard() {
 
   $('greeting').textContent = greetingText();
   $('hello').textContent = data.first_name || data.name;
-  $('date-line').textContent = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
 
   const health = data.health || {};
   setHealthScore(health.score || 0);
