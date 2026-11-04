@@ -2,6 +2,32 @@ const $ = id => document.getElementById(id);
 const publicPages = ['/login', '/register', '/privacy', '/forgot-password'];
 const isPublicPage = () => publicPages.includes(location.pathname) || location.pathname.startsWith('/reset-password/');
 const API_BASE = '/api/v1';
+const WEEK_RECORD_THRESHOLD = 7;
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+function syncThemeButton() {
+  const dark = currentTheme() === 'dark';
+  const button = $('themeToggle');
+  if (button) {
+    button.setAttribute('aria-pressed', String(dark));
+    button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    button.title = dark ? 'Light mode' : 'Dark mode';
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#13132f' : '#f6f9ff');
+}
+
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem('medibyte.theme', next);
+  } catch (e) {}
+  syncThemeButton();
+}
 
 localStorage.removeItem('token');
 
@@ -1564,6 +1590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindGlobalSearch();
   bindTooltips();
   bindCustomSelects();
+  syncThemeButton();
 
   document.querySelector('.menu-btn')?.setAttribute(
     'aria-expanded',
@@ -1623,6 +1650,7 @@ function logPage(cfg) {
   let edit = null;
   let customMoods = [];
   let activeDateFilter = null;
+  let showAll = false;
 
   const dateField = cfg.fields.find(f => ['today', 'date', 'datetime-local'].includes(f[2]));
   const dateKey = dateField ? dateField[0] : null;
@@ -1675,46 +1703,66 @@ function logPage(cfg) {
     const map = dayMap();
     const t = today();
     const moodMode = cfg.title === 'Mood' || rows.some(r => moodEmoji(r));
-    const firstOfMonth = new Date(calYear, calMonth, 1);
-    const lead = firstOfMonth.getDay();
-    const total = new Date(calYear, calMonth + 1, 0).getDate();
-    const title = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-    let cells = '';
-    for (let i = 0; i < lead; i++) cells += '<span class="cal-day empty" aria-hidden="true"></span>';
-
-    for (let d = 1; d <= total; d++) {
-      const key = dayKey(calYear, calMonth, d);
+    const cell = (key, day, muted) => {
       const list = map[key];
       const emoji = list ? moodEmoji(list[list.length - 1]) : '';
       const classes = ['cal-day'];
+      if (muted) classes.push('muted');
       if (moodMode) classes.push('mood-cell');
       if (list && !moodMode) classes.push('on');
       if (key === t) classes.push('today');
       if (key === calSel) classes.push('sel');
       const label = key + (list ? ', ' + list.length + (list.length === 1 ? ' record' : ' records') : '');
       const face = moodMode
-        ? `<b>${d}</b>${emoji ? `<i aria-hidden="true">${emoji}</i>` : (list ? '<i aria-hidden="true">•</i>' : '')}`
-        : `<span>${d}</span>`;
-      cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
+        ? `<b>${day}</b>${emoji ? `<i aria-hidden="true">${emoji}</i>` : (list ? '<i aria-hidden="true">•</i>' : '')}`
+        : `<span>${day}</span>${list ? '<em class="cal-mark" aria-hidden="true"></em>' : ''}`;
+      return `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
+    };
+
+    const firstOfMonth = new Date(calYear, calMonth, 1);
+    const lead = firstOfMonth.getDay();
+    const total = new Date(calYear, calMonth + 1, 0).getDate();
+    const monthTitle = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const selected = new Date(calSel + 'T00:00:00');
+
+    let cells = '';
+    for (let i = lead; i > 0; i--) {
+      const d = new Date(calYear, calMonth, 1 - i);
+      cells += cell(dayKey(d.getFullYear(), d.getMonth(), d.getDate()), d.getDate(), true);
+    }
+    for (let d = 1; d <= total; d++) {
+      cells += cell(dayKey(calYear, calMonth, d), d, false);
+    }
+    let filled = lead + total;
+    while (filled % 7 !== 0 && filled < 42) {
+      const d = new Date(calYear, calMonth + 1, filled - lead - total + 1);
+      cells += cell(dayKey(d.getFullYear(), d.getMonth(), d.getDate()), d.getDate(), true);
+      filled++;
     }
 
     host.innerHTML = `
-      <div class="cal-head">
-        <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(-1)" aria-label="Previous month" title="Previous month">
-          <svg class="icon"><use href="#i-chevron-left"/></svg>
-        </button>
-        <h3>${esc(title)}</h3>
-        <span class="cal-head-actions">
-          <button type="button" class="btn btn-small cal-nav" onclick="window.calToday()">Today</button>
-          <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(1)" aria-label="Next month" title="Next month">
-            <svg class="icon"><use href="#i-chevron-right"/></svg>
-          </button>
-        </span>
-      </div>
-      <div class="cal-grid">
-        ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
-        ${cells}
+      <div class="cal-widget">
+        <div class="cal-widget-top">
+          <div class="cal-selected">
+            <strong>${selected.getDate()}</strong>
+            <span>${esc(selected.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))}</span>
+          </div>
+          <div class="cal-head-actions">
+            <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(-1)" aria-label="Previous month" title="Previous month">
+              <svg class="icon"><use href="#i-chevron-left"/></svg>
+            </button>
+            <button type="button" class="btn btn-small cal-today" onclick="window.calToday()">Today</button>
+            <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(1)" aria-label="Next month" title="Next month">
+              <svg class="icon"><use href="#i-chevron-right"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="cal-month">${esc(monthTitle)}</p>
+        <div class="cal-grid">
+          ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
+          ${cells}
+        </div>
       </div>`;
   }
 
@@ -1745,26 +1793,6 @@ function logPage(cfg) {
   const tone = cfg.tone || 'blue';
   const icon = cfg.icon || 'file';
   document.getElementById('main')?.classList.add('tone-' + tone);
-
-  function statsHtml() {
-    const tiles = [{ icon, label: 'Total records', value: String(rows.length) }];
-
-    if (dateKey) {
-      const monthPrefix = nowDate.getFullYear() + '-' + pad2(nowDate.getMonth() + 1);
-      const days = rows.map(r => (r[dateKey] ? ld(r[dateKey]) : '')).filter(Boolean).sort();
-      const thisMonth = days.filter(d => d.startsWith(monthPrefix)).length;
-      const last = days.length ? days[days.length - 1] : '';
-
-      tiles.push({ icon: 'calendar', label: 'This month', value: String(thisMonth) });
-      tiles.push({ icon: 'clock', label: 'Last entry', value: last ? dateLabel(last) : 'None yet' });
-    }
-
-    return `<div class="log-stats">${tiles.map(t => `
-      <div class="log-stat">
-        <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-${esc(t.icon)}"/></svg></span>
-        <div><small>${esc(t.label)}</small><strong>${esc(t.value)}</strong></div>
-      </div>`).join('')}</div>`;
-  }
 
   const msg = text => {
     const el = $('msg');
@@ -1909,16 +1937,27 @@ function logPage(cfg) {
       </div>`;
   }
 
-  function filteredRows() {
-    if (!activeDateFilter) return rows;
+  function overlaps(row, from, to) {
+    const first = dateKey && row[dateKey] ? ld(row[dateKey]) : '';
+    if (!first) return false;
+    let last = endKey && row[endKey] ? ld(row[endKey]) : first;
+    if (!last || last < first) last = first;
+    return to >= first && from <= last;
+  }
 
-    return rows.filter(row => {
-      const first = dateKey && row[dateKey] ? ld(row[dateKey]) : '';
-      if (!first) return false;
-      let last = endKey && row[endKey] ? ld(row[endKey]) : first;
-      if (!last || last < first) last = first;
-      return activeDateFilter >= first && activeDateFilter <= last;
-    });
+  const weekStart = addDays(today(), -6);
+
+  // Long histories start on the current week so the list stays readable.
+  function recentOnly() {
+    if (activeDateFilter || showAll || !dateKey) return false;
+    if (rows.length <= WEEK_RECORD_THRESHOLD) return false;
+    return rows.some(row => overlaps(row, weekStart, today()));
+  }
+
+  function filteredRows() {
+    if (activeDateFilter) return rows.filter(row => overlaps(row, activeDateFilter, activeDateFilter));
+    if (recentOnly()) return rows.filter(row => overlaps(row, weekStart, today()));
+    return rows;
   }
 
   function historyCardHtml() {
@@ -1941,18 +1980,31 @@ function logPage(cfg) {
         </div>
       </div>`;
 
+    const weekMode = recentOnly();
+
     const filterBar = activeDateFilter ? `
       <div class="records-filter-bar">
         <span>Showing records for <strong>${esc(filterLabel)}</strong></span>
         <button type="button" class="btn btn-small btn-ghost" onclick="window.clearDateFilter()">
           <svg class="icon"><use href="#i-close"/></svg>Show all
         </button>
+      </div>` : weekMode ? `
+      <div class="records-filter-bar">
+        <span>Showing <strong>this week</strong> · ${rows.length} records in total</span>
+        <button type="button" class="btn btn-small btn-ghost" onclick="window.showAllLogRecords()">
+          <svg class="icon"><use href="#i-calendar"/></svg>Show all
+        </button>
+      </div>` : showAll && dateKey && rows.length > WEEK_RECORD_THRESHOLD ? `
+      <div class="records-filter-bar">
+        <span>Showing <strong>all records</strong></span>
+        <button type="button" class="btn btn-small btn-ghost" onclick="window.showWeekLogRecords()">
+          <svg class="icon"><use href="#i-calendar"/></svg>This week
+        </button>
       </div>` : '';
 
     if (!visibleRows.length) {
       return `<section class="card history-card">
         ${head}
-        ${statsHtml()}
         ${filterBar}
         <div class="empty-state">
           <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
@@ -1968,7 +2020,6 @@ function logPage(cfg) {
 
     return `<section class="card history-card">
       ${head}
-      ${statsHtml()}
       ${filterBar}
       <div class="record-list">${visibleRows.map(rowHtml).join('')}</div>
     </section>`;
@@ -1976,6 +2027,16 @@ function logPage(cfg) {
 
   window.clearDateFilter = () => {
     activeDateFilter = null;
+    draw();
+  };
+
+  window.showAllLogRecords = () => {
+    showAll = true;
+    draw();
+  };
+
+  window.showWeekLogRecords = () => {
+    showAll = false;
     draw();
   };
 

@@ -73,7 +73,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
         Route::get('/documents/{id}/preview', [DocumentController::class, 'preview']);
-        Route::apiResource('documents', DocumentController::class)->except(['show', 'update']);
+        Route::apiResource('documents', DocumentController::class)->except(['show']);
 
         Route::get('/reminders', [ReminderController::class, 'index']);
         Route::get('/notifications', [NotificationController::class, 'index']);

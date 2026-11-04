@@ -10,7 +10,14 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=16">
+  <script>
+    (function () {
+      var theme = 'light';
+      try { theme = localStorage.getItem('medibyte.theme') === 'dark' ? 'dark' : 'light'; } catch (e) {}
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/medibyte.css?v=20">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -19,8 +26,8 @@
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <defs>
           <linearGradient id="splashGrad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#3f86d6"/>
-            <stop offset="1" stop-color="#143b66"/>
+            <stop offset="0" stop-color="#6bb1e7"/>
+            <stop offset="1" stop-color="#4f6fe0"/>
           </linearGradient>
         </defs>
         <rect x="24" y="8" width="16" height="48" rx="6" fill="url(#splashGrad)"/>
@@ -100,6 +107,10 @@
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.1A10.8 10.8 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.2 3.9M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 6 10 6a10 10 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 5v14"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M14 7h7M14 12h5M14 17h3"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -194,6 +205,10 @@
           <path d="M2 7h30l5-4 6 7 5-6 4 3h56"/>
         </svg>
         <div class="topbar-actions">
+          <button type="button" class="icon-btn theme-btn" id="themeToggle" onclick="toggleTheme()" aria-pressed="false" aria-label="Switch to dark mode" title="Dark mode">
+            <svg class="icon theme-ask-dark" aria-hidden="true"><use href="#i-moon"/></svg>
+            <svg class="icon theme-ask-light" aria-hidden="true"><use href="#i-sun"/></svg>
+          </button>
           <button type="button" class="icon-btn notif-btn" onclick="openNotificationDrawer()" aria-label="Open notifications" title="Notifications" aria-controls="notificationDrawer">
             <svg class="icon"><use href="#i-bell"/></svg>
             <span class="icon-dot" id="notifDot" hidden></span>
@@ -335,7 +350,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=11"></script>
+  <script src="/js/medibyte.js?v=13"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

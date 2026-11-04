@@ -547,7 +547,7 @@ function stepDone() {
     ${goalsHtml}
     ${prediction}
     <div class="done-actions">
-      <button type="button" class="btn-ripple" onclick="location.replace('/dashboard')">
+      <button type="button" class="btn-ripple" onclick="wizardFinish()">
         <span class="animation"></span>
         Go to dashboard
         <span class="animation"></span>
@@ -1007,8 +1007,24 @@ async function saveGoals() {
   return true;
 }
 
-window.wizardNext = async () => {
-  if (busy) return;
+/* The goals step can be skipped, so completion is confirmed here instead. */
+window.wizardFinish = async () => {
+  if (profile.onboarding_completed_at) {
+    location.replace('/dashboard');
+    return;
+  }
+
+  const completed = await api('/profile/complete', 'POST');
+  if (!completed || !completed.id) {
+    setError(errText(completed));
+    return;
+  }
+
+  profile = Object.assign({}, profile, completed);
+  location.replace('/dashboard');
+};
+
+window.wizardNext = async () => {  if (busy) return;
   busy = true;
   clearError();
 

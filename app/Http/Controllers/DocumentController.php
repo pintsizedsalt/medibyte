@@ -99,6 +99,21 @@ class DocumentController extends Controller
         return response()->json($document, 201);
     }
 
+    public function update(Request $request, $id)
+    {
+        $document = $request->user()->documents()->findOrFail($id);
+
+        $data = $request->validate([
+            'title' => 'sometimes|required|string|max:150',
+            'type' => 'sometimes|required|in:prescription,lab_result,medical_certificate,other',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $document->update($data);
+
+        return response()->json($document);
+    }
+
     public function download(Request $request, $id)
     {
         $document = $request->user()->documents()->findOrFail($id);

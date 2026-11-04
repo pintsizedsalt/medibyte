@@ -17,21 +17,6 @@
 
   <p id="msg" class="form-message" role="alert"></p>
 
-  <section class="log-stats records-stats" aria-label="Record totals">
-    <div class="log-stat">
-      <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span>
-      <div><small>Total records</small><strong id="rec-total">—</strong></div>
-    </div>
-    <div class="log-stat">
-      <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg></span>
-      <div><small>Features used</small><strong id="rec-features">—</strong></div>
-    </div>
-    <div class="log-stat">
-      <span class="log-stat-ic"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>
-      <div><small>Latest entry</small><strong id="rec-latest">—</strong></div>
-    </div>
-  </section>
-
   <section class="card records-card">
     <div class="card-head">
       <div>
@@ -69,14 +54,6 @@ async function loadRecordsSummary() {
   }
 
   const features = data.features || [];
-
-  $('rec-total').textContent = String(data.total_records || 0);
-  $('rec-features').textContent = String(data.features_used || 0);
-
-  const latest = features
-    .filter(feature => feature.last_date)
-    .sort((a, b) => String(b.last_date).localeCompare(String(a.last_date)))[0];
-  $('rec-latest').textContent = latest ? dateLabel(latest.last_date) : 'None yet';
 
   const recent = data.recent || [];
   $('records-recent').innerHTML = recent.length
