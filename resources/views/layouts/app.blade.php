@@ -200,7 +200,7 @@
         </a>
         <a class="quick-action" href="/walking">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-activity"/></svg></span>
-          <span><strong>Activity</strong><small>Steps or a workout</small></span>
+          <span><strong>Activity</strong><small>Steps or a walk</small></span>
         </a>
         <a class="quick-action" href="/meals">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-meal"/></svg></span>

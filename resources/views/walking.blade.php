@@ -5,7 +5,7 @@
 @section('content')
   @include('partials.record-header', [
     'title' => 'Activity',
-    'description' => 'From a short walk to a full workout, keep a simple record of daily movement.',
+    'description' => 'Keep a simple record of your daily walking — steps and active minutes.',
     'eyebrow' => 'Everyday',
   ])
 @endsection
@@ -20,7 +20,6 @@ logPage({
   formTitle: 'Log some movement',
   formNote: 'Steps and active minutes are both optional, but add at least one.',
   fields: [
-    ['activity_type', 'Activity', 'select', ['walking', 'jogging', 'running', 'workout']],
     ['steps', 'Steps (optional)', 'number'],
     ['minutes', 'Minutes (optional)', 'number'],
     ['log_date', 'Date', 'today']

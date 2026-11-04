@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
@@ -35,6 +36,61 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertSame('new_user', $user->username);
         $this->assertNull($user->onboarding_completed_at);
         $this->assertNotNull($user->consented_at);
+    }
+
+    public function test_registration_title_cases_names_automatically(): void
+    {
+        $response = $this->postJson('/api/v1/register', [
+            'first_name' => 'jUAN',
+            'last_name' => 'dela  CRUZ',
+            'username' => 'title_case',
+            'email' => 'titlecase@example.com',
+            'password' => 'password123',
+            'sex' => 'male',
+            'consent' => true,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('user.first_name', 'Juan')
+            ->assertJsonPath('user.last_name', 'Dela Cruz')
+            ->assertJsonPath('user.name', 'Juan Dela Cruz');
+    }
+
+    public function test_registration_rejects_names_with_numbers_symbols_or_emoji(): void
+    {
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Juan123',
+            'last_name' => 'Cruz! 😊',
+            'username' => 'bad_names',
+            'email' => 'badnames@example.com',
+            'password' => 'password123',
+            'sex' => 'male',
+            'consent' => true,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name', 'last_name']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'badnames@example.com']);
+    }
+
+    public function test_profile_updates_title_case_names_and_reject_non_letters(): void
+    {
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/profile', [
+            'first_name' => 'maria',
+            'last_name' => 'santos',
+        ])->assertStatus(201)
+            ->assertJsonPath('first_name', 'Maria')
+            ->assertJsonPath('last_name', 'Santos')
+            ->assertJsonPath('name', 'Maria Santos');
+
+        $this->postJson('/api/v1/profile', [
+            'first_name' => 'M4ria',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('first_name');
     }
 
     public function test_female_user_must_choose_a_cycle_status_before_finishing_onboarding(): void
@@ -188,7 +244,7 @@ class AuthAndOnboardingTest extends TestCase
     {
         $user = User::factory()->create(['username' => 'unique_login']);
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
         $this->withHeader('Referer', 'http://localhost/login');
 
         $this->postJson('/api/v1/login', [
@@ -246,7 +302,7 @@ class AuthAndOnboardingTest extends TestCase
             'onboarding_completed_at' => now(),
         ])->save();
 
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
         $this->withHeader('Referer', 'http://localhost/login');
 
         $this->postJson('/api/v1/login', [

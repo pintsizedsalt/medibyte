@@ -18,13 +18,18 @@ logPage({
   tone: 'violet',
   url: '/sleep-logs',
   formTitle: 'Add a sleep entry',
-  formNote: 'Add bedtime and wake-up time, or just enter the total hours if you prefer.',
+  formNote: 'Choose how you would like to log your sleep, then add the details.',
   fields: [
-    ['bedtime', 'Bedtime', 'time'],
-    ['wake_time', 'Wake up', 'time'],
-    ['hours', 'Hours slept (only if you did not fill bedtime and wake up)', 'number'],
+    ['sleep_method', 'How would you like to log your sleep?', 'method', [['times', 'Bedtime and wake-up time'], ['hours', 'Total hours slept']], 'times'],
+    ['bedtime', 'Bedtime', 'time', null, null, null, ['sleep_method', 'times']],
+    ['wake_time', 'Wake up', 'time', null, null, null, ['sleep_method', 'times']],
+    ['hours', 'Hours slept', 'number', null, null, null, ['sleep_method', 'hours']],
     ['log_date', 'Date', 'today']
   ],
+  methodInit: row => {
+    const el = $('f_sleep_method');
+    if (el) el.value = row.bedtime ? 'times' : 'hours';
+  },
   value: r => r.hours ? Number(r.hours).toFixed(Number(r.hours) % 1 === 0 ? 0 : 1) + ' hrs' : 'Sleep entry',
   meta: r => {
     const window = r.bedtime && r.wake_time ? lt(r.bedtime) + ' – ' + lt(r.wake_time) + ' · ' : '';

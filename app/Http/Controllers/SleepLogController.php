@@ -20,7 +20,7 @@ class SleepLogController extends Controller
     private function withHours(array $data)
     {
         // Only calculate hours from bedtime/wake_time if hours wasn't explicitly provided
-        if (!empty($data['bedtime']) && !empty($data['wake_time']) && !isset($data['hours'])) {
+        if (! empty($data['bedtime']) && ! empty($data['wake_time']) && ! isset($data['hours'])) {
             $bed = Carbon::createFromFormat('H:i', $data['bedtime']);
             $wake = Carbon::createFromFormat('H:i', $data['wake_time']);
 
@@ -29,6 +29,13 @@ class SleepLogController extends Controller
             }
 
             $data['hours'] = round($bed->diffInMinutes($wake) / 60, 2);
+
+            return $data;
+        }
+
+        if (isset($data['hours'])) {
+            $data['bedtime'] = null;
+            $data['wake_time'] = null;
         }
 
         return $data;

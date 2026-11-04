@@ -20,7 +20,7 @@
       'Everyday' => [
         ['Water', 'Hydration and daily intake', '/water', 'droplet', 'blue'],
         ['Sleep', 'Bedtime, wake-up, and hours', '/sleep', 'moon', 'violet'],
-        ['Activity', 'Steps, walks, and workouts', '/walking', 'activity', 'amber'],
+        ['Activity', 'Steps and walks', '/walking', 'activity', 'amber'],
         ['Meals', 'Food, snacks, and calories', '/meals', 'meal', 'mint'],
       ],
       'Wellbeing' => [

@@ -130,6 +130,20 @@ function esc(value) {
   }[c]));
 }
 
+function formatNameInput(el) {
+  const stripped = String(el.value ?? '')
+    .replace(/[^\p{L}\p{M}\s]/gu, '')
+    .replace(/\s+/gu, ' ');
+  const titled = stripped.replace(/(\p{L}\p{M}+)/gu, word =>
+    word.charAt(0).toLocaleUpperCase() + word.slice(1).toLocaleLowerCase()
+  );
+  if (el.value !== titled) {
+    const caret = el.selectionStart ?? titled.length;
+    el.value = titled;
+    try { el.setSelectionRange(caret, caret); } catch (error) { /* non-text input */ }
+  }
+}
+
 async function api(url, method = 'GET', body) {
   const headers = {
     Accept: 'application/json',
@@ -903,16 +917,20 @@ function logPage(cfg) {
     return value;
   }
 
-  function input([name, label, type, opts, def, placeholder], value) {
+  function input([name, label, type, opts, def, placeholder, showsWhen], value) {
     const v = fieldValue(type, value, def);
     const id = 'f_' + name;
     const safeLabel = esc(label);
 
-    if (type === 'check') {
-      return `<label class="check-row"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> <span>${safeLabel}</span></label>`;
-    }
+    let html;
 
-    if (type === 'select') {
+    if (type === 'check') {
+      html = `<label class="check-row"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> <span>${safeLabel}</span></label>`;
+    } else if (type === 'method') {
+      const pairs = Array.isArray(opts) ? opts : [];
+      const selected = v === undefined || v === null ? (pairs[0] ? pairs[0][0] : '') : v;
+      html = `<label class="field"><span>${safeLabel}</span><select id="${id}">${pairs.map(([val, text]) => `<option value="${esc(String(val))}" ${String(val) === String(selected) ? 'selected' : ''}>${esc(String(text))}</option>`).join('')}</select></label>`;
+    } else if (type === 'select') {
       const moodOptions = [...(opts || [])];
 
       if (
@@ -950,19 +968,36 @@ function logPage(cfg) {
         `;
       }
 
-      return selectHTML;
+      html = selectHTML;
+    } else if (type === 'textarea') {
+      html = `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+    } else if (name === 'intensity' || type === 'intensity') {
+      html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
+    } else {
+      const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
+      const maxAttr = type === 'today' || opts === 'today' ? ` max="${today()}"` : '';
+      html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
     }
 
-    if (type === 'textarea') {
-      return `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+    if (showsWhen) {
+      const show = String(current[showsWhen[0]] ?? '') === String(showsWhen[1]);
+      html = `<div data-shows-when="${esc(showsWhen[0])}:${esc(showsWhen[1])}"${show ? '' : ' hidden'}>${html}</div>`;
     }
 
-    if (name === 'intensity' || type === 'intensity') {
-      return `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
-    }
+    return html;
+  }
 
-    const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
-    return `<label class="field"><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any" value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+  function syncMethodFields() {
+    document.querySelectorAll('#log [data-shows-when]').forEach(wrap => {
+      const [name, value] = (wrap.dataset.showsWhen || ':').split(':');
+      const control = $('f_' + name);
+      if (!control) return;
+      if (!control.dataset.methodBound) {
+        control.dataset.methodBound = '1';
+        control.addEventListener('change', syncMethodFields);
+      }
+      wrap.hidden = String(control.value) !== value;
+    });
   }
 
   function rowLabel(row) {
@@ -1090,6 +1125,13 @@ function logPage(cfg) {
         max: 5,
         label: 'Intensity (1 = very mild, 5 = very strong)'
       });
+    }
+
+    syncMethodFields();
+
+    if (edit && typeof cfg.methodInit === 'function') {
+      try { cfg.methodInit(edit); } catch (error) { /* optional hook */ }
+      syncMethodFields();
     }
 
     const moodSelect = $('f_mood');
@@ -1222,6 +1264,7 @@ function logPage(cfg) {
     cfg.fields.forEach(([name, , type]) => {
       const el = $('f_' + name);
       if (!el) return;
+      if (el.closest('[data-shows-when]')?.hidden) return;
 
       if (type === 'check') {
         body[name] = el.checked;

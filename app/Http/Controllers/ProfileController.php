@@ -23,9 +23,15 @@ class ProfileController extends Controller
             ]);
         }
 
+        foreach (['first_name', 'last_name'] as $field) {
+            if ($request->has($field)) {
+                $request->merge([$field => $this->titleCaseName((string) $request->input($field))]);
+            }
+        }
+
         $data = $request->validate([
-            'first_name' => 'sometimes|required|string|max:80',
-            'last_name' => 'sometimes|required|string|max:80',
+            'first_name' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
+            'last_name' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
             'username' => [
                 'sometimes',
                 'required',
@@ -87,5 +93,12 @@ class ProfileController extends Controller
         $user->forceFill(['onboarding_completed_at' => now()])->save();
 
         return response()->json($user->refresh());
+    }
+
+    private function titleCaseName(string $value): string
+    {
+        $normalized = (string) preg_replace('/\s+/u', ' ', trim($value));
+
+        return mb_convert_case(mb_strtolower($normalized, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
     }
 }

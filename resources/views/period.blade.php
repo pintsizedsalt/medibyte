@@ -25,7 +25,7 @@ api('/profile').then(p => {
     formNote: 'Add the first day and, if it has finished, the last day. Leave the last day blank for an ongoing period.',
     fields: [
       ['start_date', 'First day', 'today'],
-      ['end_date', 'Last day (leave blank if ongoing)', 'date'],
+      ['end_date', 'Last day (leave blank if ongoing)', 'date', 'today'],
       ['flow', 'Flow', 'select', ['', 'light', 'medium', 'heavy']],
       ['notes', 'Notes', 'text']
     ],

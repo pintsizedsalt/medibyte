@@ -32,12 +32,12 @@
         <div class="form-grid">
           <label class="field">
             <span>First name</span>
-            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required>
+            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required oninput="formatNameInput(this)">
           </label>
 
           <label class="field">
             <span>Last name</span>
-            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required>
+            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required oninput="formatNameInput(this)">
           </label>
 
           <label class="field">

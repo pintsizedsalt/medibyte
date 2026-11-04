@@ -17,12 +17,14 @@ class AuthController extends Controller
     {
         $request->merge([
             'username' => strtolower(trim((string) $request->input('username'))),
+            'first_name' => $this->titleCaseName((string) $request->input('first_name')),
+            'last_name' => $this->titleCaseName((string) $request->input('last_name')),
         ]);
 
         $result = DB::transaction(function () use ($request) {
             $data = $request->validate([
-                'first_name' => 'required|string|max:80',
-                'last_name' => 'required|string|max:80',
+                'first_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
+                'last_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
                 'username' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[A-Za-z0-9_]+$/', 'unique:users,username'],
                 'email' => 'required|email|unique:users',
                 'password' => 'required|min:8',
@@ -57,6 +59,13 @@ class AuthController extends Controller
         }
 
         return response()->json($result, 201);
+    }
+
+    private function titleCaseName(string $value): string
+    {
+        $normalized = (string) preg_replace('/\s+/u', ' ', trim($value));
+
+        return mb_convert_case(mb_strtolower($normalized, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
     }
 
     public function login(Request $request)

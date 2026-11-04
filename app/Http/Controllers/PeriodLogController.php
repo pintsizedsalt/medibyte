@@ -9,8 +9,8 @@ class PeriodLogController extends Controller
     private function rules()
     {
         return [
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'start_date' => 'required|date|before_or_equal:today',
+            'end_date' => 'nullable|date|before_or_equal:today|after_or_equal:start_date',
             'flow' => 'nullable|in:light,medium,heavy',
             'notes' => 'nullable|string|max:500',
         ];

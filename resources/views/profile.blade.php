@@ -109,7 +109,7 @@ function stepCycle() {
     ${active ? `<div class="wizard-fields">
       <label class="field">
         <span>First day of your last period</span>
-        <input id="w_last_period" type="date" value="${esc(answers.last_period || '')}">
+        <input id="w_last_period" type="date" max="${today()}" value="${esc(answers.last_period || '')}">
       </label>
       <label class="field">
         <span>Typical cycle length (days)</span>
@@ -129,12 +129,6 @@ function stepActivity() {
   ) + `
     <div class="wizard-fields">
       <label class="field">
-        <span>Activity type</span>
-        <select id="w_activity_type">
-          ${['walking', 'jogging', 'running', 'workout'].map(type => `<option value="${type}" ${activity.activity_type === type ? 'selected' : ''}>${type.charAt(0).toUpperCase() + type.slice(1)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="field">
         <span>Steps (optional)</span>
         <input id="w_steps" type="number" min="0" placeholder="e.g. 3000" value="${esc(activity.steps || '')}">
       </label>
@@ -142,7 +136,7 @@ function stepActivity() {
         <span>Active minutes (optional)</span>
         <input id="w_minutes" type="number" min="1" max="1440" placeholder="e.g. 30" value="${esc(activity.minutes || '')}">
       </label>
-      <p class="wizard-note">You can log more activities from the Activity page.</p>
+      <p class="wizard-note">You can log more walks from the Activity page.</p>
     </div>
   `);
 }
@@ -166,12 +160,17 @@ function stepWater() {
 
 function stepSleep() {
   const sleep = answers.sleep || {};
+  const method = answers.sleep_method || (sleep.bedtime ? 'times' : sleep.hours ? 'hours' : '');
 
   return stepForm(stepHeader(
     'Sleep',
-    'How did you sleep last night? Add bedtime and wake-up time, or enter the total hours.'
+    'How did you sleep last night? Choose how you would like to log it.'
   ) + `
-    <div class="wizard-fields">
+    <div class="option-grid">
+      ${optionCard('sleep_method', 'times', 'Bedtime and wake-up time', 'Enter both times and we calculate your total sleep.')}
+      ${optionCard('sleep_method', 'hours', 'Total hours slept', 'Enter the number of hours you slept directly.')}
+    </div>
+    ${method === 'times' ? `<div class="wizard-fields">
       <label class="field">
         <span>Bedtime</span>
         <input id="w_bedtime" type="time" value="${esc(sleep.bedtime || '')}">
@@ -180,11 +179,13 @@ function stepSleep() {
         <span>Wake-up time</span>
         <input id="w_wake_time" type="time" value="${esc(sleep.wake_time || '')}">
       </label>
+    </div>` : ''}
+    ${method === 'hours' ? `<div class="wizard-fields">
       <label class="field">
-        <span>Or total hours slept</span>
+        <span>Total hours slept</span>
         <input id="w_hours" type="number" min="0" max="24" step="0.25" placeholder="e.g. 7.5" value="${esc(sleep.hours || '')}">
       </label>
-    </div>
+    </div>` : ''}
   `);
 }
 
@@ -686,21 +687,17 @@ async function saveCycle() {
 }
 
 async function saveActivity() {
-  const type = $('w_activity_type').value;
   const stepsValue = $('w_steps').value.trim();
   const minutesValue = $('w_minutes').value.trim();
 
-  if (!stepsValue && !minutesValue) {
-    setError('Add steps or active minutes, or choose “Skip for now”.');
-    return false;
-  }
+  if (!stepsValue && !minutesValue) return true;
 
-  const body = { activity_type: type, log_date: today() };
+  const body = { activity_type: 'walking', log_date: today() };
   if (stepsValue) body.steps = stepsValue;
   if (minutesValue) body.minutes = minutesValue;
 
   const result = await upsert('activity', '/walking-logs', body);
-  if (result) answers.activity = { activity_type: type, steps: stepsValue, minutes: minutesValue };
+  if (result) answers.activity = { activity_type: 'walking', steps: stepsValue, minutes: minutesValue };
   return Boolean(result);
 }
 
@@ -717,34 +714,50 @@ async function saveWater() {
 }
 
 async function saveSleep() {
-  const bedtime = $('w_bedtime').value;
-  const wakeTime = $('w_wake_time').value;
-  const hours = $('w_hours').value.trim();
+  const method = answers.sleep_method;
 
-  if (!bedtime && !wakeTime && !hours) {
-    setError('Add your sleep details, or choose “Skip for now”.');
-    return false;
-  }
-
-  if ((bedtime && !wakeTime) || (!bedtime && wakeTime)) {
-    setError('Please add both bedtime and wake-up time, or use total hours instead.');
+  if (!method) {
+    setError('Choose how you would like to log your sleep, or choose “Skip for now”.');
     return false;
   }
 
   const body = { log_date: today() };
 
-  if (bedtime && wakeTime) {
+  if (method === 'times') {
+    const bedtime = $('w_bedtime')?.value || '';
+    const wakeTime = $('w_wake_time')?.value || '';
+
+    if (!bedtime && !wakeTime) {
+      setError('Add your sleep details, or choose “Skip for now”.');
+      return false;
+    }
+    if ((bedtime && !wakeTime) || (!bedtime && wakeTime)) {
+      setError('Please add both bedtime and wake-up time.');
+      return false;
+    }
+
     body.bedtime = bedtime;
     body.wake_time = wakeTime;
     body.hours = null;
-  } else {
-    body.hours = hours;
-    body.bedtime = null;
-    body.wake_time = null;
+
+    const result = await upsert('sleep', '/sleep-logs', body);
+    if (result) answers.sleep = { bedtime, wake_time: wakeTime };
+    return Boolean(result);
   }
 
+  const hours = $('w_hours')?.value.trim() || '';
+
+  if (!hours) {
+    setError('Add your sleep details, or choose “Skip for now”.');
+    return false;
+  }
+
+  body.hours = hours;
+  body.bedtime = null;
+  body.wake_time = null;
+
   const result = await upsert('sleep', '/sleep-logs', body);
-  if (result) answers.sleep = { bedtime, wake_time: wakeTime, hours };
+  if (result) answers.sleep = { hours };
   return Boolean(result);
 }
 
