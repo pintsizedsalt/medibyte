@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=13">
+  <link rel="stylesheet" href="/css/medibyte.css?v=16">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -19,24 +19,24 @@
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <defs>
           <linearGradient id="splashGrad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#3aa37c"/>
-            <stop offset="1" stop-color="#1f4d36"/>
+            <stop offset="0" stop-color="#3f86d6"/>
+            <stop offset="1" stop-color="#143b66"/>
           </linearGradient>
         </defs>
         <rect x="24" y="8" width="16" height="48" rx="6" fill="url(#splashGrad)"/>
         <rect x="8" y="24" width="48" height="16" rx="6" fill="url(#splashGrad)"/>
-        <g stroke="#d8f0e3" stroke-width="1.4" stroke-linecap="round">
+        <g stroke="#dbeafe" stroke-width="1.4" stroke-linecap="round">
           <path d="M53 28h4v4h3"/>
           <path d="M53 36h4v-4h3"/>
           <path d="M52 32h8"/>
         </g>
-        <g fill="#d8f0e3">
+        <g fill="#dbeafe">
           <circle cx="60" cy="32" r="1.7"/>
           <circle cx="60" cy="28" r="1.3"/>
           <circle cx="60" cy="36" r="1.3"/>
           <circle cx="11" cy="32" r="1.5"/>
         </g>
-        <g fill="#f2fbf5" class="splash-dots">
+        <g fill="#f0f7ff" class="splash-dots">
           <circle cx="29" cy="29" r="1.5"/>
           <circle cx="35" cy="29" r="1.5"/>
           <circle cx="29" cy="35" r="1.5"/>
@@ -91,6 +91,7 @@
     <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
     <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></symbol>
@@ -168,6 +169,26 @@
             <svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>
             {{ now()->format('D, M j') }}
           </span>
+        </div>
+
+        <div class="global-search-wrap">
+          <form class="global-search" id="globalSearch" role="search" autocomplete="off" onsubmit="return false;">
+            <svg class="icon global-search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input
+              id="globalSearchInput"
+              type="search"
+              placeholder="Search features, meals, documents…"
+              aria-label="Search MediByte"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="globalSearchResults"
+              aria-autocomplete="list"
+            >
+            <button type="button" class="global-search-clear" id="globalSearchClear" onclick="clearGlobalSearch()" aria-label="Clear search" title="Clear search" hidden>
+              <svg class="icon"><use href="#i-close"/></svg>
+            </button>
+          </form>
+          <div class="global-search-results" id="globalSearchResults" role="listbox" aria-label="Search results" hidden></div>
         </div>
         <svg class="topbar-pulse" width="110" height="12" viewBox="0 0 110 12" aria-hidden="true">
           <path d="M2 7h30l5-4 6 7 5-6 4 3h56"/>
@@ -248,39 +269,55 @@
         </button>
       </div>
       <div class="quick-actions">
-        <button type="button" class="quick-action" onclick="quickAddWater()">
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('water')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-droplet"/></svg></span>
           <span><strong>250 ml water</strong><small>One glass, right now</small></span>
         </button>
-        <a class="quick-action" href="/sleep">
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('sleep')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-moon"/></svg></span>
           <span><strong>Sleep</strong><small>Last night's rest</small></span>
-        </a>
-        <a class="quick-action" href="/walking">
+        </button>
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('walking')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-activity"/></svg></span>
           <span><strong>Activity</strong><small>Steps or a walk</small></span>
-        </a>
-        <a class="quick-action" href="/meals">
+        </button>
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('meals')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-meal"/></svg></span>
           <span><strong>Meal</strong><small>Food and calories</small></span>
-        </a>
-        <a class="quick-action" href="/mood">
+        </button>
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('mood')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-smile"/></svg></span>
           <span><strong>Mood</strong><small>How you feel</small></span>
-        </a>
-        <a class="quick-action" href="/weight">
+        </button>
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('weight')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-scale"/></svg></span>
           <span><strong>Weight</strong><small>Weight and BMI</small></span>
-        </a>
-        <a class="quick-action" href="/medications">
+        </button>
+        <button type="button" class="quick-action" onclick="quickLogFromSheet('medications')">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-pill"/></svg></span>
           <span><strong>Medication</strong><small>Add or update</small></span>
-        </a>
+        </button>
         <a class="quick-action" href="/documents">
           <span class="quick-action-icon"><svg class="icon"><use href="#i-file"/></svg></span>
           <span><strong>Document</strong><small>Upload a file</small></span>
         </a>
       </div>
+    </div>
+  </div>
+
+  <div class="log-modal" id="quickLogModal" hidden>
+    <div class="log-modal-backdrop" onclick="closeQuickLog()"></div>
+    <div class="log-modal-dialog log-form-dialog glassy" role="dialog" aria-modal="true" aria-labelledby="quickLogTitle">
+      <header class="log-modal-head">
+        <div>
+          <p class="eyebrow" id="quickLogEyebrow">Quick log</p>
+          <h3 id="quickLogTitle">Add a record</h3>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeQuickLog()" aria-label="Close quick log" title="Close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <div class="log-modal-body" id="quickLogBody"></div>
     </div>
   </div>
 
@@ -298,7 +335,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=8"></script>
+  <script src="/js/medibyte.js?v=11"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

@@ -130,6 +130,14 @@ function esc(value) {
   }[c]));
 }
 
+function optionLabel(value) {
+  const text = String(value ?? '').replace(/_/g, ' ').trim();
+  if (!text || /^\d/.test(text)) return text;
+  return text.replace(/\p{L}[\p{L}\p{M}]*/gu, word =>
+    word.charAt(0).toLocaleUpperCase() + word.slice(1).toLocaleLowerCase()
+  );
+}
+
 function formatNameInput(el) {
   const stripped = String(el.value ?? '')
     .replace(/[^\p{L}\p{M}\s]/gu, '')
@@ -530,6 +538,775 @@ async function quickAddWater() {
 }
 
 /* ---------------------------------------------------------
+   Quick log (dashboard rail + mobile sheet)
+   --------------------------------------------------------- */
+const QUICK_LOG_DEFS = {
+  water: {
+    title: 'Add a water entry',
+    eyebrow: 'Water',
+    url: '/water-logs',
+    note: 'Add one glass at a time or enter the total amount you have had so far.',
+    fields: [
+      ['amount_ml', 'Amount (ml)', 'number', null, null, 'e.g. 250'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  sleep: {
+    title: 'Add a sleep entry',
+    eyebrow: 'Sleep',
+    url: '/sleep-logs',
+    note: 'Log bedtime and wake-up time, or enter the total hours slept.',
+    fields: [
+      ['sleep_method', 'How would you like to log your sleep?', 'select', [['times', 'Bedtime and wake-up time'], ['hours', 'Total hours slept']], 'times'],
+      ['bedtime', 'Bedtime', 'time', null, null, null, ['sleep_method', 'times']],
+      ['wake_time', 'Wake up', 'time', null, null, null, ['sleep_method', 'times']],
+      ['hours', 'Hours slept', 'number', null, null, 'e.g. 7.5', ['sleep_method', 'hours']],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  meals: {
+    title: 'Add a meal',
+    eyebrow: 'Meals',
+    url: '/meal-logs',
+    note: 'A short description is enough. Calories are optional. Enter 0 if you don\'t have the calorie information.',
+    fields: [
+      ['meal_type', 'Meal', 'select', ['breakfast', 'lunch', 'dinner', 'snack'], 'breakfast'],
+      ['food_name', 'Food', 'text', null, null, 'e.g. Chicken rice bowl'],
+      ['meal_time', 'Time', 'time'],
+      ['calories', 'Calories (optional)', 'number', null, null, 'e.g. 450'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  mood: {
+    title: 'Mood check-in',
+    eyebrow: 'Mood',
+    url: '/mood-logs',
+    note: 'Choose the mood that fits best. You can add your own mood too.',
+    fields: [
+      ['mood', 'Mood', 'select', ['']],
+      ['intensity', 'Intensity (1 to 5)', 'number', null, 3],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  weight: {
+    title: 'Add a weight entry',
+    eyebrow: 'Weight',
+    url: '/weight-logs',
+    note: 'Add your height so MediByte can calculate your BMI.',
+    fields: [
+      ['weight_kg', 'Weight (kg)', 'number', null, null, 'e.g. 62.5'],
+      ['height_cm', 'Height (cm)', 'number', null, null, 'e.g. 165'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  walking: {
+    title: 'Log some movement',
+    eyebrow: 'Activity',
+    url: '/walking-logs',
+    note: 'Steps and active minutes are both optional, but add at least one.',
+    fields: [
+      ['steps', 'Steps', 'number', null, null, 'e.g. 2500'],
+      ['minutes', 'Minutes', 'number', null, null, 'e.g. 30'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  symptoms: {
+    title: 'Log a symptom',
+    eyebrow: 'Symptoms',
+    url: '/symptom-logs',
+    note: 'Add the symptom and severity. Illness and notes are optional.',
+    fields: [
+      ['symptom', 'Symptom', 'text', null, null, 'e.g. Headache'],
+      ['severity', 'Severity (1 to 5)', 'select', [1, 2, 3, 4, 5], 3],
+      ['illness_name', 'Illness (optional)', 'text'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  vitals: {
+    title: 'Add a vital sign reading',
+    eyebrow: 'Vitals',
+    url: '/vital-sign-logs',
+    note: 'Add the readings you have. Leave the fields you did not measure blank.',
+    fields: [
+      ['systolic', 'Systolic', 'number'],
+      ['diastolic', 'Diastolic', 'number'],
+      ['heart_rate', 'Heart rate (bpm)', 'number'],
+      ['temperature_c', 'Temperature (C)', 'number'],
+      ['oxygen_saturation', 'Oxygen (%)', 'number'],
+      ['log_date', 'Date', 'today']
+    ]
+  },
+  medications: {
+    title: 'Add a medication',
+    eyebrow: 'Medications',
+    url: '/medications',
+    note: 'Use 24-hour times separated by commas, for example 08:00, 20:00.',
+    fields: [
+      ['name', 'Medication name', 'text'],
+      ['dosage', 'Dosage', 'text'],
+      ['times', 'Times (24-hour, separated by commas)', 'list', null, null, 'e.g. 08:00, 20:00'],
+      ['start_date', 'Start date', 'today'],
+      ['is_active', 'I am currently taking this', 'check', null, true]
+    ]
+  },
+  period: {
+    title: 'Log a period',
+    eyebrow: 'Cycle',
+    url: '/period-logs',
+    note: 'Add the first day and, if it has finished, the last day. Leave the last day blank for an ongoing period.',
+    fields: [
+      ['start_date', 'First day', 'today'],
+      ['end_date', 'Last day (leave blank if ongoing)', 'date'],
+      ['flow', 'Flow', 'select', ['', 'light', 'medium', 'heavy']]
+    ]
+  }
+};
+
+let activeQuickLog = null;
+
+function quickFieldValue(type, value, def) {
+  if (value === undefined || value === null || value === '') {
+    if (def !== undefined) return def;
+    return type === 'today' ? today() : def;
+  }
+  if (type === 'check') return Boolean(value);
+  if (type === 'list') return Array.isArray(value) ? value.join(', ') : value;
+  if (type === 'today' || type === 'date') return ld(value);
+  if (type === 'time') return lt(value);
+  if (type === 'datetime-local') return ldt(value);
+  return value;
+}
+
+function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], value, values) {
+  const v = quickFieldValue(type, value, def);
+  const id = 'q_' + name;
+  const safeLabel = esc(label);
+  let html;
+
+  if (type === 'check') {
+    html = `<label class="check-row"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> <span>${safeLabel}</span></label>`;
+  } else if (type === 'select' || type === 'method') {
+    const pairs = Array.isArray(opts) ? opts : [];
+    const selected = v === undefined || v === null ? (pairs[0] ? (Array.isArray(pairs[0]) ? pairs[0][0] : pairs[0]) : '') : v;
+    const options = pairs.map(option => {
+      const optionValue = Array.isArray(option) ? option[0] : option;
+      const optionText = Array.isArray(option)
+        ? option[1]
+        : (String(optionValue) === '' ? 'Choose…' : optionLabel(optionValue));
+      return `<option value="${esc(String(optionValue))}" ${String(optionValue) === String(selected) ? 'selected' : ''}>${esc(String(optionText))}</option>`;
+    });
+
+    if (name === 'mood' && !pairs.some(option => String(Array.isArray(option) ? option[0] : option) === '__custom__')) {
+      options.push('<option value="__custom__">Other / Add your own mood</option>');
+    }
+
+    const selectHtml = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
+
+    if (name === 'mood') {
+      return `<div class="mood-field-group">
+        ${selectHtml}
+        <label class="field" id="q_customMoodField" style="display:none">
+          <span>Enter your own mood</span>
+          <input type="text" id="q_custom_mood" maxlength="50" placeholder="Type your mood">
+        </label>
+      </div>`;
+    }
+
+    html = selectHtml;
+  } else if (type === 'textarea') {
+    html = `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+  } else if (name === 'intensity') {
+    html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
+  } else {
+    const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
+    const maxAttr = type === 'today' ? ` max="${today()}"` : '';
+    html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+  }
+
+  if (showsWhen) {
+    const show = String((values || {})[showsWhen[0]] ?? '') === String(showsWhen[1]);
+    html = `<div data-quick-shows-when="${esc(showsWhen[0])}:${esc(showsWhen[1])}"${show ? '' : ' hidden'}>${html}</div>`;
+  }
+
+  return html;
+}
+
+function syncQuickConditionals() {
+  document.querySelectorAll('#quickLogBody [data-quick-shows-when]').forEach(wrap => {
+    const [name, value] = (wrap.dataset.quickShowsWhen || ':').split(':');
+    const control = $('q_' + name);
+    if (!control) return;
+    if (!control.dataset.quickBound) {
+      control.dataset.quickBound = '1';
+      control.addEventListener('change', syncQuickConditionals);
+    }
+    wrap.hidden = String(control.value) !== value;
+  });
+
+  const moodSelect = $('q_mood');
+  const customField = $('q_customMoodField');
+  if (moodSelect && customField) {
+    const syncCustom = () => {
+      customField.style.display = moodSelect.value === '__custom__' ? '' : 'none';
+      if (moodSelect.value === '__custom__') $('q_custom_mood')?.focus();
+    };
+    if (!moodSelect.dataset.quickBound) {
+      moodSelect.dataset.quickBound = '1';
+      moodSelect.addEventListener('change', syncCustom);
+    }
+    syncCustom();
+  }
+}
+
+async function openQuickLog(key, defaults = {}) {
+  const source = QUICK_LOG_DEFS[key];
+  if (!source) return;
+
+  closeQuickSheet();
+  closeAccountMenu();
+
+  const def = { ...source, fields: source.fields.map(field => field.slice()) };
+
+  if (key === 'mood') {
+    const moods = await api('/moods');
+    const list = Array.isArray(moods) ? moods : [];
+    def.fields[0][3] = ['', ...list];
+  }
+
+  activeQuickLog = { key, def };
+
+  const body = def.fields
+    .map(field => quickInputHtml(field, defaults[field[0]], defaults))
+    .join('');
+
+  $('quickLogEyebrow').textContent = def.eyebrow;
+  $('quickLogTitle').textContent = def.title;
+  $('quickLogBody').innerHTML = `
+    <p class="form-card-note">${esc(def.note || '')}</p>
+    <p id="quickMsg" class="form-message" role="alert"></p>
+    <form onsubmit="event.preventDefault(); saveQuickLog()">
+      <div class="form-grid">${body}</div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <svg class="icon"><use href="#i-plus"/></svg>
+          Add record
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="closeQuickLog()">Cancel</button>
+      </div>
+    </form>`;
+
+  const modal = $('quickLogModal');
+  modal.hidden = false;
+  document.body.classList.add('log-modal-open');
+  syncQuickConditionals();
+  setTimeout(() => modal.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 80);
+}
+
+function closeQuickLog() {
+  const modal = $('quickLogModal');
+  if (modal) modal.hidden = true;
+  activeQuickLog = null;
+  if (!$('logFormModal') || $('logFormModal').hidden) {
+    if (!$('logCalendarModal') || $('logCalendarModal').hidden) {
+      document.body.classList.remove('log-modal-open');
+    }
+  }
+}
+
+function quickLogFromSheet(key) {
+  closeQuickSheet();
+  openQuickLog(key);
+}
+
+async function saveQuickLog() {
+  if (!activeQuickLog) return;
+  const { def } = activeQuickLog;
+  const body = {};
+
+  def.fields.forEach(([name, , type]) => {
+    const el = $('q_' + name);
+    if (!el) return;
+    if (el.closest('[data-quick-shows-when]')?.hidden) return;
+
+    if (type === 'check') {
+      body[name] = el.checked;
+      return;
+    }
+
+    if (type === 'list') {
+      body[name] = el.value.split(',').map(part => part.trim()).filter(Boolean);
+      return;
+    }
+
+    if (el.value === '') return;
+    body[name] = el.value;
+  });
+
+  if (activeQuickLog.key === 'mood' && body.mood === '__custom__') {
+    const customName = $('q_custom_mood')?.value.trim();
+    if (!customName) {
+      $('quickMsg').textContent = 'Please enter your own mood.';
+      $('q_custom_mood')?.focus();
+      return;
+    }
+
+    const saved = await api('/custom-moods', 'POST', { name: customName });
+    if (saved.id) {
+      body.mood = saved.name;
+    } else {
+      const allMoods = await api('/moods');
+      const matched = Array.isArray(allMoods)
+        ? allMoods.find(mood => String(mood).toLowerCase() === customName.toLowerCase())
+        : null;
+      if (!matched) {
+        const message = errText(saved);
+        $('quickMsg').textContent = message;
+        toast(message, 'error');
+        return;
+      }
+      body.mood = matched;
+    }
+  }
+
+  const result = await api(def.url, 'POST', body);
+  if (result && result.id) {
+    closeQuickLog();
+    toast('Record added.');
+    if (typeof window.loadDashboard === 'function') {
+      window.loadDashboard();
+    } else if (typeof window.__medibyteReloadLog === 'function') {
+      window.__medibyteReloadLog();
+    }
+    return;
+  }
+
+  const message = errText(result);
+  $('quickMsg').textContent = message;
+  toast(message, 'error');
+
+  if (result && result.errors) {
+    const firstKey = Object.keys(result.errors)[0];
+    const target = $('q_' + firstKey);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target?.focus({ preventScroll: true });
+  }
+}
+
+/* ---------------------------------------------------------
+   Global search
+   --------------------------------------------------------- */
+let searchTimer = null;
+let searchSequence = 0;
+let searchEntries = [];
+let searchActiveIndex = -1;
+
+function searchResultRow(item) {
+  return `
+    <button type="button" class="global-search-result" role="option" data-search-href="${esc(item.href)}" data-search-index="${searchEntries.length}">
+      <span class="global-search-result-icon tone-${esc(item.tone || 'blue')}"><svg class="icon" aria-hidden="true"><use href="#i-${esc(item.icon || 'file')}"/></svg></span>
+      <span class="global-search-result-copy">
+        <strong>${esc(item.title || item.label || '')}</strong>
+        ${item.subtitle || item.description ? `<small>${esc(item.subtitle || item.description)}</small>` : ''}
+      </span>
+      ${item.date ? `<span class="global-search-result-date">${esc(dateLabel(item.date))}</span>` : ''}
+    </button>`;
+}
+
+function renderGlobalSearch(data) {
+  const box = $('globalSearchResults');
+  if (!box) return;
+
+  searchEntries = [];
+  searchActiveIndex = -1;
+
+  const groups = [];
+  const features = (data && data.features) || [];
+  const meals = (data && data.meals) || [];
+  const documents = (data && data.documents) || [];
+
+  if (features.length) {
+    groups.push(`<p class="global-search-group">Features</p>${features.map(feature => {
+      searchEntries.push(feature);
+      return searchResultRow({ ...feature, title: feature.label, subtitle: feature.description });
+    }).join('')}`);
+  }
+
+  if (meals.length) {
+    groups.push(`<p class="global-search-group">Meals</p>${meals.map(meal => {
+      searchEntries.push(meal);
+      return searchResultRow(meal);
+    }).join('')}`);
+  }
+
+  if (documents.length) {
+    groups.push(`<p class="global-search-group">Documents</p>${documents.map(document => {
+      searchEntries.push(document);
+      return searchResultRow(document);
+    }).join('')}`);
+  }
+
+  if (!groups.length) {
+    box.innerHTML = `<p class="global-search-empty">No matches yet. Try “sleep”, “mood”, or a food you logged.</p>`;
+  } else {
+    box.innerHTML = groups.join('');
+  }
+
+  box.hidden = false;
+  $('globalSearchInput')?.setAttribute('aria-expanded', 'true');
+}
+
+function setSearchActive(index) {
+  const box = $('globalSearchResults');
+  if (!box) return;
+  const rows = box.querySelectorAll('.global-search-result');
+  if (!rows.length) return;
+
+  searchActiveIndex = (index + rows.length) % rows.length;
+  rows.forEach((row, i) => {
+    const active = i === searchActiveIndex;
+    row.classList.toggle('is-active', active);
+    row.setAttribute('aria-selected', String(active));
+    if (active) row.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function closeGlobalSearch() {
+  const box = $('globalSearchResults');
+  if (box) box.hidden = true;
+  $('globalSearchInput')?.setAttribute('aria-expanded', 'false');
+  searchActiveIndex = -1;
+}
+
+function clearGlobalSearch() {
+  const input = $('globalSearchInput');
+  if (input) input.value = '';
+  $('globalSearchClear').hidden = true;
+  closeGlobalSearch();
+}
+
+async function runGlobalSearch(query) {
+  const sequence = ++searchSequence;
+  const cleaned = String(query || '').trim();
+  $('globalSearchClear').hidden = cleaned.length === 0;
+
+  if (!cleaned) {
+    const data = await api('/search');
+    if (sequence === searchSequence) renderGlobalSearch(data);
+    return;
+  }
+
+  const data = await api('/search?q=' + encodeURIComponent(cleaned));
+  if (sequence !== searchSequence) return;
+
+  if (!data || data.message) {
+    closeGlobalSearch();
+    return;
+  }
+
+  renderGlobalSearch(data);
+}
+
+function bindGlobalSearch() {
+  const input = $('globalSearchInput');
+  const box = $('globalSearchResults');
+  if (!input || !box) return;
+
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runGlobalSearch(input.value), 180);
+  });
+
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) runGlobalSearch('');
+    else if (!box.hidden) input.setAttribute('aria-expanded', 'true');
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (box.hidden) runGlobalSearch(input.value);
+      else setSearchActive(searchActiveIndex + 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSearchActive(searchActiveIndex - 1);
+    } else if (event.key === 'Enter') {
+      const active = box.querySelector('.global-search-result.is-active');
+      if (active) {
+        event.preventDefault();
+        location.href = active.dataset.searchHref;
+      }
+    } else if (event.key === 'Escape') {
+      closeGlobalSearch();
+      input.blur();
+    }
+  });
+
+  box.addEventListener('click', event => {
+    const row = event.target.closest('[data-search-href]');
+    if (!row) return;
+    location.href = row.dataset.searchHref;
+  });
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.global-search-wrap')) closeGlobalSearch();
+  });
+}
+
+/* ---------------------------------------------------------
+   Custom dropdowns (replaces browser default select chrome)
+   --------------------------------------------------------- */
+function refreshCustomSelect(select) {
+  if (!select) return;
+  const wrap = select.closest('.cselect');
+  if (!wrap) return;
+
+  const button = wrap.querySelector('.cselect-btn');
+  const menu = wrap.querySelector('.cselect-menu');
+  if (!button || !menu) return;
+
+  const options = Array.from(select.options);
+  const selected = options.find(option => option.value === select.value) || options[0];
+  button.querySelector('span').textContent = selected
+    ? (selected.value === '' ? (selected.textContent.trim() || 'Choose…') : selected.textContent.trim())
+    : 'Choose…';
+  button.disabled = select.disabled;
+  button.setAttribute('aria-disabled', String(select.disabled));
+
+  menu.innerHTML = options.map(option => `
+    <button type="button" class="cselect-option${option.value === select.value ? ' is-selected' : ''}" role="option" aria-selected="${option.value === select.value}" data-value="${esc(option.value)}">
+      ${esc(option.textContent.trim())}
+      ${option.value === select.value ? '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' : ''}
+    </button>`).join('');
+}
+
+function closeAllCustomSelects() {
+  document.querySelectorAll('.cselect.is-open').forEach(wrap => {
+    wrap.classList.remove('is-open', 'is-up');
+    wrap.querySelector('.cselect-btn')?.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function enhanceCustomSelect(select) {
+  if (!select || select.dataset.customSelect === '1') return;
+  if (select.multiple || select.dataset.native === '1') return;
+  if (select.hidden || select.dataset.chips === '1') return;
+  if (select.closest('.cselect')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'cselect';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  select.dataset.customSelect = '1';
+  select.classList.add('cselect-native');
+  select.setAttribute('tabindex', '-1');
+  if (select.required) {
+    select.dataset.required = '1';
+    select.removeAttribute('required');
+  }
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'cselect-btn';
+  button.setAttribute('aria-haspopup', 'listbox');
+  button.setAttribute('aria-expanded', 'false');
+  button.innerHTML = '<span></span><svg class="icon cselect-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>';
+
+  const menu = document.createElement('div');
+  menu.className = 'cselect-menu';
+  menu.setAttribute('role', 'listbox');
+
+  wrap.appendChild(button);
+  wrap.appendChild(menu);
+
+  button.addEventListener('click', event => {
+    event.stopPropagation();
+    const willOpen = !wrap.classList.contains('is-open');
+    closeAllCustomSelects();
+    wrap.classList.toggle('is-open', willOpen);
+    button.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) {
+      // Flip the menu upwards when it would otherwise be clipped by the
+      // bottom of a modal or the viewport.
+      const buttonRect = button.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const openUp = buttonRect.bottom + menuRect.height + 12 > window.innerHeight
+        && buttonRect.top - menuRect.height - 12 > 8;
+      wrap.classList.toggle('is-up', openUp);
+      menu.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  menu.addEventListener('click', event => {
+    const option = event.target.closest('[data-value]');
+    if (!option) return;
+    select.value = option.dataset.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    refreshCustomSelect(select);
+    closeAllCustomSelects();
+    button.focus({ preventScroll: true });
+  });
+
+  button.addEventListener('keydown', event => {
+    const options = Array.from(menu.querySelectorAll('[data-value]'));
+    if (!options.length) return;
+    const currentIndex = options.findIndex(option => option.classList.contains('is-selected'));
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!wrap.classList.contains('is-open')) {
+        wrap.classList.add('is-open');
+        button.setAttribute('aria-expanded', 'true');
+        return;
+      }
+      const next = event.key === 'ArrowDown'
+        ? Math.min(options.length - 1, currentIndex + 1)
+        : Math.max(0, currentIndex <= 0 ? 0 : currentIndex - 1);
+      options[next]?.focus();
+    } else if (event.key === 'Escape') {
+      closeAllCustomSelects();
+    }
+  });
+
+  menu.addEventListener('keydown', event => {
+    const options = Array.from(menu.querySelectorAll('[data-value]'));
+    const index = options.indexOf(document.activeElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeAllCustomSelects();
+      button.focus({ preventScroll: true });
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const next = event.key === 'ArrowDown'
+        ? Math.min(options.length - 1, index + 1)
+        : Math.max(0, index - 1);
+      options[next]?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      document.activeElement?.click();
+    }
+  });
+
+  select.addEventListener('change', () => refreshCustomSelect(select));
+  refreshCustomSelect(select);
+}
+
+function enhanceAllCustomSelects(root = document) {
+  root.querySelectorAll('select').forEach(enhanceCustomSelect);
+}
+
+function bindCustomSelects() {
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.cselect')) closeAllCustomSelects();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeAllCustomSelects();
+  });
+
+  // Reset events change the native select without firing "change", so the
+  // visible custom dropdown has to be refreshed afterwards.
+  document.addEventListener('reset', event => {
+    const form = event.target;
+    setTimeout(() => form?.querySelectorAll?.('select').forEach(refreshCustomSelect), 0);
+  }, true);
+
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          if (node.matches?.('select')) enhanceCustomSelect(node);
+          node.querySelectorAll?.('select').forEach(enhanceCustomSelect);
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  enhanceAllCustomSelects();
+}
+
+/* ---------------------------------------------------------
+   Friendly tooltips for every titled control
+   --------------------------------------------------------- */
+let uiTip = null;
+let uiTipTarget = null;
+
+function hideUiTip() {
+  if (uiTipTarget && uiTipTarget.dataset.tipTitle) {
+    uiTipTarget.setAttribute('title', uiTipTarget.dataset.tipTitle);
+    delete uiTipTarget.dataset.tipTitle;
+  }
+  if (uiTip) uiTip.hidden = true;
+  uiTipTarget = null;
+}
+
+function showUiTip(target) {
+  const label = target.getAttribute('title') || target.getAttribute('data-tip') || target.getAttribute('aria-label');
+  if (!label) return;
+
+  // Icon-only controls borrow their accessible name; labelled controls already show it.
+  const hasExplicitTip = target.hasAttribute('title') || target.hasAttribute('data-tip');
+  if (!hasExplicitTip && ((target.textContent || '').trim() || !target.querySelector('.icon'))) return;
+
+  if (!uiTip) {
+    uiTip = document.createElement('div');
+    uiTip.className = 'ui-tip';
+    uiTip.setAttribute('role', 'tooltip');
+    uiTip.hidden = true;
+    document.body.appendChild(uiTip);
+  }
+
+  if (target.hasAttribute('title')) {
+    target.dataset.tipTitle = target.getAttribute('title');
+    target.removeAttribute('title');
+  }
+
+  uiTipTarget = target;
+  uiTip.textContent = label;
+  uiTip.hidden = false;
+
+  const rect = target.getBoundingClientRect();
+  const tipRect = uiTip.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - tipRect.width / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+  let top = rect.top - tipRect.height - 10;
+  if (top < 8) top = rect.bottom + 10;
+  uiTip.style.left = left + 'px';
+  uiTip.style.top = top + 'px';
+}
+
+function bindTooltips() {
+  document.addEventListener('mouseover', event => {
+    if (window.matchMedia('(hover: none)').matches) return;
+    const target = event.target.closest('[title], [data-tip], [aria-label]');
+    if (!target || target.closest('.sidebar')) return;
+    if (uiTipTarget === target) return;
+    hideUiTip();
+    showUiTip(target);
+  });
+
+  document.addEventListener('mouseout', event => {
+    const target = event.target.closest('[title], [data-tip], [aria-label]');
+    if (!target) return;
+    if (target.contains(event.relatedTarget)) return;
+    if (uiTipTarget === target) hideUiTip();
+  });
+
+  document.addEventListener('focusin', event => {
+    const target = event.target.closest('[title], [data-tip], [aria-label]');
+    if (!target || target.closest('.sidebar')) return;
+    showUiTip(target);
+  });
+
+  document.addEventListener('focusout', () => hideUiTip());
+  window.addEventListener('scroll', () => hideUiTip(), { passive: true });
+  window.addEventListener('resize', () => hideUiTip());
+}
+
+
+/* ---------------------------------------------------------
    Navigation state and cycle visibility
    --------------------------------------------------------- */
 function activeNav() {
@@ -600,6 +1377,22 @@ function renderNotificationDrawer() {
 
   list.innerHTML = notificationCache.map(item => {
     const payload = item.data || {};
+    const isWelcome = payload.kind === 'welcome';
+
+    if (isWelcome) {
+      return `
+        <article class="notification-row welcome-row ${item.read_at ? '' : 'unread'}">
+          <div class="notification-copy">
+            <strong>${esc(payload.title || 'Welcome to MediByte')}</strong>
+            <p>${esc(payload.body || '')}</p>
+            <small>${esc(relativeTime(item.created_at))}</small>
+          </div>
+          <button type="button" class="notification-dismiss" data-dismiss-notification="${esc(item.id)}" aria-label="Close welcome message" title="Close">
+            <svg class="icon"><use href="#i-close"/></svg>
+          </button>
+        </article>`;
+    }
+
     return `
       <article class="notification-row ${item.read_at ? '' : 'unread'}">
         <span class="record-icon"><svg class="icon"><use href="#i-${notificationIcon(item)}"/></svg></span>
@@ -645,10 +1438,28 @@ async function openNotification(id, url) {
   if (url) location.href = url;
 }
 
+async function dismissNotificationFromDrawer(id) {
+  const result = await api('/notifications/' + encodeURIComponent(id), 'DELETE');
+  if (result && result.message === 'Dismissed') {
+    notificationCache = notificationCache.filter(item => String(item.id) !== String(id));
+    renderNotificationDrawer();
+    updateNotificationBadges(notificationCache);
+    if (typeof window.loadNotificationsPage === 'function') window.loadNotificationsPage();
+    toast('Notification dismissed.');
+  } else {
+    toast(errText(result), 'error');
+  }
+}
+
 function bindShell() {
   const drawerList = $('drawerList');
   if (drawerList) {
     drawerList.addEventListener('click', event => {
+      const dismissButton = event.target.closest('[data-dismiss-notification]');
+      if (dismissButton) {
+        dismissNotificationFromDrawer(dismissButton.dataset.dismissNotification);
+        return;
+      }
       const openButton = event.target.closest('[data-open-notification]');
       if (openButton) {
         openNotification(openButton.dataset.openNotification, openButton.dataset.url);
@@ -675,6 +1486,8 @@ function bindShell() {
     else if ($('confirmModal')?.classList.contains('open')) closeConfirm(false);
     else if ($('quickSheet')?.classList.contains('open')) closeQuickSheet();
     else if ($('notificationDrawer')?.classList.contains('open')) closeNotificationDrawer();
+    else if ($('quickLogModal') && !$('quickLogModal').hidden) closeQuickLog();
+    else if ($('globalSearchResults') && !$('globalSearchResults').hidden) closeGlobalSearch();
     else if (document.body.classList.contains('sidebar-open')) closeSidebar();
   });
 
@@ -748,6 +1561,9 @@ function bindSidebarTips() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   bindShell();
+  bindGlobalSearch();
+  bindTooltips();
+  bindCustomSelects();
 
   document.querySelector('.menu-btn')?.setAttribute(
     'aria-expanded',
@@ -788,7 +1604,10 @@ const MOOD_EMOJI = {
   relaxed: '🧘', bored: '😑', tired: '😴', neutral: '😐', confused: '😕',
   lonely: '🥺', sad: '😢', anxious: '😰', stressed: '😣', overwhelmed: '😵',
   angry: '😠', frustrated: '😤', irritated: '😒', disappointed: '😞',
-  guilty: '😔', embarrassed: '😳', scared: '😨', numb: '😶'
+  guilty: '😔', embarrassed: '😳', scared: '😨', numb: '😶',
+  sleepy: '😴', curious: '🤔', confident: '😎', worried: '😟',
+  restless: '😖', drained: '🫠', peaceful: '😇', playful: '😜',
+  disgusted: '🤢', regretful: '😞'
 };
 
 function moodEmoji(row) {
@@ -803,6 +1622,7 @@ function logPage(cfg) {
   let rows = [];
   let edit = null;
   let customMoods = [];
+  let activeDateFilter = null;
 
   const dateField = cfg.fields.find(f => ['today', 'date', 'datetime-local'].includes(f[2]));
   const dateKey = dateField ? dateField[0] : null;
@@ -814,6 +1634,16 @@ function logPage(cfg) {
   let calYear = nowDate.getFullYear();
   let calMonth = nowDate.getMonth();
   let calSel = today();
+
+  // Search results and shared links can open a feature already filtered to a day.
+  const initialDate = new URLSearchParams(location.search).get('date');
+  if (initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
+    activeDateFilter = initialDate;
+    calSel = initialDate;
+    const picked = new Date(initialDate + 'T00:00:00');
+    calYear = picked.getFullYear();
+    calMonth = picked.getMonth();
+  }
 
   function addDays(day, n) {
     const d = new Date(day + 'T00:00:00');
@@ -836,56 +1666,6 @@ function logPage(cfg) {
       }
     });
     return map;
-  }
-
-  const DAY_FEATURES = [
-    { key: 'water', label: 'Water', icon: 'droplet', tone: 'blue', href: '/water', rows: d => (d.water && Number(d.water.total_ml) > 0) ? [d.water] : [] },
-    { key: 'sleep', label: 'Sleep', icon: 'moon', tone: 'violet', href: '/sleep', rows: d => d.sleep || [] },
-    { key: 'walking', label: 'Activity', icon: 'activity', tone: 'amber', href: '/walking', rows: d => d.walking || [] },
-    { key: 'meals', label: 'Meals', icon: 'meal', tone: 'mint', href: '/meals', rows: d => d.meals || [] },
-    { key: 'weight', label: 'Weight', icon: 'scale', tone: 'slate', href: '/weight', rows: d => d.weight || [] },
-    { key: 'moods', label: 'Mood', icon: 'smile', tone: 'gold', href: '/mood', rows: d => d.moods || [] },
-    { key: 'symptoms', label: 'Symptoms', icon: 'thermometer', tone: 'amber', href: '/symptoms', rows: d => d.symptoms || [] },
-    { key: 'vitals', label: 'Vitals', icon: 'heart', tone: 'rose', href: '/vitals', rows: d => d.vitals || [] },
-    { key: 'period', label: 'Cycle', icon: 'cycle', tone: 'rose', href: '/period', rows: d => d.period || [] },
-    { key: 'medications', label: 'Medications', icon: 'pill', tone: 'plum', href: '/medications', rows: d => d.medications || [] },
-    { key: 'appointments', label: 'Appointments', icon: 'calendar', tone: 'blue', href: '/appointments', rows: d => d.appointments || [] },
-    { key: 'documents', label: 'Documents', icon: 'file', tone: 'plum', href: '/documents', rows: d => d.documents || [] }
-  ];
-
-  let calendarOpen = false;
-
-  function dayFeatureHtml(data) {
-    const blocks = [];
-    DAY_FEATURES.forEach(feature => {
-      const entries = feature.rows(data);
-      if (!entries.length) return;
-      blocks.push(`
-        <div class="cal-day-feature">
-          <span class="cal-day-feature-ic tone-${feature.tone}"><svg class="icon" aria-hidden="true"><use href="#i-${feature.icon}"/></svg></span>
-          <div class="cal-day-feature-body">
-            <strong>${esc(feature.label)}</strong>
-            ${entries.map(entry => `<span class="record-meta">${esc(entry.label || '—')}</span>`).join('')}
-          </div>
-          <a class="cal-day-feature-link" href="${esc(feature.href)}" aria-label="Open ${esc(feature.label)}">Open</a>
-        </div>`);
-    });
-    return blocks.length ? `<div class="cal-day-list">${blocks.join('')}</div>` : '';
-  }
-
-  async function loadDayPanel(day) {
-    const panel = $('calDayPanel');
-    if (!panel) return;
-    panel.innerHTML = '<p class="muted cal-empty">Loading this day…</p>';
-
-    const data = await api('/records/day?date=' + encodeURIComponent(day));
-    if (!data || !data.date) {
-      panel.innerHTML = '<p class="muted cal-empty">Could not load records for this day.</p>';
-      return;
-    }
-
-    const html = dayFeatureHtml(data);
-    panel.innerHTML = html || '<p class="muted cal-empty">Nothing logged for this day.</p>';
   }
 
   function drawCalendar() {
@@ -919,33 +1699,23 @@ function logPage(cfg) {
       cells += `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
     }
 
-    const legend = '<span><i class="cal-dot"></i>Logged</span>';
-
-    const pickedLabel = new Date(calSel + 'T00:00:00')
-      .toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-
     host.innerHTML = `
       <div class="cal-head">
-        <button type="button" class="btn btn-small" onclick="window.calMove(-1)" aria-label="Previous month">‹</button>
+        <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(-1)" aria-label="Previous month" title="Previous month">
+          <svg class="icon"><use href="#i-chevron-left"/></svg>
+        </button>
         <h3>${esc(title)}</h3>
         <span class="cal-head-actions">
-          <button type="button" class="btn btn-small" onclick="window.calToday()">Today</button>
-          <button type="button" class="btn btn-small" onclick="window.calMove(1)" aria-label="Next month">›</button>
+          <button type="button" class="btn btn-small cal-nav" onclick="window.calToday()">Today</button>
+          <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(1)" aria-label="Next month" title="Next month">
+            <svg class="icon"><use href="#i-chevron-right"/></svg>
+          </button>
         </span>
       </div>
       <div class="cal-grid">
         ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
         ${cells}
-      </div>
-      <div class="cal-legend">${legend}</div>
-      <div class="cal-day-panel">
-        <div class="card-head">
-          <strong>${esc(pickedLabel)}</strong>
-        </div>
-        <div id="calDayPanel"></div>
       </div>`;
-
-    if (calendarOpen) loadDayPanel(calSel);
   }
 
   window.calMove = n => {
@@ -965,7 +1735,11 @@ function logPage(cfg) {
 
   window.calPick = day => {
     calSel = day;
-    drawCalendar();
+    activeDateFilter = day;
+    window.closeLogCalendar();
+    draw();
+    const card = document.querySelector('.history-card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const tone = cfg.tone || 'blue';
@@ -1042,7 +1816,7 @@ function logPage(cfg) {
 
       const options = moodOptions.map(o => {
         const optionValue = String(o ?? '');
-        const text = optionValue === '' ? 'Choose…' : optionValue.replace(/_/g, ' ');
+        const text = optionValue === '' ? 'Choose…' : optionLabel(optionValue);
         return `<option value="${esc(optionValue)}" ${String(o) === String(v) ? 'selected' : ''}>${esc(text)}</option>`;
       });
 
@@ -1135,28 +1909,55 @@ function logPage(cfg) {
       </div>`;
   }
 
+  function filteredRows() {
+    if (!activeDateFilter) return rows;
+
+    return rows.filter(row => {
+      const first = dateKey && row[dateKey] ? ld(row[dateKey]) : '';
+      if (!first) return false;
+      let last = endKey && row[endKey] ? ld(row[endKey]) : first;
+      if (!last || last < first) last = first;
+      return activeDateFilter >= first && activeDateFilter <= last;
+    });
+  }
+
   function historyCardHtml() {
+    const visibleRows = filteredRows();
+    const filterLabel = activeDateFilter ? dateLabel(activeDateFilter) : '';
+
     const head = `
       <div class="card-head">
         <div>
-          <p class="eyebrow">History</p>
-          <h3>Your records</h3>
+          <h3>Records</h3>
         </div>
         <div class="card-head-tools">
+          ${cfg.url === '/mood-logs' ? `<button type="button" class="btn btn-small btn-ghost" onclick="window.openMoodPersonalize()">
+            <svg class="icon"><use href="#i-smile"/></svg>Personalize
+          </button>` : ''}
           ${showCalendar ? `<button type="button" class="btn btn-small btn-ghost" onclick="window.openLogCalendar()">
             <svg class="icon"><use href="#i-calendar"/></svg>View calendar
           </button>` : ''}
-          <span class="history-count">${rows.length}</span>
+          <span class="history-count">${visibleRows.length}</span>
         </div>
       </div>`;
 
-    if (!rows.length) {
-      return `<section class="card">
+    const filterBar = activeDateFilter ? `
+      <div class="records-filter-bar">
+        <span>Showing records for <strong>${esc(filterLabel)}</strong></span>
+        <button type="button" class="btn btn-small btn-ghost" onclick="window.clearDateFilter()">
+          <svg class="icon"><use href="#i-close"/></svg>Show all
+        </button>
+      </div>` : '';
+
+    if (!visibleRows.length) {
+      return `<section class="card history-card">
         ${head}
+        ${statsHtml()}
+        ${filterBar}
         <div class="empty-state">
           <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
-          <h4>No records yet</h4>
-          <p>Add your first entry and it will appear here.</p>
+          <h4>${activeDateFilter ? 'No records on this date' : 'No records yet'}</h4>
+          <p>${activeDateFilter ? 'There are no entries logged for this day. Add one below.' : 'Add your first entry and it will appear here.'}</p>
           <button type="button" class="btn btn-primary" onclick="window.addLogRecord()">
             <svg class="icon"><use href="#i-plus"/></svg>
             Add record
@@ -1165,55 +1966,86 @@ function logPage(cfg) {
       </section>`;
     }
 
-    return `<section class="card">
+    return `<section class="card history-card">
       ${head}
-      <div class="record-list">${rows.map(rowHtml).join('')}</div>
+      ${statsHtml()}
+      ${filterBar}
+      <div class="record-list">${visibleRows.map(rowHtml).join('')}</div>
     </section>`;
   }
 
-  function customMoodsCardHtml() {
+  window.clearDateFilter = () => {
+    activeDateFilter = null;
+    draw();
+  };
+
+  function moodPersonalizeHtml() {
+    const list = customMoods.length
+      ? `<div class="record-list custom-mood-list">
+          ${customMoods.map(cm => `
+            <div class="record">
+              <span class="record-icon tone-rose"><svg class="icon"><use href="#i-smile"/></svg></span>
+              <div class="record-main">
+                <strong>${esc(cm.name)}</strong>
+              </div>
+              <div class="record-actions">
+                <button type="button" class="record-row-action" onclick="window.renameCustomMood(event, ${Number(cm.id)})" aria-label="Rename custom mood" title="Rename custom mood">
+                  <svg class="icon"><use href="#i-pencil"/></svg>
+                </button>
+                <button type="button" class="record-row-action danger" onclick="window.deleteCustomMood(event, ${Number(cm.id)})" aria-label="Delete custom mood" title="Delete custom mood">
+                  <svg class="icon"><use href="#i-trash"/></svg>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>`
+      : `<div class="empty-state empty-state-compact">
+          <span class="empty-orb"><svg class="icon"><use href="#i-smile"/></svg></span>
+          <h4>No custom moods yet</h4>
+          <p>Add a mood that feels like yours. It will appear in the mood form and calendar.</p>
+        </div>`;
+
     return `
-      <section class="card" id="customMoodsCard">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">Personalize</p>
-            <h3>Saved custom moods</h3>
-          </div>
-          <div class="card-head-tools">
-            <button type="button" class="card-add-btn" onclick="window.addCustomMood()" aria-label="Add custom mood" title="Add custom mood">
-              <svg class="icon"><use href="#i-plus"/></svg>
+      <div id="moodPersonalizeModal" class="log-modal" hidden>
+        <div class="log-modal-backdrop" onclick="window.closeMoodPersonalize()"></div>
+        <div class="log-modal-dialog glassy" role="dialog" aria-modal="true" aria-labelledby="moodPersonalizeTitle">
+          <header class="log-modal-head">
+            <div>
+              <p class="eyebrow">Personalize</p>
+              <h3 id="moodPersonalizeTitle">Your custom moods</h3>
+            </div>
+            <button type="button" class="icon-btn" onclick="window.closeMoodPersonalize()" aria-label="Close personalization" title="Close">
+              <svg class="icon"><use href="#i-close"/></svg>
             </button>
-            <span class="history-count">${customMoods.length}</span>
+          </header>
+          <div class="log-modal-body">
+            <form class="custom-mood-form" onsubmit="event.preventDefault(); window.savePersonalizedMood()">
+              <label class="field">
+                <span>New custom mood</span>
+                <input id="new_custom_mood" type="text" maxlength="50" placeholder="e.g. Overstimulated" autocomplete="off">
+              </label>
+              <button type="submit" class="btn btn-primary">
+                <svg class="icon"><use href="#i-plus"/></svg>
+                Save mood
+              </button>
+            </form>
+            <p id="personalizeMsg" class="form-message" role="alert"></p>
+            ${list}
           </div>
         </div>
-        ${customMoods.length ? `
-          <div class="record-list">
-            ${customMoods.map(cm => `
-              <div class="record">
-                <span class="record-icon tone-rose"><svg class="icon"><use href="#i-smile"/></svg></span>
-                <div class="record-main">
-                  <strong>${esc(cm.name)}</strong>
-                </div>
-                <div class="record-actions">
-                  <button type="button" class="record-row-action" onclick="event.preventDefault(); event.stopPropagation(); window.renameCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Rename custom mood" title="Rename custom mood">
-                    <svg class="icon" style="pointer-events: none;"><use href="#i-pencil"/></svg>
-                  </button>
-                  <button type="button" class="record-row-action danger" onclick="event.preventDefault(); event.stopPropagation(); window.deleteCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Delete custom mood" title="Delete custom mood">
-                    <svg class="icon" style="pointer-events: none;"><use href="#i-trash"/></svg>
-                  </button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        ` : `
-          <div class="empty-state" style="padding: 20px;">
-            <p class="muted" style="margin: 0;">No custom moods saved yet. Select "Other / Add your own mood" in the add form to create one.</p>
-          </div>
-        `}
-      </section>`;
+      </div>`;
   }
 
   function formModalHtml(form) {
+    const actions = `
+      <div class="form-grid-action">
+        <button type="submit" class="btn btn-primary">
+          <svg class="icon"><use href="#i-${edit ? 'check' : 'plus'}"/></svg>
+          ${edit ? 'Save changes' : 'Add record'}
+        </button>
+        ${edit ? '<button type="button" class="btn btn-ghost" onclick="window.cancelLogEdit()">Cancel</button>' : ''}
+      </div>`;
+
     return `
       <div id="logFormModal" class="log-modal" hidden>
         <div class="log-modal-backdrop" onclick="window.closeLogForm()"></div>
@@ -1231,14 +2063,7 @@ function logPage(cfg) {
             <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
             <p id="formMsg" class="form-message" role="alert" style="display:none"></p>
             <form onsubmit="event.preventDefault(); window.saveLog()">
-              <div class="form-grid">${form}</div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary">
-                  <svg class="icon"><use href="#i-${edit ? 'check' : 'plus'}"/></svg>
-                  ${edit ? 'Save changes' : 'Add record'}
-                </button>
-                ${edit ? '<button type="button" class="btn btn-ghost" onclick="window.cancelLogEdit()">Cancel</button>' : ''}
-              </div>
+              <div class="form-grid">${form}${actions}</div>
             </form>
           </div>
         </div>
@@ -1252,10 +2077,10 @@ function logPage(cfg) {
         <div class="log-modal-dialog log-calendar-dialog glassy" role="dialog" aria-modal="true" aria-labelledby="logCalendarTitle">
           <header class="log-modal-head">
             <div>
-              <p class="eyebrow">Calendar</p>
-              <h3 id="logCalendarTitle">${esc(cfg.calendarTitle || cfg.title || 'Records')} · Day review</h3>
+              <p class="eyebrow">${esc(cfg.title || 'Records')}</p>
+              <h3 id="logCalendarTitle">Calendar</h3>
             </div>
-            <button type="button" class="icon-btn" onclick="window.closeLogCalendar()" aria-label="Close calendar">
+            <button type="button" class="icon-btn" onclick="window.closeLogCalendar()" aria-label="Close calendar" title="Close">
               <svg class="icon"><use href="#i-close"/></svg>
             </button>
           </header>
@@ -1271,9 +2096,8 @@ function logPage(cfg) {
     const form = cfg.fields.map(field => input(field, current[field[0]], current)).join('');
 
     $('log').innerHTML = `
-      ${statsHtml()}
       ${historyCardHtml()}
-      ${cfg.url === '/mood-logs' ? customMoodsCardHtml() : ''}
+      ${cfg.url === '/mood-logs' ? moodPersonalizeHtml() : ''}
       ${rows.length ? `<button type="button" id="logFab" class="fab" onclick="window.addLogRecord()" aria-label="Add record" title="Add record">
         <svg class="icon"><use href="#i-plus"/></svg>
       </button>` : ''}
@@ -1359,7 +2183,12 @@ function logPage(cfg) {
   window.openLogCalendar = () => {
     const modal = $('logCalendarModal');
     if (!modal) return;
-    calendarOpen = true;
+    if (activeDateFilter) {
+      calSel = activeDateFilter;
+      const picked = new Date(calSel + 'T00:00:00');
+      calYear = picked.getFullYear();
+      calMonth = picked.getMonth();
+    }
     modal.hidden = false;
     document.body.classList.add('log-modal-open');
     drawCalendar();
@@ -1367,7 +2196,6 @@ function logPage(cfg) {
   };
 
   window.closeLogCalendar = () => {
-    calendarOpen = false;
     const modal = $('logCalendarModal');
     if (modal) modal.hidden = true;
     if (!$('logFormModal') || $('logFormModal').hidden) {
@@ -1377,7 +2205,8 @@ function logPage(cfg) {
 
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
-    if ($('logCalendarModal') && !$('logCalendarModal').hidden) window.closeLogCalendar();
+    if ($('moodPersonalizeModal') && !$('moodPersonalizeModal').hidden) window.closeMoodPersonalize();
+    else if ($('logCalendarModal') && !$('logCalendarModal').hidden) window.closeLogCalendar();
     else if ($('logFormModal') && !$('logFormModal').hidden) window.closeLogForm();
   });
 
@@ -1388,15 +2217,58 @@ function logPage(cfg) {
       draw();
     }
     window.openLogForm();
+
+    if (activeDateFilter && dateKey) {
+      const dateInput = $('f_' + dateKey);
+      if (dateInput) dateInput.value = activeDateFilter;
+    }
   };
 
   window.addCustomMood = () => {
-    window.openLogForm();
-    const moodSelect = $('f_mood');
-    if (!moodSelect) return;
-    moodSelect.value = '__custom__';
-    moodSelect.dispatchEvent(new Event('change'));
-    setTimeout(() => $('f_custom_mood')?.focus({ preventScroll: true }), 120);
+    window.openMoodPersonalize();
+  };
+
+  window.openMoodPersonalize = () => {
+    const modal = $('moodPersonalizeModal');
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add('log-modal-open');
+    const message = $('personalizeMsg');
+    if (message) message.textContent = '';
+    setTimeout(() => $('new_custom_mood')?.focus({ preventScroll: true }), 80);
+  };
+
+  window.closeMoodPersonalize = () => {
+    const modal = $('moodPersonalizeModal');
+    if (modal) modal.hidden = true;
+    if ((!$('logFormModal') || $('logFormModal').hidden) && (!$('logCalendarModal') || $('logCalendarModal').hidden)) {
+      document.body.classList.remove('log-modal-open');
+    }
+  };
+
+  window.savePersonalizedMood = async () => {
+    const input = $('new_custom_mood');
+    const name = input?.value.trim();
+    const message = $('personalizeMsg');
+
+    if (!name) {
+      if (message) message.textContent = 'Enter a name for your custom mood.';
+      input?.focus();
+      return;
+    }
+
+    const result = await api('/custom-moods', 'POST', { name });
+    if (result.id) {
+      toast('Custom mood saved.');
+      if (input) input.value = '';
+      await reloadCustomMoods();
+      draw();
+      window.openMoodPersonalize();
+    } else {
+      const error = errText(result);
+      if (message) message.textContent = error;
+      toast(error, 'error');
+    }
   };
 
   window.renameCustomMood = async (eventOrId, idOrOldName, maybeOldName) => {
@@ -1423,11 +2295,13 @@ function logPage(cfg) {
     const newName = window.prompt('Rename custom mood:', oldName);
     if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
 
+    const personalizeOpen = $('moodPersonalizeModal') && !$('moodPersonalizeModal').hidden;
     const res = await api('/custom-moods/' + id, 'PUT', { name: newName.trim() });
     if (res.id) {
       toast('Custom mood renamed.');
       await reloadCustomMoods();
       draw();
+      if (personalizeOpen) window.openMoodPersonalize();
     } else {
       const err = errText(res);
       toast(err, 'error');
@@ -1462,11 +2336,13 @@ function logPage(cfg) {
     });
     if (!ok) return;
 
+    const personalizeOpen = $('moodPersonalizeModal') && !$('moodPersonalizeModal').hidden;
     const res = await api('/custom-moods/' + id, 'DELETE');
     if (res.message) {
       toast('Custom mood deleted.');
       await reloadCustomMoods();
       draw();
+      if (personalizeOpen) window.openMoodPersonalize();
     } else {
       const err = errText(res);
       toast(err, 'error');
@@ -1535,8 +2411,8 @@ function logPage(cfg) {
       toast(wasEditing ? 'Changes saved.' : 'Record added.');
       window.closeLogForm();
       await load();
-      if (createdCustomMood && $('customMoodsCard')) {
-        $('customMoodsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (createdCustomMood) {
+        window.openMoodPersonalize();
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1587,6 +2463,8 @@ function logPage(cfg) {
       toast(errText(data), 'error');
     }
   };
+
+  window.__medibyteReloadLog = load;
 
   load();
 }

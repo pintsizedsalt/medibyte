@@ -25,6 +25,7 @@ class AccountController extends Controller
             'medications',
             'appointments',
             'documents',
+            'customMoods',
         ]);
 
         return response()->json([
@@ -62,6 +63,7 @@ class AccountController extends Controller
             'vital_sign_logs' => $user->vitalSignLogs,
             'medications' => $user->medications,
             'appointments' => $user->appointments,
+            'custom_moods' => $user->customMoods,
             'documents' => $user->documents->map(fn ($document) => [
                 'title' => $document->title,
                 'type' => $document->type,

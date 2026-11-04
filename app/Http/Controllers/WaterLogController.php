@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -34,29 +35,31 @@ class WaterLogController extends Controller
             'log_date' => 'required|date',
         ]);
 
-        $log = DB::transaction(function () use ($request, $data) {
+        $date = Carbon::parse($data['log_date'])->toDateString();
+
+        $log = DB::transaction(function () use ($request, $data, $date) {
+            // firstOrCreate is safe against two simultaneous first entries for
+            // the same day thanks to the unique (user_id, log_date) index.
+            $log = $request->user()->dailyLogs()->firstOrCreate(
+                ['log_date' => $date],
+                ['water_ml' => 0],
+            );
+
             $log = $request->user()->dailyLogs()
-                ->where('log_date', $data['log_date'])
+                ->whereKey($log->getKey())
                 ->lockForUpdate()
-                ->first();
+                ->firstOrFail();
 
             $total = ($log->water_ml ?? 0) + $data['amount_ml'];
 
             if ($total > 10000) {
                 throw ValidationException::withMessages([
-                    'amount_ml' => 'Enter an amount between 0.1 and 10 L.',
+                    'amount_ml' => 'The daily total cannot exceed 10,000 ml (10 L).',
                 ]);
             }
 
-            if ($log) {
-                $log->water_ml = $total;
-                $log->save();
-            } else {
-                $log = $request->user()->dailyLogs()->create([
-                    'log_date' => $data['log_date'],
-                    'water_ml' => $total,
-                ]);
-            }
+            $log->water_ml = $total;
+            $log->save();
 
             return $log;
         });

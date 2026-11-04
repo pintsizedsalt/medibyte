@@ -80,6 +80,22 @@ function renderNotifications() {
 
   list.innerHTML = '<div class="record-list">' + visible.map(item => {
     const payload = item.data || {};
+    const isWelcome = payload.kind === 'welcome';
+
+    if (isWelcome) {
+      return `
+        <div class="record welcome-row ${item.read_at ? '' : 'record-unread'}">
+          <div class="record-main">
+            <strong>${esc(payload.title || 'Welcome to MediByte')}</strong>
+            <span class="record-meta">${esc(payload.body || '')}</span>
+            <span class="record-meta">${esc(relativeTime(item.created_at))}</span>
+          </div>
+          <div class="record-actions">
+            <button type="button" class="record-row-action danger" onclick="dismissNotification('${esc(item.id)}')" aria-label="Close welcome message" title="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+          </div>
+        </div>`;
+    }
+
     return `
       <div class="record ${item.read_at ? '' : 'record-unread'}">
         <span class="record-icon"><svg class="icon"><use href="#i-${notificationTypeIcon(item)}"/></svg></span>

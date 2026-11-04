@@ -48,7 +48,7 @@
     <div>
       <svg class="icon"><use href="#i-file"/></svg>
       <strong>Drop to upload</strong>
-      <span>PDF, JPG, or PNG up to 10 MB</span>
+      <span>PDF, JPG, or PNG up to 5 MB</span>
     </div>
   </div>
 
@@ -94,7 +94,7 @@
               <svg class="icon"><use href="#i-file"/></svg>
               <span>
                 <strong id="doc-file-label">Choose a PDF, JPG, or PNG</strong>
-                <small>Up to 10 MB (under 8 MB recommended). Your file stays on a private disk.</small>
+                <small>Up to 5 MB. Your file stays on a private disk.</small>
               </span>
             </label>
             <p id="doc-file-error" class="field-error" role="alert" hidden></p>
@@ -212,10 +212,8 @@ function updateFileLabel() {
   const label = $('doc-file-label');
   if (label) label.textContent = file ? file.name : 'Choose a PDF, JPG, or PNG';
 
-  if (file && file.size > 10 * 1024 * 1024) {
-    setFileError('The file must be 10 MB or smaller.');
-  } else if (file && file.size > 8 * 1024 * 1024) {
-    setFileError('This file is over 8 MB. The server may reject it — try a smaller file if upload fails.');
+  if (file && file.size > 5 * 1024 * 1024) {
+    setFileError('The file must be 5 MB or smaller.');
   } else {
     clearFileError();
   }
@@ -255,9 +253,29 @@ function closeUploadModal() {
   }
 }
 
+function readFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',')[1] : '');
+    };
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function uploadErrorMessage(result, file) {
   const raw = errText(result) || '';
   const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('temporary file') ||
+    lower.includes('upload_tmp_dir') ||
+    lower.includes('failed to upload')
+  ) {
+    return 'The server could not create a temporary upload file. MediByte will retry with a secure direct upload. If it still fails, please ask the administrator to set upload_tmp_dir to a writable folder.';
+  }
 
   if (
     lower.includes('content-length') ||
@@ -266,7 +284,7 @@ function uploadErrorMessage(result, file) {
     lower.includes('upload_max_filesize') ||
     lower.includes('post_max_size') ||
     lower.includes('file is too large') ||
-    (file && file.size > 8 * 1024 * 1024 && (!result || !result.errors))
+    (file && file.size > 5 * 1024 * 1024 && (!result || !result.errors))
   ) {
     return 'This file is too large for the server to accept right now. Please use a file under 8 MB.';
   }
@@ -290,8 +308,8 @@ async function uploadDocument() {
     return;
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    setFileError('The file must be 10 MB or smaller.');
+  if (file.size > 5 * 1024 * 1024) {
+    setFileError('The file must be 5 MB or smaller.');
     return;
   }
 
@@ -317,6 +335,28 @@ async function uploadDocument() {
   } finally {
     docUploading = false;
     submit.disabled = false;
+  }
+
+  if (!result || !result.id) {
+    const firstMessage = uploadErrorMessage(result, file);
+    const uploadStartupIssue = /temporary file|failed to upload|request startup|upload_tmp_dir/i.test(firstMessage);
+
+    if (uploadStartupIssue && file.size <= 5 * 1024 * 1024) {
+      try {
+        const encoded = await readFileBase64(file);
+        $('upload-msg').textContent = 'Secure upload retry…';
+        result = await api('/documents', 'POST', {
+          type: $('doc_type').value,
+          title: $('doc_title').value.trim() || 'Untitled document',
+          notes: $('doc_notes').value.trim(),
+          file_name: file.name,
+          mime_type: file.type,
+          file_data: encoded
+        });
+      } catch (error) {
+        result = result || { message: 'The file could not be read. Please choose it again.' };
+      }
+    }
   }
 
   if (result && result.id) {

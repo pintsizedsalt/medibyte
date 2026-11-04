@@ -102,6 +102,31 @@ class HealthTrackingTest extends TestCase
             ->assertJsonPath('weight.bmi', 22.86);
     }
 
+    public function test_meal_logs_save_without_calories_and_with_a_meal_time(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/v1/meal-logs', [
+            'meal_type' => 'lunch',
+            'meal_time' => '12:30',
+            'food_name' => 'Rice bowl',
+            'calories' => '',
+            'log_date' => now()->toDateString(),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('calories', null)
+            ->assertJsonPath('meal_time', '12:30');
+
+        $this->assertDatabaseHas('meal_logs', [
+            'user_id' => $user->id,
+            'food_name' => 'Rice bowl',
+            'meal_time' => '12:30',
+            'calories' => null,
+        ]);
+    }
+
     public function test_walking_logs_accept_steps_or_minutes_but_not_neither(): void
     {
         $user = User::factory()->create();

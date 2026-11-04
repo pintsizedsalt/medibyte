@@ -15,6 +15,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
 use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SleepLogController;
 use App\Http\Controllers\SymptomLogController;
 use App\Http\Controllers\VitalSignLogController;
@@ -76,6 +77,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/reminders', [ReminderController::class, 'index']);
         Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/search', SearchController::class);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);

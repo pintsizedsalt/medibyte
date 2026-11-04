@@ -64,22 +64,22 @@
   </section>
 
   <nav class="dash-rail" aria-label="Quick actions">
-    <a class="dash-rail-btn" data-tone="water" href="/water" aria-label="Log water">
+    <button type="button" class="dash-rail-btn" data-tone="water" onclick="openQuickLog('water')" aria-label="Log water">
       <svg class="icon" aria-hidden="true"><use href="#i-droplet"/></svg>
       <span class="dash-rail-label">Log water</span>
-    </a>
-    <a class="dash-rail-btn" data-tone="sleep" href="/sleep" aria-label="Log sleep">
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="sleep" onclick="openQuickLog('sleep')" aria-label="Log sleep">
       <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
       <span class="dash-rail-label">Log sleep</span>
-    </a>
-    <a class="dash-rail-btn" data-tone="move" href="/meals" aria-label="Add meal">
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="move" onclick="openQuickLog('meals')" aria-label="Add meal">
       <svg class="icon" aria-hidden="true"><use href="#i-meal"/></svg>
       <span class="dash-rail-label">Add meal</span>
-    </a>
-    <a class="dash-rail-btn" data-tone="mood" href="/mood" aria-label="Mood check-in">
+    </button>
+    <button type="button" class="dash-rail-btn" data-tone="mood" onclick="openQuickLog('mood')" aria-label="Mood check-in">
       <svg class="icon" aria-hidden="true"><use href="#i-smile"/></svg>
       <span class="dash-rail-label">Mood check-in</span>
-    </a>
+    </button>
   </nav>
 
   <section class="metric-grid" id="metric-grid" aria-label="Health metrics">

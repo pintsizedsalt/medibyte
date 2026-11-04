@@ -6,6 +6,17 @@ use Illuminate\Http\Request;
 
 class MealLogController extends Controller
 {
+    private function rules(): array
+    {
+        return [
+            'meal_type' => 'required|in:breakfast,lunch,dinner,snack',
+            'meal_time' => 'nullable|date_format:H:i',
+            'food_name' => 'required|string|max:255',
+            'calories' => 'nullable|integer|min:0',
+            'log_date' => 'required|date',
+        ];
+    }
+
     public function index(Request $request)
     {
         $request->validate(['date' => 'nullable|date']);
@@ -23,12 +34,8 @@ class MealLogController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'meal_type' => 'required|in:breakfast,lunch,dinner,snack',
-            'food_name' => 'required|string|max:255',
-            'calories' => 'required|integer|min:0',
-            'log_date' => 'required|date',
-        ]);
+        $data = $request->validate($this->rules());
+        $data['calories'] = $data['calories'] ?? null;
 
         return response()->json($request->user()->mealLogs()->create($data), 201);
     }
@@ -37,12 +44,10 @@ class MealLogController extends Controller
     {
         $log = $request->user()->mealLogs()->findOrFail($id);
 
-        $log->update($request->validate([
-            'meal_type' => 'required|in:breakfast,lunch,dinner,snack',
-            'food_name' => 'required|string|max:255',
-            'calories' => 'required|integer|min:0',
-            'log_date' => 'required|date',
-        ]));
+        $data = $request->validate($this->rules());
+        $data['calories'] = $data['calories'] ?? null;
+
+        $log->update($data);
 
         return response()->json($log);
     }

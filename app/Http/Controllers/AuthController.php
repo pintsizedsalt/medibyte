@@ -94,6 +94,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // The welcome greeting belongs to the first session after sign-up.
+        // Clear it on later logins so returning users do not see it again.
+        $user->notifications()->where('data->kind', 'welcome')->delete();
+
         if ($request->hasSession()) {
             Auth::login($user);
             $request->session()->regenerate();

@@ -224,7 +224,9 @@ class RecordsController extends Controller
         $vitals = $user->vitalSignLogs()->whereDate('log_date', $date)->orderBy('id')->get();
         $period = $user->periodLogs()
             ->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date)
+            ->where(function ($query) use ($date) {
+                $query->whereNull('end_date')->orWhereDate('end_date', '>=', $date);
+            })
             ->orderBy('id')->get();
         $medications = $user->medications()
             ->where('is_active', true)

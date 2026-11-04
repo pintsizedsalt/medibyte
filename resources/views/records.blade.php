@@ -5,7 +5,7 @@
 @section('content')
   <div class="page-heading">
     <div>
-      <p class="eyebrow">Your history</p>
+      <p class="eyebrow">Records</p>
       <h2>All records</h2>
       <p>Everything you have logged, in one place.</p>
     </div>

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\HealthReminder;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -272,6 +273,31 @@ class AuthAndOnboardingTest extends TestCase
             'email' => 'unique_login',
             'password' => 'password',
         ])->assertOk()->assertJsonPath('user.email', $user->email);
+    }
+
+    public function test_logging_in_again_clears_the_welcome_notification(): void
+    {
+        $user = User::factory()->create(['username' => 'returning_user']);
+
+        $user->notify(new HealthReminder([
+            'dedupe_key' => 'welcome',
+            'kind' => 'welcome',
+            'title' => 'Welcome to MediByte',
+            'body' => 'Your account is ready.',
+            'url' => '/profile-setup',
+        ]));
+
+        $this->assertSame(1, $user->notifications()->count());
+
+        $this->withoutMiddleware(ValidateCsrfToken::class);
+        $this->withHeader('Referer', 'http://localhost/login');
+
+        $this->postJson('/api/v1/login', [
+            'email' => 'returning_user',
+            'password' => 'password',
+        ])->assertOk();
+
+        $this->assertSame(0, $user->notifications()->count());
     }
 
     public function test_a_password_reset_link_can_be_requested_and_used(): void
