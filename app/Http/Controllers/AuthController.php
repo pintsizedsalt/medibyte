@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\HealthReminder;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,6 +45,14 @@ class AuthController extends Controller
             ]);
 
             $user->forceFill(['consented_at' => now()])->save();
+
+            $user->notify(new HealthReminder([
+                'dedupe_key' => 'welcome',
+                'kind' => 'welcome',
+                'title' => 'Welcome to MediByte',
+                'body' => 'Your account is ready. Finish setting up your profile to make the most of your health tracking.',
+                'url' => '/profile-setup',
+            ]));
 
             return [
                 'user' => $user,

@@ -42,7 +42,10 @@
           <span>Password</span>
           <span class="password-wrap">
             <input id="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
-            <button type="button" class="password-toggle" onclick="togglePassword('password', this)">Show</button>
+            <button type="button" class="password-toggle" onclick="togglePassword('password', this)" aria-label="Show password" aria-pressed="false">
+              <svg class="icon" id="pw_eye_off" aria-hidden="true"><use href="#i-eye-off"/></svg>
+              <svg class="icon" id="pw_eye" aria-hidden="true" hidden><use href="#i-eye"/></svg>
+            </button>
           </span>
         </label>
 
@@ -77,7 +80,10 @@ function togglePassword(id, button) {
   const input = $(id);
   const show = input.type === 'password';
   input.type = show ? 'text' : 'password';
-  button.textContent = show ? 'Hide' : 'Show';
+  button.setAttribute('aria-pressed', String(show));
+  button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  button.querySelector('#pw_eye').toggleAttribute('hidden', !show);
+  button.querySelector('#pw_eye_off').toggleAttribute('hidden', show);
 }
 
 function selectSex(value) {

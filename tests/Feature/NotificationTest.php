@@ -247,4 +247,28 @@ class NotificationTest extends TestCase
 
         $this->assertSame(0, $user->unreadNotifications()->count());
     }
+
+    public function test_a_notification_can_be_dismissed(): void
+    {
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        $user->notify(new HealthReminder([
+            'dedupe_key' => 'test:dismiss',
+            'kind' => 'welcome',
+            'title' => 'Welcome to MediByte',
+            'body' => 'Your account is ready.',
+            'url' => '/profile-setup',
+        ]));
+
+        Sanctum::actingAs($user);
+
+        $notifications = $this->getJson('/api/v1/notifications')->assertOk()->json();
+        $this->assertCount(1, $notifications);
+
+        $this->deleteJson('/api/v1/notifications/'.$notifications[0]['id'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Dismissed');
+
+        $this->assertSame(0, $user->notifications()->count());
+    }
 }

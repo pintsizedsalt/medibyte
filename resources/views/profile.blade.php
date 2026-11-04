@@ -292,9 +292,9 @@ function stepMood() {
       <div class="field">
         <span>Mood</span>
         <div class="mood-cat-tabs">
-          <button type="button" class="mood-cat${activeCat==='positive'?' active':''}" onclick="window.wizardMoodCat('positive')">Positive</button>
-          <button type="button" class="mood-cat${activeCat==='neutral'?' active':''}" onclick="window.wizardMoodCat('neutral')">Neutral</button>
-          <button type="button" class="mood-cat${activeCat==='low'?' active':''}" onclick="window.wizardMoodCat('low')">Low</button>
+          <button type="button" class="mood-cat${activeCat==='positive'?' active':''}" onclick="window.wizardMoodCat('positive')">Feeling good</button>
+          <button type="button" class="mood-cat${activeCat==='neutral'?' active':''}" onclick="window.wizardMoodCat('neutral')">In between</button>
+          <button type="button" class="mood-cat${activeCat==='low'?' active':''}" onclick="window.wizardMoodCat('low')">Feeling down</button>
         </div>
         <div class="mood-chips" id="w_mood_chips">${chips}</div>
         <input type="hidden" id="w_mood" value="${esc(selectedMood)}">
@@ -496,7 +496,7 @@ function stepGoals() {
       </label>
       ${answers.prediction && answers.prediction.predicted_next_start ? `<div class="wizard-success">Estimated next period: <strong>${esc(answers.prediction.predicted_next_start)}</strong> (about ${esc(answers.prediction.days_until_next)} days from today).</div>` : ''}
     </div>
-  `, false, 'Finish setup');
+  `, true, 'Finish setup');
 }
 
 function stepDone() {
@@ -538,6 +538,11 @@ function stepDone() {
       <div class="done-check"><svg class="icon"><use href="#i-check"/></svg></div>
       <h2 class="done-title">Welcome to MediByte${first ? ', ' + esc(first) : ''}</h2>
       <p class="done-copy">Your profile is ready. You can change any of these details later from your profile.</p>
+      <div class="done-perks">
+        <span class="done-perk"><svg class="icon"><use href="#i-shield"/></svg>Private by design</span>
+        <span class="done-perk"><svg class="icon"><use href="#i-heart"/></svg>Track your health</span>
+        <span class="done-perk"><svg class="icon"><use href="#i-bell"/></svg>Gentle reminders</span>
+      </div>
     </div>
     ${goalsHtml}
     ${prediction}
@@ -610,7 +615,7 @@ window.wizardBack = () => {
 
 window.wizardSkip = () => {
   const key = steps[current];
-  const required = ['cycle', 'weight_goal', 'illness', 'reminders', 'goals', 'done'];
+  const required = ['cycle', 'weight_goal', 'illness', 'reminders', 'done'];
   if (required.includes(key)) return;
   advance();
 };
@@ -624,13 +629,31 @@ window.updateBmiPreview = () => {
 
   if (height > 0 && weight > 0) {
     const bmi = weight / Math.pow(height / 100, 2);
-    let label = 'Healthy range';
-    if (bmi < 18.5) label = 'Below the healthy range';
-    else if (bmi >= 25 && bmi < 30) label = 'Above the healthy range';
-    else if (bmi >= 30) label = 'Well above the healthy range';
+    const category = bmi < 18.5 ? 'below' : bmi < 25 ? 'healthy' : bmi < 30 ? 'above' : 'obese';
+    const labels = {
+      below: 'Below the healthy range',
+      healthy: 'Healthy range',
+      above: 'Above the healthy range',
+      obese: 'Well above the healthy range',
+    };
+    const tones = { below: 'tone-violet', healthy: 'tone-mint', above: 'tone-amber', obese: 'tone-rose' };
+    const marker = Math.max(4, Math.min(96, ((bmi - 14) / 26) * 100));
 
-    preview.textContent = `Estimated BMI: ${bmi.toFixed(1)} — ${label}`;
+    preview.className = `wizard-success bmi-card ${tones[category]}`;
+    preview.innerHTML = `
+      <span class="bmi-icon" aria-hidden="true"><svg class="icon"><use href="#i-scale"/></svg></span>
+      <div class="bmi-value-row">
+        <strong>${bmi.toFixed(1)}</strong>
+        <span class="bmi-unit">kg/m²</span>
+      </div>
+      <span class="bmi-chip">${labels[category]}</span>
+      <div class="bmi-bar" aria-hidden="true">
+        <span class="bmi-bar-marker" style="left: ${marker.toFixed(1)}%"></span>
+      </div>
+      <p>Estimated from your height and weight. BMI is a screening tool, not a diagnosis.</p>
+    `;
   } else {
+    preview.className = 'wizard-success';
     preview.textContent = 'BMI will appear here.';
   }
 };

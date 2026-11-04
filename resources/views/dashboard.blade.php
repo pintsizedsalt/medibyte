@@ -60,23 +60,21 @@
     </div>
   </section>
 
-  <nav class="qlog-row" aria-label="Quick log">
-    <span class="qlog-label">Quick log</span>
-    <a class="qlog-btn" data-tone="water" href="/water">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Log water
+  <nav class="dash-rail" aria-label="Quick actions">
+    <button type="button" class="dash-rail-btn" onclick="openQuickSheet()" aria-label="Quick add" title="Quick add">
+      <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>
+    </button>
+    <a class="dash-rail-btn" href="/vitals" aria-label="Vitals" title="Vitals">
+      <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
     </a>
-    <a class="qlog-btn" data-tone="sleep" href="/sleep">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Log sleep
+    <a class="dash-rail-btn" href="/mood" aria-label="Mood check-in" title="Mood check-in">
+      <svg class="icon" aria-hidden="true"><use href="#i-smile"/></svg>
     </a>
-    <a class="qlog-btn" data-tone="move" href="/meals">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Add meal
+    <a class="dash-rail-btn" href="/records" aria-label="All records" title="All records">
+      <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
     </a>
-    <a class="qlog-btn" data-tone="mood" href="/mood">
-      <span class="dm-ic"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-      Mood check-in
+    <a class="dash-rail-btn" href="/settings" aria-label="Settings" title="Settings">
+      <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
     </a>
   </nav>
 

@@ -13,9 +13,9 @@ function mountMoodChips(select) {
   select.dataset.chips = '1';
 
   var groups = {
-    'Positive': ['happy', 'excited', 'grateful', 'calm', 'content', 'hopeful', 'proud', 'loved', 'energetic', 'motivated', 'relaxed'],
-    'Neutral': ['bored', 'tired', 'neutral', 'confused'],
-    'Low': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
+    'Feeling good': ['happy', 'excited', 'grateful', 'calm', 'content', 'hopeful', 'proud', 'loved', 'energetic', 'motivated', 'relaxed'],
+    'In between': ['bored', 'tired', 'neutral', 'confused'],
+    'Feeling down': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
   };
 
   var wrap = document.createElement('div');
@@ -134,7 +134,7 @@ function formatNameInput(el) {
   const stripped = String(el.value ?? '')
     .replace(/[^\p{L}\p{M}\s]/gu, '')
     .replace(/\s+/gu, ' ');
-  const titled = stripped.replace(/(\p{L}\p{M}+)/gu, word =>
+  const titled = stripped.replace(/\p{L}[\p{L}\p{M}]*/gu, word =>
     word.charAt(0).toLocaleUpperCase() + word.slice(1).toLocaleLowerCase()
   );
   if (el.value !== titled) {
@@ -609,8 +609,8 @@ function renderNotificationDrawer() {
           <small>${esc(relativeTime(item.created_at))}</small>
         </div>
         <div class="notification-actions">
-          ${payload.url ? `<button type="button" class="record-row-action" data-open-notification="${esc(item.id)}" data-url="${esc(payload.url)}" aria-label="Open notification"><svg class="icon"><use href="#i-arrow"/></svg></button>` : ''}
-          ${item.read_at ? '' : `<button type="button" class="record-row-action" data-read-notification="${esc(item.id)}" aria-label="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
+          ${payload.url ? `<button type="button" class="record-row-action" data-open-notification="${esc(item.id)}" data-url="${esc(payload.url)}" aria-label="Open notification" title="Open notification"><svg class="icon"><use href="#i-arrow"/></svg></button>` : ''}
+          ${item.read_at ? '' : `<button type="button" class="record-row-action" data-read-notification="${esc(item.id)}" aria-label="Mark as read" title="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
         </div>
       </article>`;
   }).join('');
@@ -1027,10 +1027,10 @@ function logPage(cfg) {
           ${meta ? `<span class="record-meta">${esc(meta)}</span>` : ''}
         </div>
         <div class="record-actions">
-          <button type="button" class="record-row-action" onclick="window.editLog(${Number(row.id)})" aria-label="Edit record">
+          <button type="button" class="record-row-action" onclick="window.editLog(${Number(row.id)})" aria-label="Edit record" title="Edit record">
             <svg class="icon"><use href="#i-pencil"/></svg>
           </button>
-          <button type="button" class="record-row-action danger" onclick="window.deleteLog(${Number(row.id)})" aria-label="Delete record">
+          <button type="button" class="record-row-action danger" onclick="window.deleteLog(${Number(row.id)})" aria-label="Delete record" title="Delete record">
             <svg class="icon"><use href="#i-trash"/></svg>
           </button>
         </div>
@@ -1083,10 +1083,10 @@ function logPage(cfg) {
                   <strong>${esc(cm.name)}</strong>
                 </div>
                 <div class="record-actions">
-                  <button type="button" class="record-row-action" onclick="event.preventDefault(); event.stopPropagation(); window.renameCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Rename custom mood">
+                  <button type="button" class="record-row-action" onclick="event.preventDefault(); event.stopPropagation(); window.renameCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Rename custom mood" title="Rename custom mood">
                     <svg class="icon" style="pointer-events: none;"><use href="#i-pencil"/></svg>
                   </button>
-                  <button type="button" class="record-row-action danger" onclick="event.preventDefault(); event.stopPropagation(); window.deleteCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Delete custom mood">
+                  <button type="button" class="record-row-action danger" onclick="event.preventDefault(); event.stopPropagation(); window.deleteCustomMood(event, ${Number(cm.id)}); return false;" aria-label="Delete custom mood" title="Delete custom mood">
                     <svg class="icon" style="pointer-events: none;"><use href="#i-trash"/></svg>
                   </button>
                 </div>

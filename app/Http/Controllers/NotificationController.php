@@ -37,4 +37,12 @@ class NotificationController extends Controller
 
         return response()->json(['message' => 'All read']);
     }
+
+    public function destroy(Request $request, $id)
+    {
+        $notification = $request->user()->notifications()->where('id', $id)->firstOrFail();
+        $notification->delete();
+
+        return response()->json(['message' => 'Dismissed']);
+    }
 }

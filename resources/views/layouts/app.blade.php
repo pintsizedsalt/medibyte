@@ -10,13 +10,59 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=10">
+  <link rel="stylesheet" href="/css/medibyte.css?v=11">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
+  <div class="splash" id="splash" aria-hidden="true">
+    <div class="splash-logo">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="splashGrad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3aa37c"/>
+            <stop offset="1" stop-color="#1f4d36"/>
+          </linearGradient>
+        </defs>
+        <rect x="24" y="8" width="16" height="48" rx="6" fill="url(#splashGrad)"/>
+        <rect x="8" y="24" width="48" height="16" rx="6" fill="url(#splashGrad)"/>
+        <g stroke="#d8f0e3" stroke-width="1.4" stroke-linecap="round">
+          <path d="M53 28h4v4h3"/>
+          <path d="M53 36h4v-4h3"/>
+          <path d="M52 32h8"/>
+        </g>
+        <g fill="#d8f0e3">
+          <circle cx="60" cy="32" r="1.7"/>
+          <circle cx="60" cy="28" r="1.3"/>
+          <circle cx="60" cy="36" r="1.3"/>
+          <circle cx="11" cy="32" r="1.5"/>
+        </g>
+        <g fill="#f2fbf5" class="splash-dots">
+          <circle cx="29" cy="29" r="1.5"/>
+          <circle cx="35" cy="29" r="1.5"/>
+          <circle cx="29" cy="35" r="1.5"/>
+          <circle cx="35" cy="35" r="1.5"/>
+        </g>
+      </svg>
+    </div>
+    <strong class="splash-brand">MediByte</strong>
+    <span class="splash-text">Preparing your health space…</span>
+    <div class="splash-bar"><span></span></div>
+  </div>
   <script>
     try {
-      if (sessionStorage.getItem('medibyte-sidebar') === 'hidden') {
+      var splash = document.getElementById('splash');
+      var splashTimer = setTimeout(function () {
+        if (splash) splash.classList.add('is-hidden');
+      }, 3000);
+      window.addEventListener('load', function () {
+        clearTimeout(splashTimer);
+        if (splash) setTimeout(function () { splash.classList.add('is-hidden'); }, 200);
+      });
+    } catch (error) {}
+  </script>
+  <script>
+    try {
+      if (sessionStorage.getItem('medibyte-sidebar') !== 'visible') {
         document.body.classList.add('sidebar-collapsed');
       }
     } catch (error) {}
@@ -50,6 +96,9 @@
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.1A10.8 10.8 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.2 3.9M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 6 10 6a10 10 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -62,9 +111,12 @@
         <button type="button" class="icon-btn sidebar-close" onclick="closeSidebar()" aria-label="Hide sidebar" title="Hide sidebar">
           <svg class="icon"><use href="#i-chevron-left"/></svg>
         </button>
+        <button type="button" class="icon-btn sidebar-expand" onclick="toggleSidebar()" aria-label="Show full sidebar" title="Show full sidebar">
+          <svg class="icon"><use href="#i-grid"/></svg>
+        </button>
       </div>
 
-      <a class="sidebar-profile" href="/profile" aria-label="Open your profile">
+      <a class="sidebar-profile" href="/profile" aria-label="Open your profile" title="Profile">
         <span class="avatar avatar-sm" id="sideUserAvatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()?->first_name ?? auth()->user()?->name ?? 'M', 0, 1)) }}</span>
         <span class="side-user-copy">
           <strong id="sideUserName">{{ auth()->user()?->name ?? 'MediByte' }}</strong>
@@ -75,29 +127,29 @@
 
       <nav class="side-nav">
         <p class="nav-label">Overview</p>
-        <a class="side-link" data-nav href="/dashboard"><svg class="icon"><use href="#i-home"/></svg><span>Dashboard</span></a>
-        <a class="side-link" data-nav href="/records"><svg class="icon"><use href="#i-file"/></svg><span>All records</span></a>
+        <a class="side-link" data-nav href="/dashboard" title="Dashboard"><svg class="icon"><use href="#i-home"/></svg><span>Dashboard</span></a>
+        <a class="side-link" data-nav href="/records" title="All records"><svg class="icon"><use href="#i-file"/></svg><span>All records</span></a>
 
         <p class="nav-label">Everyday</p>
-        <a class="side-link" data-nav href="/water"><svg class="icon"><use href="#i-droplet"/></svg><span>Water</span></a>
-        <a class="side-link" data-nav href="/sleep"><svg class="icon"><use href="#i-moon"/></svg><span>Sleep</span></a>
-        <a class="side-link" data-nav href="/walking"><svg class="icon"><use href="#i-activity"/></svg><span>Activity</span></a>
-        <a class="side-link" data-nav href="/meals"><svg class="icon"><use href="#i-meal"/></svg><span>Meals</span></a>
+        <a class="side-link" data-nav href="/water" title="Water"><svg class="icon"><use href="#i-droplet"/></svg><span>Water</span></a>
+        <a class="side-link" data-nav href="/sleep" title="Sleep"><svg class="icon"><use href="#i-moon"/></svg><span>Sleep</span></a>
+        <a class="side-link" data-nav href="/walking" title="Activity"><svg class="icon"><use href="#i-activity"/></svg><span>Activity</span></a>
+        <a class="side-link" data-nav href="/meals" title="Meals"><svg class="icon"><use href="#i-meal"/></svg><span>Meals</span></a>
 
         <p class="nav-label">Wellbeing</p>
-        <a class="side-link" data-nav href="/weight"><svg class="icon"><use href="#i-scale"/></svg><span>Weight &amp; BMI</span></a>
-        <a class="side-link" data-nav href="/mood"><svg class="icon"><use href="#i-smile"/></svg><span>Mood</span></a>
-        <a class="side-link" data-nav href="/symptoms"><svg class="icon"><use href="#i-thermometer"/></svg><span>Symptoms</span></a>
-        <a class="side-link" data-nav href="/vitals"><svg class="icon"><use href="#i-heart"/></svg><span>Vitals</span></a>
-        <a class="side-link" data-cycle data-nav href="/period" hidden><svg class="icon"><use href="#i-cycle"/></svg><span>Cycle</span></a>
+        <a class="side-link" data-nav href="/weight" title="Weight &amp; BMI"><svg class="icon"><use href="#i-scale"/></svg><span>Weight &amp; BMI</span></a>
+        <a class="side-link" data-nav href="/mood" title="Mood"><svg class="icon"><use href="#i-smile"/></svg><span>Mood</span></a>
+        <a class="side-link" data-nav href="/symptoms" title="Symptoms"><svg class="icon"><use href="#i-thermometer"/></svg><span>Symptoms</span></a>
+        <a class="side-link" data-nav href="/vitals" title="Vitals"><svg class="icon"><use href="#i-heart"/></svg><span>Vitals</span></a>
+        <a class="side-link" data-cycle data-nav href="/period" title="Cycle" hidden><svg class="icon"><use href="#i-cycle"/></svg><span>Cycle</span></a>
 
         <p class="nav-label">Care</p>
-        <a class="side-link" data-nav href="/medications"><svg class="icon"><use href="#i-pill"/></svg><span>Medications</span></a>
-        <a class="side-link" data-nav href="/appointments"><svg class="icon"><use href="#i-calendar"/></svg><span>Appointments</span></a>
-        <a class="side-link" data-nav href="/documents"><svg class="icon"><use href="#i-file"/></svg><span>Documents</span></a>
+        <a class="side-link" data-nav href="/medications" title="Medications"><svg class="icon"><use href="#i-pill"/></svg><span>Medications</span></a>
+        <a class="side-link" data-nav href="/appointments" title="Appointments"><svg class="icon"><use href="#i-calendar"/></svg><span>Appointments</span></a>
+        <a class="side-link" data-nav href="/documents" title="Documents"><svg class="icon"><use href="#i-file"/></svg><span>Documents</span></a>
 
         <p class="nav-label">Account</p>
-        <a class="side-link" data-nav href="/settings"><svg class="icon"><use href="#i-settings"/></svg><span>Settings</span></a>
+        <a class="side-link" data-nav href="/settings" title="Settings"><svg class="icon"><use href="#i-settings"/></svg><span>Settings</span></a>
       </nav>
 
       <div class="sidebar-foot">
@@ -114,6 +166,9 @@
           <a class="topbar-brand" href="/dashboard"><strong>MediByte</strong></a>
           <span class="topbar-date">{{ now()->format('D, M j') }}</span>
         </div>
+        <svg class="topbar-pulse" width="110" height="12" viewBox="0 0 110 12" aria-hidden="true">
+          <path d="M2 7h30l5-4 6 7 5-6 4 3h56"/>
+        </svg>
         <div class="topbar-actions">
           <button type="button" class="icon-btn notif-btn" onclick="openNotificationDrawer()" aria-label="Open notifications" title="Notifications" aria-controls="notificationDrawer">
             <svg class="icon"><use href="#i-bell"/></svg>
@@ -121,7 +176,7 @@
           </button>
 
           <div class="account-menu" id="accountMenu">
-            <button type="button" class="avatar avatar-button" id="topbarAvatar" onclick="toggleAccountMenu(event)" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountDropdown">
+            <button type="button" class="avatar avatar-button" id="topbarAvatar" onclick="toggleAccountMenu(event)" aria-label="Open account menu" title="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountDropdown">
               {{ strtoupper(mb_substr(auth()->user()?->first_name ?? auth()->user()?->name ?? 'M', 0, 1)) }}
             </button>
             <div class="account-dropdown" id="accountDropdown" role="menu" hidden>
@@ -140,7 +195,7 @@
       <nav class="mobile-nav" aria-label="Mobile navigation">
         <a data-nav href="/dashboard"><svg class="icon"><use href="#i-home"/></svg><span>Home</span></a>
         <a data-nav href="/records"><svg class="icon"><use href="#i-file"/></svg><span>Records</span></a>
-        <button type="button" class="mobile-add" onclick="openQuickSheet()" aria-label="Add a record">
+        <button type="button" class="mobile-add" onclick="openQuickSheet()" aria-label="Add a record" title="Add a record">
           <svg class="icon"><use href="#i-plus"/></svg>
         </button>
         <a data-nav href="/notifications">
@@ -159,7 +214,7 @@
         <p class="eyebrow">Your inbox</p>
         <h2 id="drawerTitle">Notifications</h2>
       </div>
-      <button type="button" class="icon-btn" onclick="closeNotificationDrawer()" aria-label="Close notifications">
+      <button type="button" class="icon-btn" onclick="closeNotificationDrawer()" aria-label="Close notifications" title="Close notifications">
         <svg class="icon"><use href="#i-close"/></svg>
       </button>
     </div>

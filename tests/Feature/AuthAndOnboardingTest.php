@@ -38,6 +38,27 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertNotNull($user->consented_at);
     }
 
+    public function test_registration_sends_a_welcome_notification(): void
+    {
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Wendy',
+            'last_name' => 'Wilson',
+            'username' => 'wendy_w',
+            'email' => 'wendy@example.com',
+            'password' => 'password123',
+            'sex' => 'female',
+            'consent' => true,
+        ])->assertCreated();
+
+        $user = User::where('email', 'wendy@example.com')->firstOrFail();
+
+        $welcome = $user->notifications()->first();
+        $this->assertNotNull($welcome);
+        $this->assertSame('Welcome to MediByte', $welcome->data['title']);
+        $this->assertSame('welcome', $welcome->data['kind']);
+        $this->assertSame('/profile-setup', $welcome->data['url']);
+    }
+
     public function test_registration_title_cases_names_automatically(): void
     {
         $response = $this->postJson('/api/v1/register', [
