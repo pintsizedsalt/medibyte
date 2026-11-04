@@ -76,7 +76,7 @@
 
     <aside class="settings-side">
       <section class="card account-card">
-        <span class="avatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()->first_name ?? auth()->user()->name ?? 'M', 0, 1)) }}</span>
+        <span class="avatar {{ auth()->user()?->avatar_url ? 'has-photo' : '' }}" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()->first_name ?? auth()->user()->name ?? 'M', 0, 1)) }}</span>
         <h3>{{ auth()->user()->name ?? 'MediByte account' }}</h3>
         @if (auth()->user()->username)
           <p class="account-handle">{{ '@'.auth()->user()->username }}</p>

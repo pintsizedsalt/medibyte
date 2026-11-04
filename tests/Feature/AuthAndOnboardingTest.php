@@ -5,15 +5,30 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Notifications\HealthReminder;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Mail\Factory;
+use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Validator;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
 
 class AuthAndOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Registration checks that the email domain can receive mail. The lookups are
+        // faked so the rest of this file does not depend on the network.
+        Validator::fakeDnsLookups();
+    }
 
     public function test_registration_creates_a_profile_and_starts_onboarding(): void
     {
@@ -219,7 +234,11 @@ class AuthAndOnboardingTest extends TestCase
 
     public function test_a_user_can_update_their_profile_identity(): void
     {
-        $user = User::factory()->create(['username' => 'old_username']);
+        $user = User::factory()->create([
+            'username' => 'old_username',
+            'sex' => 'male',
+            'period_status' => null,
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -237,6 +256,9 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertSame('Updated Person', $user->name);
         $this->assertSame('updated_name', $user->username);
         $this->assertSame('updated@example.com', $user->email);
+
+        // An edit that leaves sex out must keep the answer given at sign-up.
+        $this->assertSame('male', $user->sex);
     }
 
     public function test_registration_rejects_invalid_and_duplicate_usernames(): void
@@ -260,6 +282,25 @@ class AuthAndOnboardingTest extends TestCase
             'username' => 'TAKEN_NAME',
             'email' => 'taken@example.com',
         ]))->assertStatus(422)->assertJsonValidationErrors('username');
+    }
+
+    public function test_registration_rejects_an_email_domain_that_cannot_receive_mail(): void
+    {
+        Validator::fakeDnsLookups(false);
+
+        $this->postJson('/api/v1/register', [
+            'first_name' => 'Ghost',
+            'last_name' => 'Mailbox',
+            'username' => 'ghost_mailbox',
+            'email' => 'ghost@mail.example',
+            'password' => 'password123',
+            'sex' => 'female',
+            'consent' => true,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('email')
+            ->assertJsonPath('errors.email.0', 'Enter an email at a domain that can receive mail. Check the spelling, especially the part after the @.');
+
+        $this->assertDatabaseMissing('users', ['email' => 'ghost@mail.example']);
     }
 
     public function test_a_user_can_log_in_with_their_username(): void
@@ -339,6 +380,23 @@ class AuthAndOnboardingTest extends TestCase
         $this->postJson('/api/v1/forgot-password', ['email' => 'nobody@example.com'])
             ->assertOk()
             ->assertJsonPath('message', 'If that email is registered, we have sent a password reset link.');
+    }
+
+    public function test_forgot_password_says_so_when_the_mail_server_fails(): void
+    {
+        User::factory()->create(['email' => 'reset@example.com']);
+
+        $mailer = Mockery::mock(Mailer::class);
+        $mailer->shouldReceive('send')->andThrow(new TransportException('Connection refused'));
+
+        $manager = Mockery::mock(Factory::class);
+        $manager->shouldReceive('mailer')->andReturn($mailer);
+
+        Mail::swap($manager);
+
+        $this->postJson('/api/v1/forgot-password', ['email' => 'reset@example.com'])
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'We could not send the reset email just now. Please try again in a moment.');
     }
 
     public function test_web_login_creates_a_session(): void

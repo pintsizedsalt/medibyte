@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AvatarController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check() ? redirect('/dashboard') : redirect('/login'));
@@ -16,6 +17,7 @@ Route::middleware('auth')->group(function () {
     Route::view('/profile', 'account-profile');
     Route::view('/profile-setup', 'profile');
     Route::view('/settings', 'settings');
+    Route::get('/avatar', [AvatarController::class, 'show']);
     Route::view('/water', 'water');
     Route::view('/sleep', 'sleep');
     Route::view('/walking', 'walking');

@@ -49,10 +49,7 @@
 
       <!-- Login card -->
       <section class="lg-card" aria-labelledby="lg_title">
-        <div class="lg-logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><use href="#i-activity"/></svg>
-        </div>
-        <p class="lg-kicker">Welcome back</p>
+        <p class="lg-kicker">Welcome</p>
         <h2 id="lg_title">Log in to MediByte</h2>
         <p class="lg-intro">Use your email address or username to continue.</p>
 

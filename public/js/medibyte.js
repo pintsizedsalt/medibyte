@@ -321,14 +321,15 @@ function bindFieldConditionals(root, prefix, grid) {
 }
 
 /* A 1–5 range input with a live value label. */
-function intensitySliderHtml(id, safeLabel, value) {
+function intensitySliderHtml(id, safeLabel, value, scale) {
   const parsed = Number(value);
   const current = Number.isFinite(parsed) ? Math.min(5, Math.max(1, Math.round(parsed))) : 3;
+  const [lowText, highText] = Array.isArray(scale) ? [scale[0] || 'Very mild', scale[1] || 'Very strong'] : ['Very mild', 'Very strong'];
 
   return `<div class="field slider-field" data-grid-full="1">
     <span class="slider-head"><span>${safeLabel}</span><output id="${id}_out" for="${id}">${current} / 5</output></span>
     <input id="${id}" type="range" min="1" max="5" step="1" value="${current}" data-slider-value="1">
-    <small class="slider-scale"><span>Very mild</span><span>Very strong</span></small>
+    <small class="slider-scale"><span>${esc(lowText)}</span><span>${esc(highText)}</span></small>
   </div>`;
 }
 
@@ -338,6 +339,32 @@ function switchRowHtml(id, safeLabel, checked) {
     <span class="switch-track" aria-hidden="true"></span>
     <span class="switch-label">${safeLabel}</span>
   </label>`;
+}
+
+/* Saved personalised moods are pinned to the top of the picker so they are not
+   lost at the bottom of the predefined list. Both add-record forms use this. */
+let personalizedMoodNames = [];
+
+function rememberPersonalizedMoods(list) {
+  personalizedMoodNames = (Array.isArray(list) ? list : [])
+    .map(mood => String(typeof mood === 'string' ? mood : mood?.name ?? '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function moodOptionHtml(moods, selected) {
+  const names = (Array.isArray(moods) ? moods : [])
+    .map(mood => String(mood ?? '').trim())
+    .filter(Boolean);
+
+  const isPersonal = name => personalizedMoodNames.includes(name.toLowerCase());
+  const personal = names.filter(isPersonal);
+  const predefined = names.filter(name => !isPersonal(name));
+
+  const option = name => `<option value="${esc(name)}" ${name === String(selected ?? '') ? 'selected' : ''}>${esc(optionLabel(name))}</option>`;
+
+  return `<option value="" ${selected ? '' : 'selected'}>Choose…</option>`
+    + (personal.length ? `<optgroup label="Your moods">${personal.map(option).join('')}</optgroup>` : '')
+    + predefined.map(option).join('');
 }
 
 /* ---------------------------------------------------------
@@ -484,6 +511,291 @@ function closeConfirm(result) {
     confirmResolver(Boolean(result));
     confirmResolver = null;
   }
+}
+
+/* A floating, themed single-field question — the app's alternative to prompt(). */
+function promptText(options = {}) {
+  const host = document.createElement('div');
+  host.className = 'log-modal';
+  host.innerHTML = `
+    <div class="log-modal-backdrop"></div>
+    <div class="log-modal-dialog log-form-dialog glassy" role="dialog" aria-modal="true">
+      <header class="log-modal-head">
+        <div>
+          <p class="eyebrow">${esc(options.eyebrow || 'Edit')}</p>
+          <h3>${esc(options.title || 'Enter a name')}</h3>
+        </div>
+      </header>
+      <div class="log-modal-body">
+        ${options.note ? `<p class="form-card-note">${esc(options.note)}</p>` : ''}
+        <p class="form-message" role="alert"></p>
+        <form>
+          <div class="form-grid">
+            <label class="field" data-grid-full="1">
+              <span>${esc(options.label || 'Name')}</span>
+              <input type="text" maxlength="${Number(options.maxLength) || 50}" autocomplete="off"
+                placeholder="${esc(options.placeholder || '')}" value="${esc(options.value || '')}">
+            </label>
+            <div class="form-grid-action">
+              <button type="submit" class="btn btn-primary">
+                <svg class="icon"><use href="#i-check"/></svg>
+                ${esc(options.confirmLabel || 'Save')}
+              </button>
+              <button type="button" class="btn btn-ghost">${esc(options.cancelLabel || 'Cancel')}</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>`;
+
+  document.body.appendChild(host);
+  document.body.classList.add('log-modal-open');
+
+  const input = host.querySelector('input');
+  const message = host.querySelector('.form-message');
+  const form = host.querySelector('form');
+
+  return new Promise(resolve => {
+    let settled = false;
+
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onKeydown);
+      host.remove();
+      if (!document.querySelector('.log-modal:not([hidden])')) {
+        document.body.classList.remove('log-modal-open');
+      }
+      resolve(value);
+    };
+
+    const submit = () => {
+      const value = input.value.trim();
+      if (!value) {
+        message.textContent = options.emptyText || 'Please enter a value.';
+        input.focus();
+        return;
+      }
+      finish(value);
+    };
+
+    const onKeydown = event => { if (event.key === 'Escape') finish(null); };
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      submit();
+    });
+    host.querySelector('.log-modal-backdrop').addEventListener('click', () => finish(null));
+    host.querySelector('.btn-ghost').addEventListener('click', () => finish(null));
+    document.addEventListener('keydown', onKeydown);
+
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 60);
+  });
+}
+
+/* ---------------------------------------------------------
+   Profile photo: upload, floating cropper, and the rounds it fills
+   --------------------------------------------------------- */
+const AVATAR_EDGE = 256;
+
+function applyAvatarPhoto(url) {
+  document.querySelectorAll('.avatar').forEach(avatar => {
+    avatar.classList.toggle('has-photo', Boolean(url));
+  });
+
+  if (url) {
+    document.documentElement.style.setProperty('--avatar-photo', `url('${url}')`);
+  } else {
+    document.documentElement.style.removeProperty('--avatar-photo');
+  }
+}
+
+/** Resolves to a square JPEG data URL, or null when the user backs out. */
+function openAvatarCropper(file) {
+  return new Promise(resolve => {
+    const objectUrl = URL.createObjectURL(file);
+    const host = document.createElement('div');
+    host.className = 'log-modal';
+    host.innerHTML = `
+      <div class="log-modal-backdrop"></div>
+      <div class="log-modal-dialog glassy" role="dialog" aria-modal="true" aria-label="Adjust your photo">
+        <header class="log-modal-head">
+          <div>
+            <p class="eyebrow">Profile photo</p>
+            <h3>Adjust your photo</h3>
+          </div>
+        </header>
+        <div class="log-modal-body">
+          <div class="form-grid">
+            <div class="crop-stage span-full">
+              <img class="crop-image" src="${objectUrl}" alt="" draggable="false">
+            </div>
+            <label class="field slider-field span-full">
+              <span class="slider-head"><span>Zoom</span><output>1.0×</output></span>
+              <input type="range" min="1" max="3" step="0.02" value="1" aria-label="Zoom">
+            </label>
+            <p class="form-card-note span-full">Drag the photo to place your face inside the circle.</p>
+            <div class="form-grid-action">
+              <button type="button" class="btn btn-primary crop-save">
+                <svg class="icon"><use href="#i-check"/></svg>
+                Save
+              </button>
+              <button type="button" class="btn btn-ghost">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.appendChild(host);
+    document.body.classList.add('log-modal-open');
+
+    const stage = host.querySelector('.crop-stage');
+    const img = host.querySelector('.crop-image');
+    const zoom = host.querySelector('input[type="range"]');
+    const zoomOut = host.querySelector('output');
+    const save = host.querySelector('.crop-save');
+
+    let side = 0;
+    let width = 0;
+    let height = 0;
+    let fit = 1;
+    let zoomLevel = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let ready = false;
+
+    const settle = value => {
+      document.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('resize', measure);
+      host.remove();
+      URL.revokeObjectURL(objectUrl);
+      if (!document.querySelector('.log-modal:not([hidden])')) {
+        document.body.classList.remove('log-modal-open');
+      }
+      resolve(value);
+    };
+
+    const onKeydown = event => { if (event.key === 'Escape') settle(null); };
+
+    const paint = () => {
+      if (!ready) return;
+      const drawnW = width * fit * zoomLevel;
+      const drawnH = height * fit * zoomLevel;
+      offsetX = Math.min(Math.max(offsetX, (side - drawnW) / 2), (drawnW - side) / 2);
+      offsetY = Math.min(Math.max(offsetY, (side - drawnH) / 2), (drawnH - side) / 2);
+
+      img.style.width = `${drawnW}px`;
+      img.style.height = `${drawnH}px`;
+      img.style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px)`;
+      zoomOut.textContent = `${zoomLevel.toFixed(1)}×`;
+    };
+
+    const measure = () => {
+      side = stage.clientWidth;
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+
+      if (!side || !width || !height) return;
+
+      fit = Math.max(side / width, side / height);
+      ready = true;
+      save.disabled = false;
+      paint();
+    };
+
+    save.disabled = true;
+    save.addEventListener('click', () => {
+      if (!ready) return;
+
+      const unit = fit * zoomLevel;
+      // Pan and size are CSS pixels; drawImage wants image pixels, so divide by the scale.
+      const sourceSide = side / unit;
+      const startX = width / 2 - (offsetX + side / 2) / unit;
+      const startY = height / 2 - (offsetY + side / 2) / unit;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = AVATAR_EDGE;
+      canvas.height = AVATAR_EDGE;
+      canvas.getContext('2d').drawImage(img, startX, startY, sourceSide, sourceSide, 0, 0, AVATAR_EDGE, AVATAR_EDGE);
+
+      settle(canvas.toDataURL('image/jpeg', 0.85));
+    });
+
+    zoom.addEventListener('input', () => {
+      zoomLevel = Number(zoom.value) || 1;
+      paint();
+    });
+
+    let drag = null;
+
+    stage.addEventListener('pointerdown', event => {
+      if (!ready) return;
+      drag = { x: event.clientX, y: event.clientY, offsetX, offsetY };
+      stage.setPointerCapture(event.pointerId);
+      stage.classList.add('dragging');
+    });
+
+    stage.addEventListener('pointermove', event => {
+      if (!drag) return;
+      offsetX = drag.offsetX + (event.clientX - drag.x);
+      offsetY = drag.offsetY + (event.clientY - drag.y);
+      paint();
+    });
+
+    const endDrag = () => {
+      drag = null;
+      stage.classList.remove('dragging');
+    };
+
+    stage.addEventListener('pointerup', endDrag);
+    stage.addEventListener('pointercancel', endDrag);
+
+    host.querySelector('.log-modal-backdrop').addEventListener('click', () => settle(null));
+    host.querySelector('.btn-ghost').addEventListener('click', () => settle(null));
+    document.addEventListener('keydown', onKeydown);
+
+    img.addEventListener('error', () => {
+      toast('That file could not be opened as a photo.', 'error');
+      settle(null);
+    });
+
+    if (img.complete && img.naturalWidth) {
+      measure();
+    } else {
+      img.addEventListener('load', measure, { once: true });
+    }
+
+    window.addEventListener('resize', measure);
+  });
+}
+
+async function uploadAvatar(dataUrl) {
+  const result = await api('/avatar', 'POST', { image_data: dataUrl });
+
+  if (result && result.avatar_url) {
+    applyAvatarPhoto(result.avatar_url);
+    toast('Profile photo updated.');
+  } else {
+    toast(errText(result), 'error');
+  }
+}
+
+function pickAvatarPhoto() {
+  const input = $('avatarFile');
+  if (!input) return;
+  input.value = '';
+  input.click();
+}
+
+async function readAvatarPhoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  const dataUrl = await openAvatarCropper(file);
+  if (dataUrl) await uploadAvatar(dataUrl);
 }
 
 let toastTimer = null;
@@ -668,20 +980,8 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
       return `<option value="${esc(String(optionValue))}" ${String(optionValue) === String(selected) ? 'selected' : ''}>${esc(String(optionText))}</option>`;
     });
 
-    if (name === 'mood' && !pairs.some(option => String(Array.isArray(option) ? option[0] : option) === '__custom__')) {
-      options.push('<option value="__custom__">Other / Add your own mood</option>');
-    }
-
-    const selectHtml = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
-
     if (name === 'mood') {
-      return `<div class="mood-field-group" data-grid-full="1">
-        ${selectHtml}
-        <label class="field" id="q_customMoodField" style="display:none">
-          <span>Enter your own mood</span>
-          <input type="text" id="q_custom_mood" maxlength="50" placeholder="Type your mood">
-        </label>
-      </div>`;
+      return `<label class="field" data-grid-full="1"><span>${safeLabel}</span><select id="${id}">${moodOptionHtml(pairs, v)}</select></label>`;
     }
 
     html = `<label class="field"${type === 'method' || name === 'sleep_method' ? ' data-grid-full="1"' : ''}><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
@@ -706,20 +1006,6 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
 
 function syncQuickConditionals() {
   bindFieldConditionals($('quickLogBody'), 'q_', $('quickLogBody')?.querySelector('.form-grid'));
-
-  const moodSelect = $('q_mood');
-  const customField = $('q_customMoodField');
-  if (moodSelect && customField) {
-    const syncCustom = () => {
-      customField.style.display = moodSelect.value === '__custom__' ? '' : 'none';
-      if (moodSelect.value === '__custom__') $('q_custom_mood')?.focus();
-    };
-    if (!moodSelect.dataset.quickBound) {
-      moodSelect.dataset.quickBound = '1';
-      moodSelect.addEventListener('change', syncCustom);
-    }
-    syncCustom();
-  }
 }
 
 async function openQuickLog(key, defaults = {}) {
@@ -732,9 +1018,9 @@ async function openQuickLog(key, defaults = {}) {
   const def = { ...source, fields: source.fields.map(field => field.slice()) };
 
   if (key === 'mood') {
-    const moods = await api('/moods');
-    const list = Array.isArray(moods) ? moods : [];
-    def.fields[0][3] = ['', ...list];
+    const [moods, custom] = await Promise.all([api('/moods'), api('/custom-moods')]);
+    rememberPersonalizedMoods(Array.isArray(custom) ? custom.map(mood => mood.name) : []);
+    def.fields[0][3] = Array.isArray(moods) ? moods : [];
   }
 
   activeQuickLog = { key, def };
@@ -805,32 +1091,6 @@ async function saveQuickLog() {
     if (el.value === '') return;
     body[name] = el.value;
   });
-
-  if (activeQuickLog.key === 'mood' && body.mood === '__custom__') {
-    const customName = $('q_custom_mood')?.value.trim();
-    if (!customName) {
-      $('quickMsg').textContent = 'Please enter your own mood.';
-      $('q_custom_mood')?.focus();
-      return;
-    }
-
-    const saved = await api('/custom-moods', 'POST', { name: customName });
-    if (saved.id) {
-      body.mood = saved.name;
-    } else {
-      const allMoods = await api('/moods');
-      const matched = Array.isArray(allMoods)
-        ? allMoods.find(mood => String(mood).toLowerCase() === customName.toLowerCase())
-        : null;
-      if (!matched) {
-        const message = errText(saved);
-        $('quickMsg').textContent = message;
-        toast(message, 'error');
-        return;
-      }
-      body.mood = matched;
-    }
-  }
 
   const result = await api(def.url, 'POST', body);
   if (result && result.id) {
@@ -1654,7 +1914,7 @@ function logPage(cfg) {
       const label = key + (list ? ', ' + list.length + (list.length === 1 ? ' record' : ' records') : '');
       const face = moodMode
         ? `<b>${day}</b>${emoji ? `<i aria-hidden="true">${emoji}</i>` : (list ? '<i aria-hidden="true">•</i>' : '')}`
-        : `<span>${day}</span>${list ? '<em class="cal-mark" aria-hidden="true"></em>' : ''}`;
+        : `<span>${day}</span>`;
       return `<button type="button" class="${classes.join(' ')}" onclick="window.calPick('${key}')" aria-pressed="${key === calSel}" aria-label="${esc(label)}">${face}</button>`;
     };
 
@@ -1768,44 +2028,23 @@ function logPage(cfg) {
       const selected = v === undefined || v === null ? (pairs[0] ? pairs[0][0] : '') : v;
       html = `<label class="field" data-grid-full="1"><span>${safeLabel}</span><select id="${id}">${pairs.map(([val, text]) => `<option value="${esc(String(val))}" ${String(val) === String(selected) ? 'selected' : ''}>${esc(String(text))}</option>`).join('')}</select></label>`;
     } else if (type === 'select') {
-      const moodOptions = [...(opts || [])];
+      if (name === 'mood') {
+        const moodNames = [...(opts || [])];
 
-      if (
-        name === 'mood' &&
-        v &&
-        v !== '__custom__' &&
-        !moodOptions.some(o => String(o) === String(v))
-      ) {
-        moodOptions.push(v);
+        if (v && !moodNames.some(mood => String(mood) === String(v))) {
+          moodNames.push(v);
+        }
+
+        return `<label class="field" data-grid-full="1"><span>${safeLabel}</span><select id="${id}">${moodOptionHtml(moodNames, v)}</select></label>`;
       }
 
-      const options = moodOptions.map(o => {
+      const options = (opts || []).map(o => {
         const optionValue = String(o ?? '');
         const text = optionValue === '' ? 'Choose…' : optionLabel(optionValue);
         return `<option value="${esc(optionValue)}" ${String(o) === String(v) ? 'selected' : ''}>${esc(text)}</option>`;
       });
 
-      if (name === 'mood') {
-        options.push(
-          `<option value="__custom__" ${v === '__custom__' ? 'selected' : ''}>Other / Add your own mood</option>`
-        );
-      }
-
-      const selectHTML = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
-
-      if (name === 'mood') {
-        return `
-          <div class="mood-field-group" data-grid-full="1">
-            ${selectHTML}
-            <label class="field" id="customMoodField" style="display:none">
-              <span>Enter your own mood</span>
-              <input type="text" id="f_custom_mood" maxlength="50" placeholder="Type your mood">
-            </label>
-          </div>
-        `;
-      }
-
-      html = selectHTML;
+      html = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
     } else if (type === 'textarea') {
       html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}" rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
     } else if (name === 'intensity' || type === 'intensity' || type === 'slider') {
@@ -2102,23 +2341,6 @@ function logPage(cfg) {
       try { cfg.methodInit(edit); } catch (error) { /* optional hook */ }
       syncMethodFields();
     }
-
-    const moodSelect = $('f_mood');
-    const customMoodField = $('customMoodField');
-
-    if (moodSelect && customMoodField) {
-      const syncCustomMood = () => {
-        const isCustom = moodSelect.value === '__custom__';
-        customMoodField.style.display = isCustom ? '' : 'none';
-
-        if (isCustom) {
-          $('f_custom_mood')?.focus();
-        }
-      };
-
-      moodSelect.addEventListener('change', syncCustomMood);
-      syncCustomMood();
-    }
   }
 
   async function reloadCustomMoods() {
@@ -2126,6 +2348,7 @@ function logPage(cfg) {
 
     const cms = await api('/custom-moods');
     customMoods = Array.isArray(cms) ? cms : (cms.data || []);
+    rememberPersonalizedMoods(customMoods);
 
     const allMoods = await api('/moods');
     const moodField = cfg.fields.find(f => f[0] === 'mood');
@@ -2272,8 +2495,18 @@ function logPage(cfg) {
       const found = customMoods.find(cm => Number(cm.id) === Number(id));
       oldName = found ? found.name : '';
     }
-    const newName = window.prompt('Rename custom mood:', oldName);
-    if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+    const newName = await promptText({
+      eyebrow: 'Personalize',
+      title: 'Rename custom mood',
+      label: 'Mood name',
+      placeholder: 'e.g. Overstimulated',
+      value: oldName,
+      note: 'Records you already logged keep this mood.',
+      confirmLabel: 'Save',
+      emptyText: 'Please enter a mood name.'
+    });
+
+    if (!newName || newName === oldName) return;
 
     const personalizeOpen = $('moodPersonalizeModal') && !$('moodPersonalizeModal').hidden;
     const res = await api('/custom-moods/' + id, 'PUT', { name: newName.trim() });
@@ -2351,38 +2584,6 @@ function logPage(cfg) {
       body[name] = el.value;
     });
 
-    let createdCustomMood = false;
-    if (cfg.url === '/mood-logs' && body.mood === '__custom__') {
-      const customInput = $('f_custom_mood');
-      const customName = customInput?.value.trim();
-
-      if (!customName) {
-        msg('Please enter your own mood.');
-        customInput?.focus();
-        return;
-      }
-
-      const savedMood = await api('/custom-moods', 'POST', {
-        name: customName
-      });
-
-      if (savedMood.id) {
-        body.mood = savedMood.name;
-        createdCustomMood = true;
-      } else {
-        const allMoods = await api('/moods');
-        const matched = Array.isArray(allMoods) && allMoods.find(m => m.toLowerCase() === customName.toLowerCase());
-        if (matched) {
-          body.mood = matched;
-        } else {
-          const err = errText(savedMood);
-          msg(err);
-          toast(err, 'error');
-          return;
-        }
-      }
-    }
-
     const data = await api(cfg.url + (edit ? '/' + edit.id : ''), edit ? 'PUT' : 'POST', body);
     if (data.id) {
       const wasEditing = Boolean(edit);
@@ -2391,11 +2592,7 @@ function logPage(cfg) {
       toast(wasEditing ? 'Changes saved.' : 'Record added.');
       window.closeLogForm();
       await load();
-      if (createdCustomMood) {
-        window.openMoodPersonalize();
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       const err = errText(data);
       msg(err);

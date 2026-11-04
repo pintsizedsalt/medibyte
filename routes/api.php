@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\CustomMoodController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -43,6 +44,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::post('/profile', [ProfileController::class, 'store']);
         Route::post('/profile/complete', [ProfileController::class, 'complete']);
+        Route::post('/avatar', [AvatarController::class, 'store']);
 
         Route::get('/account/export', [AccountController::class, 'export']);
         Route::delete('/account', [AccountController::class, 'destroy']);

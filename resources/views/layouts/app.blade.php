@@ -1,3 +1,4 @@
+@php($avatarPhoto = auth()->user()?->avatar_url)
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +18,10 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=25">
+  <link rel="stylesheet" href="/css/medibyte.css?v=26">
+  @if ($avatarPhoto)
+    <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
+  @endif
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -129,7 +133,7 @@
       </div>
 
       <a class="sidebar-profile" href="/profile" aria-label="Open your profile" title="Profile">
-        <span class="avatar avatar-sm" id="sideUserAvatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()?->first_name ?? auth()->user()?->name ?? 'M', 0, 1)) }}</span>
+        <span class="avatar avatar-sm {{ $avatarPhoto ? 'has-photo' : '' }}" id="sideUserAvatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()?->first_name ?? auth()->user()?->name ?? 'M', 0, 1)) }}</span>
         <span class="side-user-copy">
           <strong id="sideUserName">{{ auth()->user()?->name ?? 'MediByte' }}</strong>
           <small id="sideUserHandle">{{ auth()->user()?->username ? '@'.auth()->user()?->username : 'Private account' }}</small>
@@ -215,7 +219,7 @@
           </button>
 
           <div class="account-menu" id="accountMenu">
-            <button type="button" class="avatar avatar-button" id="topbarAvatar" onclick="toggleAccountMenu(event)" aria-label="Open account menu" title="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountDropdown">
+            <button type="button" class="avatar avatar-button {{ $avatarPhoto ? 'has-photo' : '' }}" id="topbarAvatar" onclick="toggleAccountMenu(event)" aria-label="Open account menu" title="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="accountDropdown">
               {{ strtoupper(mb_substr(auth()->user()?->first_name ?? auth()->user()?->name ?? 'M', 0, 1)) }}
             </button>
             <div class="account-dropdown" id="accountDropdown" role="menu" hidden>
@@ -259,7 +263,10 @@
     </div>
     <div class="drawer-toolbar">
       <span class="drawer-summary" id="drawerSummary">Loading…</span>
-      <button type="button" class="text-button" onclick="markAllNotificationsRead()">Mark all read</button>
+      <button type="button" class="mark-all-btn" onclick="markAllNotificationsRead()">
+        <svg class="icon"><use href="#i-check"/></svg>
+        Mark all read
+      </button>
     </div>
     <div class="drawer-body" id="drawerList">
       <p class="empty-copy">Loading your reminders…</p>
@@ -347,7 +354,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=15"></script>
+  <script src="/js/medibyte.js?v=16"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

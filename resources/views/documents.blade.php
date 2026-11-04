@@ -5,9 +5,6 @@
 @section('content')
   <div class="page-heading tone-blue">
     <div class="heading-main">
-      <a class="back-link" href="/records" aria-label="Back to all records">
-        <svg class="icon"><use href="#i-chevron-left"/></svg>
-      </a>
       <span class="heading-ic" aria-hidden="true"><svg class="icon"><use href="#i-file"/></svg></span>
       <div>
         <p class="eyebrow">Health records</p>

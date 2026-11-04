@@ -285,10 +285,11 @@ body.sidebar-open .sidebar {
   margin-bottom: 2px;
   padding: 8px;
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--text);
   font-size: 14px;
   transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
+.side-link .icon { color: var(--ink); }
 .side-link:hover {
   background: var(--soft);
   transform: translate(1px, -1px);
@@ -830,8 +831,6 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
 }
 .wizard-fields { display: grid; gap: 12px; }
 .wizard-fields .field { margin-bottom: 0; }
-.wizard-fields .mood-cat-tabs { margin: 0; }
-.wizard-fields .mood-chips { margin-bottom: 0; }
 .option-grid {
   display: grid;
   gap: 8px;
@@ -1099,10 +1098,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .form-grid .check-row {
   margin-bottom: 14px;
 }
-.mood-field-group {
-  display: flex;
-  flex-direction: column;
-}
 .span-full { grid-column: 1 / -1; }
 
 .form-note, .form-card-note {
@@ -1200,55 +1195,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   margin-top: 4px;
 }
 
-/* Intensity segmented control (1–5) */
-.intensity-seg {
-  --seg-w: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: var(--seg-w);
-  max-width: 280px;
-  margin: 6px 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--paper);
-  overflow: hidden;
-}
-
-.intensity-seg input {
-  display: none;
-}
-
-.intensity-seg label {
-  flex: 1;
-  padding: 10px 0;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  border-right: 1px solid var(--line);
-  user-select: none;
-}
-
-.intensity-seg label:last-of-type {
-  border-right: 0;
-}
-
-.intensity-seg label:hover {
-  background: var(--soft);
-}
-
-.intensity-seg input:checked + label {
-  background: var(--solid);
-  color: var(--on-solid);
-}
-
-.field:has(.intensity-seg) > input[type="number"],
-.field:has(.intensity-seg) > select {
-  display: none !important;
-}
 
 /* Cards */
 .card {
@@ -1655,6 +1601,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .metric-card strong {
   display: block;
   overflow: hidden;
+  color: var(--text);
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -2554,55 +2501,6 @@ body.drawer-open #drawerScrim { display: block; }
   }
 }
 
-/* =========================================================
-   Mood page
-   ========================================================= */
-.mood-chip { text-transform: capitalize; }
-
-.mood-cat-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 6px 0 10px;
-  flex-wrap: wrap;
-}
-.mood-cat {
-  padding: 8px 16px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.mood-cat:hover { background: var(--soft); }
-.mood-cat.active {
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
-}
-.mood-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.mood-chip {
-  padding: 6px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-.mood-chip:hover { background: var(--soft); }
-.mood-chip.active {
-  background: var(--solid);
-  color: var(--on-solid);
-  border-color: var(--ink);
-}
 
 /* =========================================================
    Setup wizard
@@ -2885,7 +2783,7 @@ body.drawer-open #drawerScrim { display: block; }
   align-items: center;
   justify-content: center;
 }
-.lg-logo svg, .lg-ib svg, .lg-ring svg, .lg-ico, .lg-toggle svg, .lg-submit svg {
+.lg-ib svg, .lg-ring svg, .lg-ico, .lg-toggle svg, .lg-submit svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -2917,25 +2815,13 @@ body.drawer-open #drawerScrim { display: block; }
   box-shadow: 0 20px 40px -18px rgba(var(--ink-rgb), 0.28);
   text-align: center;
 }
-.lg-logo {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 12px;
-  border-radius: 50%;
-  background: var(--solid);
-  color: var(--on-solid);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.lg-logo svg { width: 22px; height: 22px; }
 .lg-card .lg-kicker {
-  margin: 0 0 2px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .lg-card h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; }
 .lg-intro { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
@@ -4694,10 +4580,11 @@ select.cselect-native {
   color: #ffffff;
   box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.35) inset, 0 3px 8px rgba(var(--ink-rgb), 0.22);
 }
+/* A logged day keeps a plain number — today's circle is the only filled highlight */
 .log-calendar-dialog .cal-day.on:not(.today) span {
-  background: var(--tn);
-  color: #ffffff;
-  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.3) inset;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
 }
 .log-calendar-dialog .cal-day.sel:not(.today) span {
   outline: 0;
@@ -4726,9 +4613,17 @@ select.cselect-native {
   background: linear-gradient(165deg, var(--card) 0%, var(--tint) 100%);
   box-shadow: 0 0 0 2px var(--tint), 0 1px 0 rgba(var(--glass-rgb), 0.9) inset;
 }
+/* Mood cells show an emoji instead of a number circle, so today needs its own */
 .log-calendar-dialog .cal-day.mood-cell.today b {
-  color: var(--tn);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--tn);
+  color: #ffffff;
   text-decoration: none;
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.35) inset, 0 3px 8px rgba(var(--ink-rgb), 0.22);
 }
 
 /* Align actions with the 46px controls they sit beside */
@@ -4931,16 +4826,6 @@ body.sidebar-collapsed .side-link.active::before { display: none; }
   border-color: rgba(var(--line-rgb), 0.55);
   background: rgba(var(--glass-rgb), 0.45);
 }
-.cal-widget .cal-mark {
-  position: absolute;
-  bottom: 6px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--tn);
-}
-.cal-widget .cal-day.on .cal-mark,
-.cal-widget .cal-day.today .cal-mark { background: var(--on-solid); }
 .cal-widget .cal-day:hover {
   border-color: var(--tone);
   background: var(--tint);
@@ -4949,8 +4834,7 @@ body.sidebar-collapsed .side-link.active::before { display: none; }
   border-color: var(--tone);
   background: linear-gradient(165deg, var(--card) 0%, var(--tint) 100%);
 }
-.log-calendar-dialog .cal-widget .cal-day.today span,
-.log-calendar-dialog .cal-widget .cal-day.on:not(.today) span {
+.log-calendar-dialog .cal-widget .cal-day.today span {
   background: var(--tn);
   color: #ffffff;
   box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.3) inset;
@@ -5337,7 +5221,7 @@ html[data-theme="dark"] .cal-widget .cal-day {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 html[data-theme="dark"] .log-calendar-dialog .cal-widget .cal-day.today span,
-html[data-theme="dark"] .log-calendar-dialog .cal-widget .cal-day.on:not(.today) span {
+html[data-theme="dark"] .log-calendar-dialog .cal-day.mood-cell.today b {
   background: var(--tone);
   color: #0d0d20;
 }
@@ -5633,4 +5517,171 @@ body.is-onboarding .app-main,
 .page[class*="tone-"] .empty-state {
   background: linear-gradient(165deg, rgba(var(--glass-rgb), 0.85) 0%, var(--tint) 100%);
   box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, var(--shadow-sm);
+}
+
+/* =========================================================
+   Phase 8 — review round: legibility, native pickers, small surfaces
+   ========================================================= */
+
+/* The dashboard hero washed out under the glass card fill; it needs its blue
+   back in light mode only, where the text on it is white. Dark mode keeps the
+   deeper tokens it already reads well with. */
+html:not([data-theme="dark"]) .dash-page .health-score-card {
+  border-color: rgba(var(--brand-2-rgb), 0.5);
+  background:
+    radial-gradient(120% 140% at 8% 0%, rgba(var(--glass-rgb), 0.28) 0%, rgba(var(--glass-rgb), 0) 52%),
+    linear-gradient(150deg, var(--brand-deep) 0%, var(--brand) 48%, var(--brand-2) 100%);
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.4) inset,
+    0 18px 40px rgba(var(--ink-rgb), 0.24);
+}
+
+/* Search results sit over records, so they read better almost solid */
+.global-search-results {
+  background: linear-gradient(165deg,
+    rgba(var(--glass-rgb), 0.99) 0%,
+    rgba(var(--paper-rgb), 0.97) 48%,
+    rgba(var(--soft-rgb), 0.98) 100%);
+}
+
+/* "Mark all read" as a pill that matches the rest of the glass surfaces */
+.mark-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(var(--glass-rgb), 0.95) 0%, var(--soft) 100%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, var(--shadow-sm);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.mark-all-btn .icon { width: 14px; height: 14px; }
+.mark-all-btn:hover {
+  background: var(--solid);
+  color: var(--on-solid);
+  transform: translate(0, -1px);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.35) inset, var(--shadow-btn);
+}
+.mark-all-btn:active { transform: scale(0.98); }
+html[data-theme="dark"] .mark-all-btn {
+  border-color: var(--line-strong);
+  background: rgba(var(--glass-rgb), 0.5);
+}
+html[data-theme="dark"] .mark-all-btn:hover {
+  background: var(--solid);
+  color: var(--on-solid);
+}
+
+/* Native date and time pickers followed the OS: give them the app's own
+   chrome, and recolour the calendar/clock glyph per theme. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  min-height: var(--control-h);
+  font-variant-numeric: tabular-nums;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* =========================================================
+   Phase 9 — profile photo: the rounds it fills and the cropper
+   ========================================================= */
+
+/* A photo simply covers the letter, so every existing avatar slot keeps
+   working untouched until --avatar-photo is set by the layout or an upload. */
+.avatar.has-photo {
+  background-image: var(--avatar-photo, none);
+  background-size: cover;
+  background-position: center;
+  color: transparent;
+}
+
+.avatar-drop {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto 14px;
+}
+.avatar-drop .avatar { margin: 0; }
+.avatar-edit {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--solid);
+  color: var(--on-solid);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.avatar-edit:hover {
+  transform: translate(0, -1px);
+  box-shadow: var(--shadow-btn);
+}
+.avatar-edit:active { transform: scale(0.94); }
+.avatar-edit .icon { width: 13px; height: 13px; }
+
+/* The stage is the crop: a circle that clips the photo, dragged to position it. */
+.crop-stage {
+  position: relative;
+  width: min(250px, 66vw);
+  aspect-ratio: 1 / 1;
+  margin: 4px auto 16px;
+  overflow: hidden;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--soft);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.6) inset, var(--shadow-sm);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.crop-stage.dragging { cursor: grabbing; }
+.crop-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.crop-image {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }

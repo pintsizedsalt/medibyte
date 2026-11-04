@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -27,10 +29,12 @@ class AuthController extends Controller
                 'first_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
                 'last_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
                 'username' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[A-Za-z0-9_]+$/', 'unique:users,username'],
-                'email' => 'required|email|unique:users',
+                'email' => ['required', 'email:rfc,dns', 'unique:users', 'max:255'],
                 'password' => 'required|min:8',
                 'sex' => 'required|in:female,male',
                 'consent' => 'accepted',
+            ], [
+                'email.email' => 'Enter an email at a domain that can receive mail. Check the spelling, especially the part after the @.',
             ]);
 
             $user = User::create([
@@ -130,7 +134,21 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        Password::sendResetLink($request->only('email'));
+        try {
+            $status = Password::sendResetLink($request->only('email'));
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'We could not send the reset email just now. Please try again in a moment.',
+            ], 502);
+        }
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            Log::notice('Password reset link was not sent', ['reason' => $status]);
+        } elseif (in_array($mailer = config('mail.default'), ['log', 'array', 'null'], true)) {
+            Log::warning('Password reset link went to the "'.$mailer.'" mailer, which does not deliver mail. Set MAIL_MAILER, MAIL_HOST, MAIL_PORT, MAIL_USERNAME and MAIL_PASSWORD to a real SMTP account.');
+        }
 
         // Always return the same response so account existence is not exposed.
         return response()->json([

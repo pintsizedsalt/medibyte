@@ -260,53 +260,17 @@ function stepMood() {
   const intensity = Number(answers.intensity || 3);
   const selectedMood = answers.mood || '';
 
-  const groups = {
-    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
-    neutral:  ['neutral','bored','tired','confused'],
-    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
-  };
-
-  let activeCat = answers._moodCat || 'positive';
-  if (!answers._moodCat && selectedMood) {
-    if (groups.low.includes(selectedMood)) activeCat = 'low';
-    else if (groups.neutral.includes(selectedMood)) activeCat = 'neutral';
-  }
-
-  const chips = (groups[activeCat] || groups.positive).map(m => {
-    const label = m.charAt(0).toUpperCase() + m.slice(1);
-    const on = selectedMood === m ? ' active' : '';
-    return `<button type="button" class="mood-chip${on}" data-mood="${m}" onclick="window.wizardPickMood('${m}')">${label}</button>`;
-  }).join('');
-
-  const segs = [1,2,3,4,5].map(n => {
-    const on = intensity === n ? 'checked' : '';
-    return `<input type="radio" id="w_int_${n}" name="w_intensity" value="${n}" ${on} onchange="window.wizardSetIntensity(${n})">
-            <label for="w_int_${n}">${n}</label>`;
-  }).join('');
-
   return stepForm(stepHeader(
     'How are you feeling?',
     'Choose the mood that fits you best right now and how strong it feels.'
   ) + `
     <div class="wizard-fields">
-      <div class="field">
+      <label class="field">
         <span>Mood</span>
-        <div class="mood-cat-tabs">
-          <button type="button" class="mood-cat${activeCat==='positive'?' active':''}" onclick="window.wizardMoodCat('positive')">Feeling good</button>
-          <button type="button" class="mood-cat${activeCat==='neutral'?' active':''}" onclick="window.wizardMoodCat('neutral')">In between</button>
-          <button type="button" class="mood-cat${activeCat==='low'?' active':''}" onclick="window.wizardMoodCat('low')">Feeling down</button>
-        </div>
-        <div class="mood-chips" id="w_mood_chips">${chips}</div>
-        <input type="hidden" id="w_mood" value="${esc(selectedMood)}">
-      </div>
+        <select id="w_mood">${moodOptionHtml(moods, selectedMood)}</select>
+      </label>
 
-      <div class="field">
-        <span>Intensity (1 to 5)</span>
-        <div class="intensity-seg" role="radiogroup" aria-label="Intensity from 1 to 5">
-          ${segs}
-        </div>
-        <input type="hidden" id="w_intensity" value="${intensity}">
-      </div>
+      ${intensitySliderHtml('w_intensity', 'Intensity', intensity)}
 
       <label class="field">
         <span>Anything you want to note? (optional)</span>
@@ -315,34 +279,6 @@ function stepMood() {
     </div>
   `);
 }
-
-window.wizardMoodCat = function(cat) {
-  answers._moodCat = cat;
-  const groups = {
-    positive: ['happy','excited','grateful','calm','content','hopeful','proud','loved','energetic','motivated','relaxed'],
-    neutral:  ['neutral','bored','tired','confused'],
-    low:      ['lonely','sad','anxious','stressed','overwhelmed','angry','frustrated','irritated','disappointed','guilty','embarrassed','scared','numb']
-  };
-  if (answers.mood && !(groups[cat] || []).includes(answers.mood)) {
-    answers.mood = '';
-  }
-  render();
-};
-
-window.wizardPickMood = function(mood) {
-  answers.mood = mood;
-  const el = $('w_mood');
-  if (el) el.value = mood;
-  document.querySelectorAll('#w_mood_chips .mood-chip').forEach(c => {
-    c.classList.toggle('active', c.getAttribute('data-mood') === mood);
-  });
-};
-
-window.wizardSetIntensity = function(n) {
-  answers.intensity = n;
-  const el = $('w_intensity');
-  if (el) el.value = n;
-};
 
 function stepIllness() {
   return stepForm(stepHeader(
@@ -372,12 +308,7 @@ function stepSymptoms() {
         <span>Symptom</span>
         <input id="w_symptom" type="text" placeholder="e.g. Headache" value="${esc(symptom.symptom || '')}">
       </label>
-      <label class="field">
-        <span>Severity (1 = mild, 5 = severe)</span>
-        <select id="w_severity">
-          ${[1, 2, 3, 4, 5].map(level => `<option value="${level}" ${Number(symptom.severity || 1) === level ? 'selected' : ''}>${level} / 5</option>`).join('')}
-        </select>
-      </label>
+      ${intensitySliderHtml('w_severity', 'Severity', Number(symptom.severity || 1), ['Mild', 'Severe'])}
       <label class="field">
         <span>Notes (optional)</span>
         <textarea id="w_notes" rows="2" placeholder="Anything else you want to remember.">${esc(symptom.notes || '')}</textarea>
@@ -582,6 +513,7 @@ function render() {
   };
 
   $('wizard-body').innerHTML = builders[key]();
+  bindFieldConditionals($('wizard-body'), 'w_');
   if (key === 'body') window.updateBmiPreview();
 
   const firstField = $('wizard-body').querySelector('input, select, textarea, button.option-card');
@@ -1070,8 +1002,9 @@ window.wizardNext = async () => {  if (busy) return;
     return;
   }
 
-  const moodResponse = await api('/moods');
+  const [moodResponse, customMoodResponse] = await Promise.all([api('/moods'), api('/custom-moods')]);
   if (Array.isArray(moodResponse)) moods = moodResponse;
+  rememberPersonalizedMoods(Array.isArray(customMoodResponse) ? customMoodResponse.map(mood => mood.name) : []);
 
   answers = {
     period_status: profile.period_status || '',
