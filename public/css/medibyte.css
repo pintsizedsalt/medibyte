@@ -10,6 +10,7 @@
   --on-solid: #ffffff;
   --ink: #3d5bc4;
   --ink-rgb: 61, 91, 196;
+  --text: #171b26;
   --brand-2-rgb: 107, 177, 231;
   --paper: #f6f9ff;
   --paper-rgb: 246, 249, 255;
@@ -49,7 +50,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background: var(--paper);
-  color: var(--ink);
+  color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   font-size: 15px;
   line-height: 1.5;
@@ -140,7 +141,7 @@ body.no-scroll { overflow: hidden; }
 
 h1, h2, h3, h4 {
   margin: 0 0 8px;
-  color: var(--ink);
+  color: var(--text);
   font-weight: 600;
   line-height: 1.25;
 }
@@ -658,7 +659,7 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
   border-radius: 16px;
   background: var(--paper);
   box-shadow: 0 6px 12px -6px var(--line);
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
 }
 .auth-card .field input:focus {
@@ -1065,7 +1066,7 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--paper);
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
 }
 .field textarea { resize: vertical; }
@@ -1130,7 +1131,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .form-message {
   min-height: 20px;
   margin: 0 0 10px;
-  color: var(--ink);
+  color: var(--text);
   font-size: 13px;
 }
 .form-actions {
@@ -1513,7 +1514,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   height: 100%;
   min-width: 0;
 }
-.week-value { color: var(--ink); font-size: 12px; font-weight: 600; }
+.week-value { color: var(--text); font-size: 12px; font-weight: 600; }
 .week-bar-track {
   display: flex;
   align-items: flex-end;
@@ -1529,7 +1530,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .week-bar.empty { background: var(--line); }
 .week-day.today .week-bar { background: var(--solid); }
 .week-day small { color: var(--muted); font-size: 12px; }
-.week-day.today small { color: var(--ink); font-weight: 700; }
+.week-day.today small { color: var(--text); font-weight: 700; }
 .week-note { margin: 14px 0 0; font-size: 12px; }
 
 .dm-ic {
@@ -1885,7 +1886,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   margin: 2px 0 2px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 .account-card .account-email { margin-bottom: 12px; }
@@ -1929,7 +1930,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 }
 .account-goals .icon { width: 16px; height: 16px; color: var(--ink); }
 .account-goals span { flex: 1; color: var(--muted); }
-.account-goals strong { color: var(--ink); font-size: 14px; }
+.account-goals strong { color: var(--text); font-size: 14px; }
 .account-since { margin: 14px 0 0; font-size: 12px; }
 
 .document-drop {
@@ -2556,35 +2557,7 @@ body.drawer-open #drawerScrim { display: block; }
 /* =========================================================
    Mood page
    ========================================================= */
-.mood-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.mood-chip {
-  padding: 6px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
-}
-.mood-chip.on { background: var(--solid); color: var(--on-solid); }
-
 .mood-chip { text-transform: capitalize; }
-
-.mood-tones { display: flex; gap: 8px; margin: 6px 0 12px; }
-.mood-tone {
-  flex: 1;
-  padding: 10px 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.mood-tone.on { box-shadow: inset 0 0 0 2px var(--ink); }
-.mood-row[hidden] { display: none; }
-.mood-hint { font-size: 12px; color: var(--ink); opacity: .65; margin: 0; }
 
 .mood-cat-tabs {
   display: flex;
@@ -2626,13 +2599,6 @@ body.drawer-open #drawerScrim { display: block; }
 }
 .mood-chip:hover { background: var(--soft); }
 .mood-chip.active {
-  background: var(--solid);
-  color: var(--on-solid);
-  border-color: var(--ink);
-}
-
-.mood-chip.on,
-.mood-chip.on:hover {
   background: var(--solid);
   color: var(--on-solid);
   border-color: var(--ink);
@@ -2712,7 +2678,7 @@ body.drawer-open #drawerScrim { display: block; }
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(var(--glass-rgb), 0.8);
-  color: var(--ink);
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -2772,12 +2738,12 @@ body.drawer-open #drawerScrim { display: block; }
   font-size: 11px;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--text);
   opacity: .65;
   margin: 10px 0 0;
   text-align: center;
 }
-.done-note { font-size: 12px; color: var(--ink); opacity: .65; text-align: center; margin: 8px 0 0; }
+.done-note { font-size: 12px; color: var(--text); opacity: .65; text-align: center; margin: 8px 0 0; }
 
 /* Ripple button */
 .btn-ripple {
@@ -2903,7 +2869,7 @@ body.drawer-open #drawerScrim { display: block; }
   height: 32px;
   border-radius: 50%;
   background: var(--card);
-  color: var(--ink);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2998,7 +2964,7 @@ body.drawer-open #drawerScrim { display: block; }
   padding: 14px 0;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
 }
 .lg-input input:focus,
@@ -3868,7 +3834,7 @@ body.log-modal-open { overflow: hidden; }
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: var(--paper);
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
 }
 .doc-search input:focus {
@@ -3963,7 +3929,7 @@ body.log-modal-open { overflow: hidden; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.doc-card-type { color: var(--ink); font-size: 12px; font-weight: 600; }
+.doc-card-type { color: var(--text); font-size: 12px; font-weight: 600; }
 .doc-card .record-actions { margin-top: auto; justify-content: flex-end; }
 
 .doc-empty .btn { margin-top: 16px; }
@@ -4127,7 +4093,7 @@ body.log-modal-open { overflow: hidden; }
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
   font-size: 14px;
   outline: none;
@@ -4414,8 +4380,7 @@ select.cselect-native {
   color: var(--muted);
   font-size: 13px;
 }
-#quickLogBody .form-grid { margin-top: 4px; }
-#quickLogBody .mood-field-group { display: contents; }
+#quickLogBody .form-grid { margin-top: 0; }
 
 .records-filter-bar {
   display: flex;
@@ -4431,7 +4396,7 @@ select.cselect-native {
   color: var(--muted);
   font-size: 13px;
 }
-.records-filter-bar strong { color: var(--ink); }
+.records-filter-bar strong { color: var(--text); }
 .records-filter-bar .btn { flex: 0 0 auto; }
 
 .custom-mood-form {
@@ -4671,12 +4636,6 @@ select.cselect-native {
   align-self: end;
   margin-top: 4px;
 }
-
-/* The final field fills the row the button used to share */
-.form-grid > *:nth-last-child(2) { grid-column: 1 / -1; }
-
-/* Mood chips need the full modal width to stay readable */
-#log .mood-field-group { grid-column: 1 / -1; }
 
 @media (max-width: 900px) {
   .form-grid-action .btn { min-width: 180px; }
@@ -4930,20 +4889,13 @@ body.sidebar-collapsed .side-link.active::before { display: none; }
   color: var(--tn);
 }
 .cal-selected span {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.cal-month {
-  margin: 0 2px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 .cal-widget .cal-grid {
   gap: 4px;
@@ -5212,7 +5164,7 @@ input[type="radio"]:focus-visible {
   border: 1px solid var(--solid);
   border-radius: 9px;
   background: var(--card);
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
   font-size: 14px;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--solid) 18%, transparent);
@@ -5280,6 +5232,7 @@ html[data-theme="dark"] {
   --on-solid: #f4f7ff;
   --ink: #e6ebff;
   --ink-rgb: 6, 8, 26;
+  --text: #e9edfb;
   --paper: #12122b;
   --paper-rgb: 18, 18, 43;
   --soft: #22224a;
@@ -5339,7 +5292,7 @@ html[data-theme="dark"] .side-link.active::before { background: var(--brand-2); 
 html[data-theme="dark"] .toast {
   border-color: rgba(var(--line-rgb), 0.95);
   background: rgba(26, 26, 56, 0.94);
-  color: var(--ink);
+  color: var(--text);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 html[data-theme="dark"] .toast.error {
@@ -5355,7 +5308,7 @@ html[data-theme="dark"] input[type="file"],
 html[data-theme="dark"] .doc-search input,
 html[data-theme="dark"] .cselect-btn {
   background-color: var(--card);
-  color: var(--ink);
+  color: var(--text);
 }
 html[data-theme="dark"] .field input:focus,
 html[data-theme="dark"] .field select:focus,
@@ -5376,7 +5329,7 @@ html[data-theme="dark"] input[type="radio"]:checked {
   background-color: var(--solid);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
-html[data-theme="dark"] .check-row { color: var(--ink); }
+html[data-theme="dark"] .check-row { color: var(--text); }
 
 html[data-theme="dark"] .cal-widget .cal-day {
   border-color: rgba(var(--line-rgb), 0.75);
@@ -5425,4 +5378,259 @@ html[data-theme="dark"] .global-search input::placeholder { color: var(--muted);
   color: var(--muted);
   font-size: 12px;
 }
-.records-filter-bar strong { color: var(--ink); font-weight: 700; }
+.records-filter-bar strong { color: var(--text); font-weight: 700; }
+
+/* =========================================================
+   Phase 7 — feedback pass: glass forms, sliders, switches
+   ========================================================= */
+
+/* A blank alert paragraph must not reserve a line */
+.form-message:empty { display: none; }
+#quickLogBody .form-card-note { margin: 0 0 8px; }
+.log-form-dialog .form-card-note { margin: 0 0 8px; }
+
+/* Intensity slider */
+.slider-field { gap: 8px; }
+.slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.slider-head output {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.slider-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.slider-field input[type="range"] {
+  width: 100%;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.slider-field input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--soft) 0%, var(--line) 100%);
+  box-shadow: 0 1px 2px rgba(var(--ink-rgb), 0.16) inset;
+}
+.slider-field input[type="range"]::-webkit-slider-thumb {
+  width: 22px;
+  height: 22px;
+  margin-top: -7px;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--solid) 0%, var(--solid-2) 100%);
+  box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.35);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.slider-field input[type="range"]::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--soft) 0%, var(--line) 100%);
+}
+.slider-field input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--solid);
+  box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.35);
+}
+.slider-field input[type="range"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+/* Toggle switches */
+.switch-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--control-h);
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.switch-row:hover { border-color: var(--ink); }
+.switch-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--soft);
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.2) inset;
+  transition: background 0.18s ease;
+}
+.switch-track::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 1px 4px rgba(var(--scrim-rgb), 0.35);
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.switch-track::after {
+  content: "\2715";
+  position: absolute;
+  top: 50%;
+  left: 34px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.switch-row input:checked + .switch-track {
+  background: linear-gradient(120deg, var(--solid) 0%, var(--solid-2) 100%);
+}
+.switch-row input:checked + .switch-track::before { transform: translateX(22px); }
+.switch-row input:checked + .switch-track::after {
+  content: "\2713";
+  left: 9px;
+  color: var(--on-solid);
+}
+.switch-row input:focus-visible + .switch-track {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* Diary-sized reveal fields */
+.diary-field textarea { min-height: 220px; line-height: 1.55; }
+.diary-field.note-field textarea { min-height: 92px; }
+.diary-field > span { color: var(--text); }
+
+/* =========================================================
+   Phase 7b — themed login, create account and setup
+   ========================================================= */
+body.is-public .app-main,
+body.is-onboarding .app-main,
+.auth-page,
+.lg-page,
+.wizard-shell { background: transparent; }
+
+.lg-blob-a { background: color-mix(in srgb, var(--brand) 26%, var(--line)); }
+.lg-blob-b { background: color-mix(in srgb, var(--brand-2) 40%, var(--soft)); }
+
+.auth-card,
+.lg-card,
+.wizard-card {
+  border-color: rgba(var(--glass-rgb), 0.75);
+  background: linear-gradient(165deg, rgba(var(--glass-rgb), 0.92) 0%, rgba(var(--paper-rgb), 0.86) 100%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.95) inset,
+    0 -1px 0 rgba(var(--line-rgb), 0.5) inset,
+    0 18px 40px rgba(var(--ink-rgb), 0.16),
+    0 36px 72px rgba(var(--ink-rgb), 0.12);
+}
+
+/* =========================================================
+   Phase 7c — plain fills become gradient glass
+   ========================================================= */
+.card {
+  border-color: rgba(var(--card-line-rgb), 0.9);
+  background: linear-gradient(165deg, var(--card) 0%, color-mix(in srgb, var(--soft) 40%, var(--card)) 100%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, var(--shadow-sm);
+}
+
+.page-heading[class*="tone-"] {
+  border: 1px solid rgba(var(--glass-rgb), 0.7);
+  background: linear-gradient(150deg, rgba(var(--glass-rgb), 0.85) 0%, var(--tint) 100%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, 0 12px 26px rgba(var(--ink-rgb), 0.1);
+}
+
+.dash-page .health-score-card {
+  border-color: rgba(var(--glass-rgb), 0.35);
+  background:
+    radial-gradient(120% 140% at 8% 0%, rgba(var(--glass-rgb), 0.26) 0%, rgba(var(--glass-rgb), 0) 55%),
+    linear-gradient(150deg, var(--solid) 0%, var(--solid-2) 100%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.35) inset, 0 18px 40px rgba(var(--ink-rgb), 0.22);
+}
+
+/* =========================================================
+   Phase 7d — documents: NAME lines up with "Your files"
+   ========================================================= */
+.doc-table-head .doc-head-spacer { display: none; }
+.doc-table-head .doc-sort[data-sort="name"] {
+  grid-column: 1 / 3;
+  justify-self: start;
+  padding-left: 0;
+}
+/* Sort labels start where their column values start */
+.doc-table-head .doc-sort:not([data-sort="name"]) { margin-left: -6px; }
+.doc-table-head .doc-sort[data-sort="size"] {
+  margin-right: -6px;
+  justify-content: flex-end;
+}
+/* Narrow rows keep the file names behind their thumbnail, so the label follows them */
+@media (max-width: 620px) {
+  .doc-table-head .doc-sort[data-sort="name"] { grid-column: 2; }
+}
+
+/* =========================================================
+   Phase 7e — the remaining plain card fills
+   ========================================================= */
+.dash-page .card,
+.metric-card,
+.record-hub-card,
+.log-stat,
+.doc-card,
+.empty-state {
+  background: linear-gradient(165deg, var(--card) 0%, color-mix(in srgb, var(--soft) 40%, var(--card)) 100%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, var(--shadow-sm);
+}
+
+.pv-page { background: transparent; }
+.pv-sec {
+  background: linear-gradient(165deg, rgba(var(--glass-rgb), 0.92) 0%, rgba(var(--paper-rgb), 0.86) 100%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+/* Tone pages paint their empty panel flat, so it needs the same glass wash */
+.page[class*="tone-"] .empty-state {
+  background: linear-gradient(165deg, rgba(var(--glass-rgb), 0.85) 0%, var(--tint) 100%);
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset, var(--shadow-sm);
+}

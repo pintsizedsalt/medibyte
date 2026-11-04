@@ -17,7 +17,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=20">
+  <link rel="stylesheet" href="/css/medibyte.css?v=25">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -328,9 +328,6 @@
           <p class="eyebrow" id="quickLogEyebrow">Quick log</p>
           <h3 id="quickLogTitle">Add a record</h3>
         </div>
-        <button type="button" class="icon-btn" onclick="closeQuickLog()" aria-label="Close quick log" title="Close">
-          <svg class="icon"><use href="#i-close"/></svg>
-        </button>
       </header>
       <div class="log-modal-body" id="quickLogBody"></div>
     </div>
@@ -350,7 +347,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=13"></script>
+  <script src="/js/medibyte.js?v=15"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

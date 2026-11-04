@@ -65,9 +65,6 @@
           <p class="eyebrow">Upload</p>
           <h3 id="doc-upload-title">Add a document</h3>
         </div>
-        <button type="button" class="icon-btn" onclick="closeUploadModal()" aria-label="Close upload">
-          <svg class="icon"><use href="#i-close"/></svg>
-        </button>
       </header>
 
       <form id="doc-form" class="doc-upload-body" onsubmit="event.preventDefault(); uploadDocument()">

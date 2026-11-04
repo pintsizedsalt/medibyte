@@ -32,118 +32,6 @@ function toggleTheme() {
 localStorage.removeItem('token');
 
 /* ---------------------------------------------------------
-   Mood chips
-   --------------------------------------------------------- */
-function mountMoodChips(select) {
-  if (!select || select.dataset.chips) return;
-  select.dataset.chips = '1';
-
-  var groups = {
-    'Feeling good': ['happy', 'excited', 'grateful', 'calm', 'content', 'hopeful', 'proud', 'loved', 'energetic', 'motivated', 'relaxed'],
-    'In between': ['bored', 'tired', 'neutral', 'confused'],
-    'Feeling down': ['lonely', 'sad', 'anxious', 'stressed', 'overwhelmed', 'angry', 'frustrated', 'irritated', 'disappointed', 'guilty', 'embarrassed', 'scared', 'numb']
-  };
-
-  var wrap = document.createElement('div');
-  var tones = document.createElement('div');
-  tones.className = 'mood-tones';
-  var panel = document.createElement('div');
-  var hint = document.createElement('p');
-  hint.className = 'mood-hint';
-  hint.textContent = 'Pick a feeling to see more moods.';
-
-  var used = {};
-  var sections = [];
-  var active = null;
-
-  function fireChange() {
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  function markChips() {
-    panel.querySelectorAll('.mood-chip').forEach(function (c) {
-      c.classList.toggle('on', c.dataset.value === select.value && select.value !== '');
-    });
-  }
-
-  function show(sec, clear) {
-    if (clear && active && active !== sec) {
-      select.value = '';
-      fireChange();
-      markChips();
-    }
-    sections.forEach(function (s) {
-      var on = s === sec;
-      s.row.hidden = !on;
-      s.btn.classList.toggle('on', on);
-      s.btn.setAttribute('aria-pressed', String(on));
-    });
-    hint.hidden = true;
-    active = sec;
-  }
-
-  function build(title, labels) {
-    var opts = Array.prototype.filter.call(select.options, function (o) {
-      return o.value !== '' && labels.indexOf(o.text.trim().toLowerCase()) !== -1;
-    });
-    if (!opts.length) return;
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'mood-tone';
-    btn.textContent = title;
-    btn.setAttribute('aria-pressed', 'false');
-
-    var row = document.createElement('div');
-    row.className = 'mood-row';
-    row.hidden = true;
-
-    opts.forEach(function (o) {
-      used[o.value] = true;
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'mood-chip';
-      b.textContent = o.text;
-      b.dataset.value = o.value;
-      b.addEventListener('click', function () {
-        select.value = o.value;
-        fireChange();
-        markChips();
-      });
-      row.appendChild(b);
-    });
-
-    var sec = { title: title, opts: opts, btn: btn, row: row };
-    btn.addEventListener('click', function () { show(sec, true); });
-    sections.push(sec);
-    tones.appendChild(btn);
-    panel.appendChild(row);
-  }
-
-  Object.keys(groups).forEach(function (k) { build(k, groups[k]); });
-
-  var rest = Array.prototype.filter.call(select.options, function (o) {
-    return o.value !== '' && !used[o.value];
-  }).map(function (o) { return o.text.trim().toLowerCase(); });
-  if (rest.length) build('Other', rest);
-
-  wrap.appendChild(tones);
-  wrap.appendChild(hint);
-  wrap.appendChild(panel);
-
-  select.hidden = true;
-  select.insertAdjacentElement('afterend', wrap);
-
-  var current = sections.filter(function (s) {
-    return s.opts.some(function (o) { return o.value === select.value; });
-  })[0];
-  if (current && select.value !== '') {
-    show(current, false);
-    markChips();
-  }
-}
-
-/* ---------------------------------------------------------
    Small utilities
    --------------------------------------------------------- */
 function esc(value) {
@@ -357,41 +245,99 @@ function clearFieldError(inputOrId) {
 }
 
 /* ---------------------------------------------------------
-   Intensity segmented control (1–5)
+   Shared form pieces used by the quick log and the feature pages
    --------------------------------------------------------- */
-function enhanceIntensitySlider(inputId, opts = {}) {
-  const el = $(inputId);
-  if (!el || el.dataset.enhanced === '1') return;
 
-  const min = opts.min ?? 1;
-  const max = opts.max ?? 5;
-  let value = Number(el.value) || 3;
-  if (value < min) value = min;
-  if (value > max) value = max;
+/* Fields pair up in two columns; a field that would sit alone fills the row. */
+function alignFormGrid(grid) {
+  if (!grid) return;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'intensity-seg';
-  wrap.setAttribute('role', 'radiogroup');
-  wrap.setAttribute('aria-label', 'Intensity from 1 (lowest) to 5 (highest)');
+  /* A conditional wrapper inherits the full-width intent of the field inside it. */
+  const fillsRow = child => child.dataset.gridFull === '1' || Boolean(child.querySelector(':scope > [data-grid-full]'));
 
-  for (let i = min; i <= max; i++) {
-    const id = inputId + '_' + i;
-    wrap.innerHTML += `
-      <input type="radio" id="${id}" name="${inputId}_seg" value="${i}" ${i === value ? 'checked' : ''}>
-      <label for="${id}">${i}</label>
-    `;
-  }
+  const items = Array.from(grid.children).filter(child =>
+    !child.classList.contains('form-grid-action') && !child.classList.contains('form-actions'));
+  const visible = items.filter(child => !child.hidden);
 
-  el.type = 'hidden';
-  el.value = String(value);
-  el.dataset.enhanced = '1';
-  el.parentNode.insertBefore(wrap, el);
+  items.forEach(child => child.classList.remove('span-full'));
 
-  wrap.querySelectorAll('input').forEach(radio => {
-    radio.addEventListener('change', () => {
-      el.value = radio.value;
-    });
+  let column = 0;
+  visible.forEach((child, index) => {
+    if (fillsRow(child)) {
+      child.classList.add('span-full');
+      column = 0;
+      return;
+    }
+
+    if (column === 1) {
+      column = 0;
+      return;
+    }
+
+    const next = visible[index + 1];
+    if (!next || fillsRow(next)) child.classList.add('span-full');
+    column = 1;
   });
+}
+
+function conditionSatisfied(control, expected) {
+  if (!control) return false;
+  if (control.type === 'checkbox') return String(control.checked) === expected;
+  return String(control.value) === expected;
+}
+
+function bindFieldConditionals(root, prefix, grid) {
+  if (!root) return;
+
+  root.querySelectorAll('[data-shows-when]').forEach(wrap => {
+    const [name, value] = (wrap.dataset.showsWhen || ':').split(':');
+    const control = $(prefix + name);
+    if (!control) return;
+    if (!control.dataset.fieldBound) {
+      control.dataset.fieldBound = '1';
+      control.addEventListener('change', () => {
+        bindFieldConditionals(root, prefix, grid);
+      });
+    }
+    wrap.hidden = !conditionSatisfied(control, value);
+  });
+
+  root.querySelectorAll('[data-slider-value]').forEach(slider => {
+    const output = $(slider.id + '_out');
+    if (!output) return;
+    const words = ['', 'Very mild', 'Mild', 'Moderate', 'Strong', 'Very strong'];
+    const sync = () => {
+      output.textContent = slider.value + ' / 5';
+      slider.setAttribute('aria-valuetext', words[Number(slider.value)] || slider.value);
+    };
+    if (!slider.dataset.sliderBound) {
+      slider.dataset.sliderBound = '1';
+      slider.addEventListener('input', sync);
+    }
+    sync();
+  });
+
+  alignFormGrid(grid);
+}
+
+/* A 1–5 range input with a live value label. */
+function intensitySliderHtml(id, safeLabel, value) {
+  const parsed = Number(value);
+  const current = Number.isFinite(parsed) ? Math.min(5, Math.max(1, Math.round(parsed))) : 3;
+
+  return `<div class="field slider-field" data-grid-full="1">
+    <span class="slider-head"><span>${safeLabel}</span><output id="${id}_out" for="${id}">${current} / 5</output></span>
+    <input id="${id}" type="range" min="1" max="5" step="1" value="${current}" data-slider-value="1">
+    <small class="slider-scale"><span>Very mild</span><span>Very strong</span></small>
+  </div>`;
+}
+
+function switchRowHtml(id, safeLabel, checked) {
+  return `<label class="switch-row" data-grid-full="1">
+    <input type="checkbox" id="${id}" role="switch" ${checked ? 'checked' : ''}>
+    <span class="switch-track" aria-hidden="true"></span>
+    <span class="switch-label">${safeLabel}</span>
+  </label>`;
 }
 
 /* ---------------------------------------------------------
@@ -610,7 +556,7 @@ const QUICK_LOG_DEFS = {
     note: 'Choose the mood that fits best. You can add your own mood too.',
     fields: [
       ['mood', 'Mood', 'select', ['']],
-      ['intensity', 'Intensity (1 to 5)', 'number', null, 3],
+      ['intensity', 'Intensity', 'slider', null, 3],
       ['log_date', 'Date', 'today']
     ]
   },
@@ -710,7 +656,7 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
   let html;
 
   if (type === 'check') {
-    html = `<label class="check-row"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> <span>${safeLabel}</span></label>`;
+    html = switchRowHtml(id, safeLabel, v);
   } else if (type === 'select' || type === 'method') {
     const pairs = Array.isArray(opts) ? opts : [];
     const selected = v === undefined || v === null ? (pairs[0] ? (Array.isArray(pairs[0]) ? pairs[0][0] : pairs[0]) : '') : v;
@@ -729,7 +675,7 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
     const selectHtml = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
 
     if (name === 'mood') {
-      return `<div class="mood-field-group">
+      return `<div class="mood-field-group" data-grid-full="1">
         ${selectHtml}
         <label class="field" id="q_customMoodField" style="display:none">
           <span>Enter your own mood</span>
@@ -738,36 +684,28 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
       </div>`;
     }
 
-    html = selectHtml;
+    html = `<label class="field"${type === 'method' || name === 'sleep_method' ? ' data-grid-full="1"' : ''}><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
   } else if (type === 'textarea') {
-    html = `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
-  } else if (name === 'intensity') {
-    html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
+    html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}" rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+  } else if (name === 'intensity' || type === 'slider') {
+    return intensitySliderHtml(id, safeLabel, v ?? def ?? 3);
   } else {
     const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
     const maxAttr = type === 'today' ? ` max="${today()}"` : '';
-    html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+    const listAttr = type === 'list' ? ' data-grid-full="1"' : '';
+    html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
   }
 
   if (showsWhen) {
     const show = String((values || {})[showsWhen[0]] ?? '') === String(showsWhen[1]);
-    html = `<div data-quick-shows-when="${esc(showsWhen[0])}:${esc(showsWhen[1])}"${show ? '' : ' hidden'}>${html}</div>`;
+    html = `<div data-shows-when="${esc(showsWhen[0])}:${esc(showsWhen[1])}"${show ? '' : ' hidden'}>${html}</div>`;
   }
 
   return html;
 }
 
 function syncQuickConditionals() {
-  document.querySelectorAll('#quickLogBody [data-quick-shows-when]').forEach(wrap => {
-    const [name, value] = (wrap.dataset.quickShowsWhen || ':').split(':');
-    const control = $('q_' + name);
-    if (!control) return;
-    if (!control.dataset.quickBound) {
-      control.dataset.quickBound = '1';
-      control.addEventListener('change', syncQuickConditionals);
-    }
-    wrap.hidden = String(control.value) !== value;
-  });
+  bindFieldConditionals($('quickLogBody'), 'q_', $('quickLogBody')?.querySelector('.form-grid'));
 
   const moodSelect = $('q_mood');
   const customField = $('q_customMoodField');
@@ -852,7 +790,7 @@ async function saveQuickLog() {
   def.fields.forEach(([name, , type]) => {
     const el = $('q_' + name);
     if (!el) return;
-    if (el.closest('[data-quick-shows-when]')?.hidden) return;
+    if (el.closest('[data-shows-when]')?.hidden) return;
 
     if (type === 'check') {
       body[name] = el.checked;
@@ -1746,7 +1684,7 @@ function logPage(cfg) {
         <div class="cal-widget-top">
           <div class="cal-selected">
             <strong>${selected.getDate()}</strong>
-            <span>${esc(selected.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))}</span>
+            <span>${esc(monthTitle)}</span>
           </div>
           <div class="cal-head-actions">
             <button type="button" class="btn btn-small cal-nav" onclick="window.calMove(-1)" aria-label="Previous month" title="Previous month">
@@ -1758,7 +1696,6 @@ function logPage(cfg) {
             </button>
           </div>
         </div>
-        <p class="cal-month">${esc(monthTitle)}</p>
         <div class="cal-grid">
           ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
           ${cells}
@@ -1825,11 +1762,11 @@ function logPage(cfg) {
     let html;
 
     if (type === 'check') {
-      html = `<label class="check-row"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> <span>${safeLabel}</span></label>`;
+      html = switchRowHtml(id, safeLabel, v);
     } else if (type === 'method') {
       const pairs = Array.isArray(opts) ? opts : [];
       const selected = v === undefined || v === null ? (pairs[0] ? pairs[0][0] : '') : v;
-      html = `<label class="field"><span>${safeLabel}</span><select id="${id}">${pairs.map(([val, text]) => `<option value="${esc(String(val))}" ${String(val) === String(selected) ? 'selected' : ''}>${esc(String(text))}</option>`).join('')}</select></label>`;
+      html = `<label class="field" data-grid-full="1"><span>${safeLabel}</span><select id="${id}">${pairs.map(([val, text]) => `<option value="${esc(String(val))}" ${String(val) === String(selected) ? 'selected' : ''}>${esc(String(text))}</option>`).join('')}</select></label>`;
     } else if (type === 'select') {
       const moodOptions = [...(opts || [])];
 
@@ -1858,7 +1795,7 @@ function logPage(cfg) {
 
       if (name === 'mood') {
         return `
-          <div class="mood-field-group">
+          <div class="mood-field-group" data-grid-full="1">
             ${selectHTML}
             <label class="field" id="customMoodField" style="display:none">
               <span>Enter your own mood</span>
@@ -1870,13 +1807,14 @@ function logPage(cfg) {
 
       html = selectHTML;
     } else if (type === 'textarea') {
-      html = `<label class="field"><span>${safeLabel}</span><textarea id="${id}" rows="3" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
-    } else if (name === 'intensity' || type === 'intensity') {
-      html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="number" min="1" max="5" value="${esc(v ?? def ?? 3)}"></label>`;
+      html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}" rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+    } else if (name === 'intensity' || type === 'intensity' || type === 'slider') {
+      return intensitySliderHtml(id, safeLabel, v ?? def ?? 3);
     } else {
       const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
       const maxAttr = type === 'today' || opts === 'today' ? ` max="${today()}"` : '';
-      html = `<label class="field"><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+      const listAttr = type === 'list' ? ' data-grid-full="1"' : '';
+      html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
     }
 
     if (showsWhen) {
@@ -1888,16 +1826,7 @@ function logPage(cfg) {
   }
 
   function syncMethodFields() {
-    document.querySelectorAll('#log [data-shows-when]').forEach(wrap => {
-      const [name, value] = (wrap.dataset.showsWhen || ':').split(':');
-      const control = $('f_' + name);
-      if (!control) return;
-      if (!control.dataset.methodBound) {
-        control.dataset.methodBound = '1';
-        control.addEventListener('change', syncMethodFields);
-      }
-      wrap.hidden = String(control.value) !== value;
-    });
+    bindFieldConditionals($('log'), 'f_', $('log')?.querySelector('.form-grid'));
   }
 
   function rowLabel(row) {
@@ -2116,9 +2045,9 @@ function logPage(cfg) {
               <p class="eyebrow">${edit ? 'Editing record' : 'New record'}</p>
               <h3 id="logFormTitle">${edit ? 'Update this entry' : (cfg.formTitle || 'Add a new entry')}</h3>
             </div>
-            <button type="button" class="icon-btn" onclick="window.closeLogForm()" aria-label="Close form">
+            ${edit ? '' : `<button type="button" class="icon-btn" onclick="window.closeLogForm()" aria-label="Close form">
               <svg class="icon"><use href="#i-close"/></svg>
-            </button>
+            </button>`}
           </header>
           <div class="log-modal-body">
             <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
@@ -2167,14 +2096,6 @@ function logPage(cfg) {
 
     if (showCalendar) drawCalendar();
 
-    if ($('f_intensity')) {
-      enhanceIntensitySlider('f_intensity', {
-        min: 1,
-        max: 5,
-        label: 'Intensity (1 = very mild, 5 = very strong)'
-      });
-    }
-
     syncMethodFields();
 
     if (edit && typeof cfg.methodInit === 'function') {
@@ -2198,8 +2119,6 @@ function logPage(cfg) {
       moodSelect.addEventListener('change', syncCustomMood);
       syncCustomMood();
     }
-
-    mountMoodChips($('f_mood'));
   }
 
   async function reloadCustomMoods() {
