@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
@@ -60,13 +61,21 @@ class User extends Authenticatable
     }
 
     /**
-     * Address of the uploaded photo, cache-busted so a new crop replaces the old one.
+     * Address of the uploaded photo, cache-busted from the file's own timestamp.
+     * A new crop overwrites the same path, which leaves updated_at untouched, so
+     * the record could never prove the photo changed.
      */
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar_path
-            ? '/avatar?v='.$this->updated_at?->getTimestamp()
-            : null;
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        $version = Storage::disk('local')->lastModified($this->avatar_path)
+            ?: $this->updated_at?->getTimestamp()
+            ?: time();
+
+        return '/avatar?v='.$version;
     }
 
     public function dailyLogs()

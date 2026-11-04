@@ -156,7 +156,7 @@
         <p class="muted" id="profileCardHandle">{{ auth()->user()->username ? '@'.auth()->user()->username : 'Private account' }}</p>
         <p class="muted" id="profileCardEmail">{{ auth()->user()->email ?? '' }}</p>
         <span class="badge">Private account</span>
-        <input type="file" id="avatarFile" accept="image/jpeg,image/pjpeg" hidden onchange="readAvatarPhoto(this)">
+        <input type="file" id="avatarFile" accept="image/jpeg,image/png" hidden onchange="readAvatarPhoto(this)">
       </section>
 
       <section class="card">

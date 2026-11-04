@@ -1,5 +1,5 @@
 <section class="auth-welcome">
-  <a class="auth-brand" href="/">MediByte</a>
+  <a class="auth-brand" href="/"><img class="brand-mark" src="/icons/brand-mark.png?v=1" alt="" width="200" height="175">MediByte</a>
 
   <div class="auth-welcome-main">
     <p class="eyebrow">Personal health</p>

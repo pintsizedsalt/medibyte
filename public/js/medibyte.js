@@ -116,6 +116,7 @@ async function logout() {
   closeAccountMenu();
   try {
     sessionStorage.removeItem('medibyte-sidebar');
+    sessionStorage.removeItem('medibyte-sidebar-scroll');
   } catch (error) { }
   await api('/logout', 'POST');
   location.replace('/login');
@@ -379,6 +380,24 @@ function setDesktopSidebarCollapsed(collapsed) {
   try {
     sessionStorage.setItem('medibyte-sidebar', collapsed ? 'hidden' : 'visible');
   } catch (error) { }
+}
+
+/* The sidebar scrolls independently of the page, so every feature link would
+   otherwise send it back to the top. */
+function keepSidebarScroll() {
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+
+  try {
+    const saved = Number(sessionStorage.getItem('medibyte-sidebar-scroll'));
+    if (saved) sidebar.scrollTop = saved;
+  } catch (error) { }
+
+  sidebar.addEventListener('scroll', () => {
+    try {
+      sessionStorage.setItem('medibyte-sidebar-scroll', String(sidebar.scrollTop));
+    } catch (error) { }
+  }, { passive: true });
 }
 
 function toggleSidebar(force) {
@@ -719,7 +738,11 @@ function openAvatarCropper(file) {
       const canvas = document.createElement('canvas');
       canvas.width = AVATAR_EDGE;
       canvas.height = AVATAR_EDGE;
-      canvas.getContext('2d').drawImage(img, startX, startY, sourceSide, sourceSide, 0, 0, AVATAR_EDGE, AVATAR_EDGE);
+      const context = canvas.getContext('2d');
+      // JPEG has no alpha, so a transparent PNG would otherwise flatten to black.
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, AVATAR_EDGE, AVATAR_EDGE);
+      context.drawImage(img, startX, startY, sourceSide, sourceSide, 0, 0, AVATAR_EDGE, AVATAR_EDGE);
 
       settle(canvas.toDataURL('image/jpeg', 0.85));
     });
@@ -1808,6 +1831,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     activeNav();
   }
+
+  keepSidebarScroll();
 
   const profile = await api('/profile');
   if (profile && profile.show_period_tracker) {

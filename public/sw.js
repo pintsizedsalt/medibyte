@@ -1,9 +1,11 @@
-const CACHE = 'medibyte-shell-v10';
+const CACHE = 'medibyte-shell-v12';
 const ASSETS = [
   '/css/medibyte.css',
   '/js/medibyte.js',
   '/manifest.webmanifest',
   '/offline.html',
+  '/favicon.ico',
+  '/icons/brand-mark.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];

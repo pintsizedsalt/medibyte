@@ -458,6 +458,9 @@ body.sidebar-open .sidebar {
     background: var(--solid);
     color: var(--on-solid);
   }
+  /* The rail paints the cell solid blue, so the icon has to flip to white. */
+  body.sidebar-collapsed .side-link:hover .icon,
+  body.sidebar-collapsed .side-link.active .icon { color: var(--on-solid); }
   body.sidebar-collapsed .side-link span { display: none; }
 
   body.sidebar-collapsed .sidebar-foot { display: none; }
@@ -652,7 +655,7 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
 .auth-card h2 { font-size: 28px; font-weight: 800; }
 .auth-intro { color: var(--muted); font-size: 14px; }
 .auth-card .field { margin-bottom: 14px; }
-.auth-card .field > span { padding-left: 6px; }
+.auth-card .field > span:first-child { padding-left: 6px; }
 .auth-card .field input {
   width: 100%;
   padding: 14px 18px;
@@ -5041,19 +5044,6 @@ input[type="radio"]:focus-visible {
 .doc-menu button.is-danger { color: var(--danger); }
 .doc-menu button.is-danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--card)); }
 
-.doc-rename-input {
-  width: 100%;
-  max-width: 320px;
-  padding: 7px 10px;
-  border: 1px solid var(--solid);
-  border-radius: 9px;
-  background: var(--card);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--solid) 18%, transparent);
-}
-
 @media (max-width: 1000px) {
   .doc-table { --doc-thumb: 52px; }
   .doc-table-head,
@@ -5230,9 +5220,6 @@ html[data-theme="dark"] .log-calendar-dialog .cal-widget .cal-day.sel:not(.today
   color: #0d0d20;
 }
 
-html[data-theme="dark"] .doc-rename-input {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 35%, transparent);
-}
 html[data-theme="dark"] .card-danger,
 html[data-theme="dark"] .record-row-action.danger {
   border-color: color-mix(in srgb, var(--danger) 60%, var(--line));
@@ -5684,4 +5671,87 @@ html[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-in
   max-width: none;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+/* =========================================================
+   Phase 10 — MediByte logo mark in the brand lockups
+   ========================================================= */
+.brand {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.brand .brand-mark { flex: none; height: 22px; width: auto; }
+.brand strong { font-size: 16px; }
+.brand small { font-size: 10px; }
+
+.lg-brand,
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.lg-brand .brand-mark,
+.auth-brand .brand-mark { flex: none; height: 26px; width: auto; }
+
+/* =========================================================
+   Phase 11 — animated "Welcome" on the login card
+   ========================================================= */
+.lg-card .lg-kicker {
+  position: relative;
+  display: inline-block;
+  /* Pure --brand-2 washes out on the light card, so the highlight stays mixed with the ink. */
+  background: linear-gradient(
+    100deg,
+    var(--ink) 0%,
+    color-mix(in srgb, var(--brand-2) 40%, var(--ink)) 26%,
+    var(--brand) 44%,
+    var(--ink) 68%,
+    color-mix(in srgb, var(--brand-2) 40%, var(--ink)) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lg-kicker-sweep 7s ease-in-out infinite;
+}
+.lg-card .lg-kicker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 62%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--brand-2), var(--brand), transparent);
+  transform: translateX(-50%) scaleX(0.35);
+  animation: lg-kicker-rule 7s ease-in-out infinite;
+}
+@keyframes lg-kicker-sweep {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes lg-kicker-rule {
+  0%, 100% { transform: translateX(-50%) scaleX(0.3); opacity: 0.45; }
+  50% { transform: translateX(-50%) scaleX(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-card .lg-kicker,
+  .lg-card .lg-kicker::after { animation: none; }
+  .lg-card .lg-kicker { background-position: 30% 50%; }
+  .lg-card .lg-kicker::after { transform: translateX(-50%) scaleX(0.7); }
+}
+
+/* =========================================================
+   Phase 12 — documents list: space under the column line
+   ========================================================= */
+.doc-table-head { padding-bottom: 12px; }
+/* The shared rule zeroes the first row's top padding, which glued it to the header line. */
+.doc-table .record-list .record:first-child { padding-top: 16px; }
+.doc-table .record-main .record-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

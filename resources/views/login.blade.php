@@ -11,7 +11,7 @@
     <div class="lg-wrap">
       <!-- Left side -->
       <section class="lg-left">
-        <a class="lg-brand" href="/">MediByte</a>
+        <a class="lg-brand" href="/"><img class="brand-mark" src="/icons/brand-mark.png?v=1" alt="" width="200" height="175">MediByte</a>
         <p class="lg-eyebrow">Personal health</p>
         <h1 class="lg-title">A clearer view of your everyday health.</h1>
         <svg class="lg-pulse" width="150" height="12" viewBox="0 0 150 12" aria-hidden="true">

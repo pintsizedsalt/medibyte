@@ -138,9 +138,6 @@
 
   {{-- Per-file action menu --}}
   <div id="doc-menu" class="doc-menu" role="menu" hidden>
-    <button type="button" role="menuitem" onclick="renameDocument()">
-      <svg class="icon"><use href="#i-pencil"/></svg>Rename
-    </button>
     <button type="button" role="menuitem" onclick="editDocument()">
       <svg class="icon"><use href="#i-file"/></svg>Edit details
     </button>
@@ -194,6 +191,14 @@ function formatBytes(bytes) {
   if (value < 1024) return value + ' B';
   if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
   return (value / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/* Long names are shortened in the lists; the full name stays in the tooltip and the preview. */
+const DOC_NAME_LIMIT = 35;
+
+function docNameLabel(value) {
+  const name = String(value || '');
+  return name.length > DOC_NAME_LIMIT ? name.slice(0, DOC_NAME_LIMIT).trimEnd() + '…' : name;
 }
 
 function isImageMime(mime) {
@@ -564,12 +569,6 @@ function menuDocId() {
   return Number(docMenuId);
 }
 
-function renameDocument() {
-  const id = menuDocId();
-  closeDocMenu();
-  startInlineRename(id);
-}
-
 function editDocument() {
   const id = menuDocId();
   closeDocMenu();
@@ -586,53 +585,6 @@ function deleteFromMenu() {
   const id = menuDocId();
   closeDocMenu();
   deleteDocument(id);
-}
-
-function startInlineRename(id) {
-  const doc = documentRows.find(item => Number(item.id) === Number(id));
-  const holder = document.querySelector(`[data-doc-title="${Number(id)}"]`);
-  if (!doc || !holder) return;
-
-  const label = holder.cloneNode(false);
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'doc-rename-input';
-  input.value = doc.title || '';
-  input.maxLength = 150;
-  input.setAttribute('aria-label', 'New document name');
-  holder.replaceWith(label);
-  label.replaceWith(input);
-  input.focus();
-  input.select();
-
-  let settled = false;
-  const finish = async save => {
-    if (settled) return;
-    settled = true;
-
-    const value = input.value.trim();
-    if (!save || !value || value === doc.title) {
-      renderDocuments();
-      return;
-    }
-
-    const result = await api('/documents/' + Number(id), 'PATCH', { title: value });
-    if (result && result.id) {
-      toast('Document renamed.');
-      await loadDocuments();
-    } else {
-      toast(errText(result), 'error');
-      renderDocuments();
-    }
-  };
-
-  input.addEventListener('keydown', e => {
-    e.stopPropagation();
-    if (e.key === 'Enter') finish(true);
-    if (e.key === 'Escape') finish(false);
-  });
-  input.addEventListener('click', e => e.stopPropagation());
-  input.addEventListener('blur', () => finish(true));
 }
 
 function openEditModal(id) {
@@ -721,8 +673,8 @@ function renderDocuments() {
         return `<div class="record document-row is-clickable" data-doc-row="${id}" role="button" tabindex="0" onclick="openDocPreview(${id})" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openDocPreview(${id}); }">
           ${docThumb(doc)}
           <div class="record-main">
-            <strong class="doc-name" data-doc-title="${id}" title="${esc(doc.title)}">${esc(doc.title)}</strong>
-            <span class="record-meta">${esc(DOCUMENT_TYPES[doc.type] || 'Other')} · ${esc(doc.original_name)}</span>
+            <strong class="doc-name" title="${esc(doc.title)}">${esc(docNameLabel(doc.title))}</strong>
+            <span class="record-meta" title="${esc(doc.original_name)}">${esc(DOCUMENT_TYPES[doc.type] || 'Other')} · ${esc(docNameLabel(doc.original_name))}</span>
             ${doc.notes ? `<span class="record-meta">${esc(doc.notes)}</span>` : ''}
           </div>
           <span class="doc-cell doc-cell-date">${esc(dateLabel(doc.updated_at || doc.created_at))}</span>
@@ -738,7 +690,7 @@ function renderDocuments() {
     <article class="doc-card">
       ${docCardPreview(doc)}
       <div class="doc-card-info">
-        <strong class="doc-name" data-doc-title="${Number(doc.id)}" title="${esc(doc.title)}">${esc(doc.title)}</strong>
+        <strong class="doc-name" title="${esc(doc.title)}">${esc(docNameLabel(doc.title))}</strong>
         <span class="doc-card-type">${esc(DOCUMENT_TYPES[doc.type] || 'Other')}</span>
         <span class="record-meta">${formatBytes(doc.size)} · ${esc(dateLabel(doc.updated_at || doc.created_at))}</span>
       </div>

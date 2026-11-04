@@ -23,15 +23,50 @@ class AvatarTest extends TestCase
             'image_data' => 'data:image/jpeg;base64,'.base64_encode("\xFF\xD8\xFF".'jpeg-bytes'),
         ]);
 
-        $response->assertCreated()->assertJsonPath('avatar_url', '/avatar?v='.$user->fresh()->updated_at->getTimestamp());
+        $response->assertCreated();
 
         $user = $user->fresh();
         $this->assertSame('avatars/'.$user->id.'.jpg', $user->avatar_path);
+        $this->assertSame(
+            '/avatar?v='.Storage::disk('local')->lastModified($user->avatar_path),
+            $response->json('avatar_url')
+        );
         Storage::disk('local')->assertExists($user->avatar_path);
 
         $this->actingAs($user)->get('/avatar')
             ->assertOk()
             ->assertHeader('Content-Type', 'image/jpeg');
+    }
+
+    public function test_a_reupload_gets_a_fresh_cache_busting_address(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/avatar', [
+            'image_data' => base64_encode("\xFF\xD8\xFF".'first'),
+        ])->assertCreated();
+
+        $path = $user->fresh()->avatar_path;
+        $written = time() - 120;
+        touch(Storage::disk('local')->path($path), $written);
+
+        // Overwriting the same avatar_path leaves updated_at untouched, so the
+        // address has to follow the file or the browser keeps the old photo.
+        $this->assertSame('/avatar?v='.$written, $user->fresh()->avatar_url);
+
+        $this->postJson('/api/v1/avatar', [
+            'image_data' => base64_encode("\xFF\xD8\xFF".'second'),
+        ])->assertCreated();
+
+        $after = $user->fresh();
+        $this->assertNotSame('/avatar?v='.$written, $after->avatar_url);
+        $this->assertSame(
+            '/avatar?v='.Storage::disk('local')->lastModified($after->avatar_path),
+            $after->avatar_url
+        );
     }
 
     public function test_a_reupload_replaces_the_same_photo(): void

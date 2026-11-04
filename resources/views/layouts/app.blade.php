@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="MediByte">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
   <script>
@@ -18,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=26">
+  <link rel="stylesheet" href="/css/medibyte.css?v=29">
   @if ($avatarPhoto)
     <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
   @endif
@@ -121,8 +124,11 @@
     <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
       <div class="sidebar-head">
         <a class="brand" href="/dashboard">
-          <strong>MediByte</strong>
-          <small>Personal health</small>
+          <img class="brand-mark" src="/icons/brand-mark.png?v=1" alt="" width="200" height="175">
+          <span class="brand-text">
+            <strong>MediByte</strong>
+            <small>Personal health</small>
+          </span>
         </a>
         <button type="button" class="icon-btn sidebar-close" onclick="closeSidebar()" aria-label="Hide sidebar" title="Hide sidebar">
           <svg class="icon"><use href="#i-chevron-left"/></svg>
@@ -354,7 +360,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=16"></script>
+  <script src="/js/medibyte.js?v=17"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
