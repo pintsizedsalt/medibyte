@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class WaterLogController extends Controller
@@ -33,17 +34,32 @@ class WaterLogController extends Controller
             'log_date' => 'required|date',
         ]);
 
-        $log = $request->user()->dailyLogs()->firstOrNew(['log_date' => $data['log_date']]);
-        $total = ($log->water_ml ?? 0) + $data['amount_ml'];
+        $log = DB::transaction(function () use ($request, $data) {
+            $log = $request->user()->dailyLogs()
+                ->where('log_date', $data['log_date'])
+                ->lockForUpdate()
+                ->first();
 
-        if ($total > 10000) {
-            throw ValidationException::withMessages([
-                'amount_ml' => 'Enter an amount between 0.1 and 10 L.',
-            ]);
-        }
+            $total = ($log->water_ml ?? 0) + $data['amount_ml'];
 
-        $log->water_ml = $total;
-        $log->save();
+            if ($total > 10000) {
+                throw ValidationException::withMessages([
+                    'amount_ml' => 'Enter an amount between 0.1 and 10 L.',
+                ]);
+            }
+
+            if ($log) {
+                $log->water_ml = $total;
+                $log->save();
+            } else {
+                $log = $request->user()->dailyLogs()->create([
+                    'log_date' => $data['log_date'],
+                    'water_ml' => $total,
+                ]);
+            }
+
+            return $log;
+        });
 
         return response()->json($this->format($log), 201);
     }

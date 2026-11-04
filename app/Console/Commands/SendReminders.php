@@ -4,37 +4,57 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use App\Notifications\HealthReminder;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 class SendReminders extends Command
 {
     protected $signature = 'medibyte:send-reminders';
 
-    protected $description = 'Send in-app reminders for due medications and upcoming appointments';
+    protected $description = 'Send in-app reminders for due medications, upcoming appointments, and symptom check-ins';
 
     public function handle(): int
     {
         $now = now();
-        $today = $now->toDateString();
-        $windowStart = $now->copy()->format('H:i');
-        $windowEnd = $now->copy()->addMinutes(15)->format('H:i');
+        $since = $this->lastSweepAt($now);
         $sent = 0;
 
         User::query()
             ->where('reminders_enabled', true)
-            ->chunkById(100, function ($users) use ($now, $today, $windowStart, $windowEnd, &$sent) {
+            ->chunkById(100, function ($users) use ($now, $since, &$sent) {
                 foreach ($users as $user) {
-                    $sent += $this->sendAppointmentReminders($user, $now);
-                    $sent += $this->sendMedicationReminders($user, $today, $windowStart, $windowEnd);
+                    $sent += $this->sweepUser($user, $now, $since);
                 }
             });
+
+        Cache::put('medibyte:reminder-sweep', $now->timestamp, now()->addDay());
 
         $this->info("Sent {$sent} reminder(s).");
 
         return self::SUCCESS;
     }
 
-    private function sendAppointmentReminders(User $user, $now): int
+    public function sweepUser(User $user, ?Carbon $now = null): int
+    {
+        $now ??= now();
+        $since = $this->lastSweepAt($now);
+
+        return $this->sendAppointmentReminders($user, $now)
+            + $this->sendMedicationReminders($user, $now, $since)
+            + $this->sendSymptomCheckIn($user, $now);
+    }
+
+    private function lastSweepAt(Carbon $now): Carbon
+    {
+        $timestamp = Cache::get('medibyte:reminder-sweep');
+
+        return $timestamp
+            ? Carbon::createFromTimestamp((int) $timestamp, $now->timezone)
+            : $now->copy()->subHours(6);
+    }
+
+    private function sendAppointmentReminders(User $user, Carbon $now): int
     {
         $sent = 0;
 
@@ -66,9 +86,10 @@ class SendReminders extends Command
         return $sent;
     }
 
-    private function sendMedicationReminders(User $user, string $today, string $windowStart, string $windowEnd): int
+    private function sendMedicationReminders(User $user, Carbon $now, Carbon $since): int
     {
         $sent = 0;
+        $today = $now->toDateString();
 
         $medications = $user->medications()
             ->where('is_active', true)
@@ -80,7 +101,11 @@ class SendReminders extends Command
 
         foreach ($medications as $medication) {
             foreach ($medication->times ?? [] as $time) {
-                if (! $this->timeIsInWindow($time, $windowStart, $windowEnd)) {
+                [$hour, $minute] = array_pad(explode(':', $time), 2, '0');
+                $dueAt = $now->copy()->startOfDay()->setTime((int) $hour, (int) $minute);
+
+                // Skip doses that are still ahead, or that belong to a sweep already covered.
+                if ($dueAt->greaterThan($now) || $dueAt->lessThanOrEqualTo($since)) {
                     continue;
                 }
 
@@ -107,14 +132,47 @@ class SendReminders extends Command
         return $sent;
     }
 
-    private function timeIsInWindow(string $time, string $start, string $end): bool
+    private function sendSymptomCheckIn(User $user, Carbon $now): int
     {
-        if ($end >= $start) {
-            return $time >= $start && $time <= $end;
+        $hour = (int) $now->format('G');
+
+        if ($hour < 8 || $hour > 20) {
+            return 0;
         }
 
-        // The 15-minute window crosses midnight.
-        return $time >= $start || $time <= $end;
+        $today = $now->toDateString();
+        $key = 'symptom:'.$today;
+
+        if ($this->alreadySent($user, $key)) {
+            return 0;
+        }
+
+        $hasRecentSymptoms = $user->symptomLogs()
+            ->whereDate('log_date', '>=', $now->copy()->subDays(7)->toDateString())
+            ->whereDate('log_date', '<', $today)
+            ->exists();
+
+        if (! $hasRecentSymptoms) {
+            return 0;
+        }
+
+        $loggedToday = $user->symptomLogs()
+            ->whereDate('log_date', $today)
+            ->exists();
+
+        if ($loggedToday) {
+            return 0;
+        }
+
+        $user->notify(new HealthReminder([
+            'dedupe_key' => $key,
+            'kind' => 'symptom',
+            'title' => 'Symptom check-in',
+            'body' => 'How are you feeling today? Log your symptoms to keep your health record up to date.',
+            'url' => '/symptoms',
+        ]));
+
+        return 1;
     }
 
     private function alreadySent(User $user, string $key): bool

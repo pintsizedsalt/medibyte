@@ -37,9 +37,9 @@ class ReminderController extends Controller
                 $timeParts = explode(':', $time);
                 $timeMinutes = count($timeParts) === 2
                     ? ($timeParts[0] * 60) + $timeParts[1]
-                    : (int)$time;
+                    : (int) $time;
 
-                $nowMinutes = (int)$now->format('Hi'); // HHMM as integer
+                $nowMinutes = ((int) $now->format('G') * 60) + (int) $now->format('i');
 
                 $medicationReminders[] = [
                     'medication_id' => $med->id,

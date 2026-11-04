@@ -30,7 +30,7 @@
         </div>
         <label class="check-row">
           <input id="reminders_enabled" type="checkbox">
-          <span>Show medication and appointment reminders in the notification inbox.</span>
+          <span>Show medication, appointment, and symptom check-in reminders in the notification inbox.</span>
         </label>
         <p class="settings-note">Notifications are the single inbox for reminders and account updates.</p>
 

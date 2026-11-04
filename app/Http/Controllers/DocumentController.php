@@ -55,7 +55,7 @@ class DocumentController extends Controller
         $mime = $document->mime_type ?: 'application/octet-stream';
         $headers = [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="'.addslashes($document->original_name).'"',
+            'Content-Disposition' => 'inline',
             'Cache-Control' => 'private, max-age=3600',
         ];
 

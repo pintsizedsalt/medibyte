@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Appointment;
 use App\Models\Medication;
+use App\Models\SymptomLog;
 use App\Models\User;
 use App\Notifications\HealthReminder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -73,6 +75,123 @@ class NotificationTest extends TestCase
             'times' => ['08:00'],
             'start_date' => now()->toDateString(),
             'is_active' => true,
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_doses_missed_since_the_last_sweep_are_caught_up(): void
+    {
+        Carbon::setTestNow('2026-10-20 08:30:00');
+        Cache::flush();
+        Cache::put('medibyte:reminder-sweep', now()->subHour()->timestamp);
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'male',
+            'reminders_enabled' => true,
+        ])->save();
+
+        Medication::create([
+            'user_id' => $user->id,
+            'name' => 'Paracetamol',
+            'times' => ['08:00'],
+            'start_date' => now()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertSentToTimes($user, HealthReminder::class, 1);
+    }
+
+    public function test_medication_doses_still_in_the_future_are_not_sent(): void
+    {
+        Carbon::setTestNow('2026-10-20 08:00:00');
+        Cache::flush();
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'male',
+            'reminders_enabled' => true,
+        ])->save();
+
+        Medication::create([
+            'user_id' => $user->id,
+            'name' => 'Paracetamol',
+            'times' => ['09:00'],
+            'start_date' => now()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_symptom_check_in_is_sent_for_recent_symptoms_not_logged_today(): void
+    {
+        Carbon::setTestNow('2026-10-20 10:00:00');
+        Cache::flush();
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'male',
+            'reminders_enabled' => true,
+        ])->save();
+
+        SymptomLog::create([
+            'user_id' => $user->id,
+            'log_date' => '2026-10-18',
+            'symptom' => 'Headache',
+            'severity' => 'mild',
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertSentTo(
+            $user,
+            HealthReminder::class,
+            fn ($notification) => ($notification->toDatabase($user)['kind'] ?? null) === 'symptom'
+        );
+    }
+
+    public function test_symptom_check_in_is_skipped_outside_day_hours_and_when_logged_today(): void
+    {
+        Carbon::setTestNow('2026-10-20 07:00:00');
+        Cache::flush();
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'male',
+            'reminders_enabled' => true,
+        ])->save();
+
+        SymptomLog::create([
+            'user_id' => $user->id,
+            'log_date' => '2026-10-18',
+            'symptom' => 'Headache',
+            'severity' => 'mild',
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertNothingSent();
+
+        Carbon::setTestNow('2026-10-20 14:00:00');
+        Cache::flush();
+
+        SymptomLog::create([
+            'user_id' => $user->id,
+            'log_date' => '2026-10-20',
+            'symptom' => 'Nausea',
+            'severity' => 'mild',
         ]);
 
         $this->artisan('medibyte:send-reminders')->assertExitCode(0);
