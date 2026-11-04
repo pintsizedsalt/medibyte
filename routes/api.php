@@ -13,6 +13,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PeriodLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
+use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\SleepLogController;
 use App\Http\Controllers\SymptomLogController;
@@ -80,5 +81,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
         Route::get('/progress', [ProgressController::class, 'index']);
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/records/summary', [RecordsController::class, 'summary']);
+        Route::get('/records/day', [RecordsController::class, 'day']);
     });
 });

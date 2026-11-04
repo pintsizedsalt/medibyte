@@ -2,7 +2,6 @@
   $eyebrow = $eyebrow ?? 'Health record';
   $back = $back ?? '/dashboard';
   $backLabel = $backLabel ?? 'Back to dashboard';
-  $add = $add ?? true;
 
   $sections = [
     'water'        => ['blue', 'droplet'],
@@ -36,13 +35,6 @@
       @endisset
     </div>
   </div>
-
-  @if ($add)
-    <button type="button" class="btn btn-primary" onclick="window.addLogRecord && window.addLogRecord()">
-      <svg class="icon"><use href="#i-plus"/></svg>
-      Add record
-    </button>
-  @endif
 </div>
 
 @include('partials.record-tabs')

@@ -677,6 +677,73 @@ function bindShell() {
     else if ($('notificationDrawer')?.classList.contains('open')) closeNotificationDrawer();
     else if (document.body.classList.contains('sidebar-open')) closeSidebar();
   });
+
+  bindSidebarTips();
+}
+
+/* Floating label for collapsed-sidebar icons (mirrors the dash rail) */
+let sidebarTipEl = null;
+let sidebarTipTarget = null;
+let sidebarTipTimer = null;
+
+function sidebarTipLabel(el) {
+  return el.getAttribute('data-tip') || el.getAttribute('title') || el.getAttribute('aria-label') || '';
+}
+
+function showSidebarTip(el) {
+  if (!isDesktop() || !document.body.classList.contains('sidebar-collapsed')) return;
+  const label = sidebarTipLabel(el);
+  if (!label) return;
+
+  if (!el.dataset.tip) {
+    el.dataset.tip = label;
+    el.removeAttribute('title');
+  }
+
+  if (!sidebarTipEl) {
+    sidebarTipEl = document.createElement('div');
+    sidebarTipEl.id = 'sidebarTip';
+    sidebarTipEl.className = 'sidebar-tip';
+    sidebarTipEl.hidden = true;
+    document.body.appendChild(sidebarTipEl);
+  }
+
+  sidebarTipTarget = el;
+  clearTimeout(sidebarTipTimer);
+  sidebarTipTimer = setTimeout(() => {
+    if (!sidebarTipTarget) return;
+    const rect = sidebarTipTarget.getBoundingClientRect();
+    sidebarTipEl.textContent = sidebarTipLabel(sidebarTipTarget);
+    sidebarTipEl.hidden = false;
+    const tipHeight = sidebarTipEl.offsetHeight;
+    let top = rect.top + rect.height / 2 - tipHeight / 2;
+    top = Math.max(8, Math.min(top, window.innerHeight - tipHeight - 8));
+    sidebarTipEl.style.top = top + 'px';
+    sidebarTipEl.style.left = (rect.right + 12) + 'px';
+  }, 140);
+}
+
+function hideSidebarTip(el) {
+  if (el && el.dataset.tip) {
+    el.setAttribute('title', el.dataset.tip);
+    delete el.dataset.tip;
+  }
+  sidebarTipTarget = null;
+  clearTimeout(sidebarTipTimer);
+  if (sidebarTipEl) sidebarTipEl.hidden = true;
+}
+
+function bindSidebarTips() {
+  document.querySelectorAll('.side-link[title], .sidebar-profile[title], .sidebar-expand[title]').forEach(el => {
+    el.addEventListener('mouseenter', () => showSidebarTip(el));
+    el.addEventListener('mouseleave', () => hideSidebarTip(el));
+    el.addEventListener('focus', () => showSidebarTip(el));
+    el.addEventListener('blur', () => hideSidebarTip(el));
+    el.addEventListener('click', () => hideSidebarTip(el));
+  });
+
+  document.querySelector('.sidebar')?.addEventListener('scroll', () => hideSidebarTip());
+  window.addEventListener('resize', () => hideSidebarTip());
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -771,6 +838,56 @@ function logPage(cfg) {
     return map;
   }
 
+  const DAY_FEATURES = [
+    { key: 'water', label: 'Water', icon: 'droplet', tone: 'blue', href: '/water', rows: d => (d.water && Number(d.water.total_ml) > 0) ? [d.water] : [] },
+    { key: 'sleep', label: 'Sleep', icon: 'moon', tone: 'violet', href: '/sleep', rows: d => d.sleep || [] },
+    { key: 'walking', label: 'Activity', icon: 'activity', tone: 'amber', href: '/walking', rows: d => d.walking || [] },
+    { key: 'meals', label: 'Meals', icon: 'meal', tone: 'mint', href: '/meals', rows: d => d.meals || [] },
+    { key: 'weight', label: 'Weight', icon: 'scale', tone: 'slate', href: '/weight', rows: d => d.weight || [] },
+    { key: 'moods', label: 'Mood', icon: 'smile', tone: 'gold', href: '/mood', rows: d => d.moods || [] },
+    { key: 'symptoms', label: 'Symptoms', icon: 'thermometer', tone: 'amber', href: '/symptoms', rows: d => d.symptoms || [] },
+    { key: 'vitals', label: 'Vitals', icon: 'heart', tone: 'rose', href: '/vitals', rows: d => d.vitals || [] },
+    { key: 'period', label: 'Cycle', icon: 'cycle', tone: 'rose', href: '/period', rows: d => d.period || [] },
+    { key: 'medications', label: 'Medications', icon: 'pill', tone: 'plum', href: '/medications', rows: d => d.medications || [] },
+    { key: 'appointments', label: 'Appointments', icon: 'calendar', tone: 'blue', href: '/appointments', rows: d => d.appointments || [] },
+    { key: 'documents', label: 'Documents', icon: 'file', tone: 'plum', href: '/documents', rows: d => d.documents || [] }
+  ];
+
+  let calendarOpen = false;
+
+  function dayFeatureHtml(data) {
+    const blocks = [];
+    DAY_FEATURES.forEach(feature => {
+      const entries = feature.rows(data);
+      if (!entries.length) return;
+      blocks.push(`
+        <div class="cal-day-feature">
+          <span class="cal-day-feature-ic tone-${feature.tone}"><svg class="icon" aria-hidden="true"><use href="#i-${feature.icon}"/></svg></span>
+          <div class="cal-day-feature-body">
+            <strong>${esc(feature.label)}</strong>
+            ${entries.map(entry => `<span class="record-meta">${esc(entry.label || '—')}</span>`).join('')}
+          </div>
+          <a class="cal-day-feature-link" href="${esc(feature.href)}" aria-label="Open ${esc(feature.label)}">Open</a>
+        </div>`);
+    });
+    return blocks.length ? `<div class="cal-day-list">${blocks.join('')}</div>` : '';
+  }
+
+  async function loadDayPanel(day) {
+    const panel = $('calDayPanel');
+    if (!panel) return;
+    panel.innerHTML = '<p class="muted cal-empty">Loading this day…</p>';
+
+    const data = await api('/records/day?date=' + encodeURIComponent(day));
+    if (!data || !data.date) {
+      panel.innerHTML = '<p class="muted cal-empty">Could not load records for this day.</p>';
+      return;
+    }
+
+    const html = dayFeatureHtml(data);
+    panel.innerHTML = html || '<p class="muted cal-empty">Nothing logged for this day.</p>';
+  }
+
   function drawCalendar() {
     const host = $('logCalendar');
     if (!host) return;
@@ -804,35 +921,31 @@ function logPage(cfg) {
 
     const legend = '<span><i class="cal-dot"></i>Logged</span>';
 
-    const picked = map[calSel] || [];
     const pickedLabel = new Date(calSel + 'T00:00:00')
       .toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
     host.innerHTML = `
-      <section class="card calendar-card">
-        <div class="cal-head">
-          <button type="button" class="btn btn-small" onclick="window.calMove(-1)" aria-label="Previous month">‹</button>
-          <h3>${esc(title)}</h3>
-          <span class="cal-head-actions">
-            <button type="button" class="btn btn-small" onclick="window.calToday()">Today</button>
-            <button type="button" class="btn btn-small" onclick="window.calMove(1)" aria-label="Next month">›</button>
-          </span>
+      <div class="cal-head">
+        <button type="button" class="btn btn-small" onclick="window.calMove(-1)" aria-label="Previous month">‹</button>
+        <h3>${esc(title)}</h3>
+        <span class="cal-head-actions">
+          <button type="button" class="btn btn-small" onclick="window.calToday()">Today</button>
+          <button type="button" class="btn btn-small" onclick="window.calMove(1)" aria-label="Next month">›</button>
+        </span>
+      </div>
+      <div class="cal-grid">
+        ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
+        ${cells}
+      </div>
+      <div class="cal-legend">${legend}</div>
+      <div class="cal-day-panel">
+        <div class="card-head">
+          <strong>${esc(pickedLabel)}</strong>
         </div>
-        <div class="cal-grid">
-          ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="cal-dow" aria-hidden="true">${x}</span>`).join('')}
-          ${cells}
-        </div>
-        <div class="cal-legend">${legend}</div>
-        <div class="cal-day-panel">
-          <div class="card-head">
-            <strong>${esc(pickedLabel)}</strong>
-            <button type="button" class="btn btn-small btn-primary" onclick="window.calAddForDay()">Add for this day</button>
-          </div>
-          ${picked.length
-        ? `<div class="record-list">${picked.map(rowHtml).join('')}</div>`
-        : '<p class="muted cal-empty">Nothing logged for this day.</p>'}
-        </div>
-      </section>`;
+        <div id="calDayPanel"></div>
+      </div>`;
+
+    if (calendarOpen) loadDayPanel(calSel);
   }
 
   window.calMove = n => {
@@ -853,21 +966,6 @@ function logPage(cfg) {
   window.calPick = day => {
     calSel = day;
     drawCalendar();
-  };
-
-  window.calAddForDay = () => {
-    if (edit) {
-      edit = null;
-      msg('');
-      draw();
-    }
-    const el = $('f_' + dateKey);
-    if (el) {
-      el.value = el.type === 'datetime-local'
-        ? calSel + 'T' + ((el.value || '').slice(11, 16) || '09:00')
-        : calSel;
-    }
-    window.addLogRecord();
   };
 
   const tone = cfg.tone || 'blue';
@@ -917,7 +1015,7 @@ function logPage(cfg) {
     return value;
   }
 
-  function input([name, label, type, opts, def, placeholder, showsWhen], value) {
+  function input([name, label, type, opts, def, placeholder, showsWhen], value, values) {
     const v = fieldValue(type, value, def);
     const id = 'f_' + name;
     const safeLabel = esc(label);
@@ -980,7 +1078,7 @@ function logPage(cfg) {
     }
 
     if (showsWhen) {
-      const show = String(current[showsWhen[0]] ?? '') === String(showsWhen[1]);
+      const show = String((values || {})[showsWhen[0]] ?? '') === String(showsWhen[1]);
       html = `<div data-shows-when="${esc(showsWhen[0])}:${esc(showsWhen[1])}"${show ? '' : ' hidden'}>${html}</div>`;
     }
 
@@ -1037,42 +1135,56 @@ function logPage(cfg) {
       </div>`;
   }
 
-  function draw() {
-    const current = edit || {};
-    const form = cfg.fields.map(field => input(field, current[field[0]])).join('');
-
-    $('log').innerHTML = `
-      ${statsHtml()}
-      ${showCalendar ? '<div id="logCalendar"></div>' : ''}
-      <section class="card record-form-card" id="recordFormCard">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">${edit ? 'Editing record' : 'New record'}</p>
-            <h3>${edit ? 'Update this entry' : (cfg.formTitle || 'Add a new entry')}</h3>
-          </div>
-          ${edit ? '<span class="badge pill-primary">Editing</span>' : ''}
+  function historyCardHtml() {
+    const head = `
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">History</p>
+          <h3>Your records</h3>
         </div>
-        <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
-        <p id="formMsg" class="form-message" role="alert" style="display:none; color: var(--rose-600, #dc2626); font-weight: 500; margin-top: 8px;"></p>
-        <form onsubmit="event.preventDefault(); window.saveLog()">
-          <div class="form-grid">${form}</div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
-              <svg class="icon"><use href="#i-${edit ? 'check' : 'plus'}"/></svg>
-              ${edit ? 'Save changes' : 'Add record'}
-            </button>
-            ${edit ? '<button type="button" class="btn btn-ghost" onclick="window.cancelLogEdit()">Cancel</button>' : ''}
-          </div>
-        </form>
-      </section>
-      ${cfg.url === '/mood-logs' ? `
+        <div class="card-head-tools">
+          ${showCalendar ? `<button type="button" class="btn btn-small btn-ghost" onclick="window.openLogCalendar()">
+            <svg class="icon"><use href="#i-calendar"/></svg>View calendar
+          </button>` : ''}
+          <span class="history-count">${rows.length}</span>
+        </div>
+      </div>`;
+
+    if (!rows.length) {
+      return `<section class="card">
+        ${head}
+        <div class="empty-state">
+          <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
+          <h4>No records yet</h4>
+          <p>Add your first entry and it will appear here.</p>
+          <button type="button" class="btn btn-primary" onclick="window.addLogRecord()">
+            <svg class="icon"><use href="#i-plus"/></svg>
+            Add record
+          </button>
+        </div>
+      </section>`;
+    }
+
+    return `<section class="card">
+      ${head}
+      <div class="record-list">${rows.map(rowHtml).join('')}</div>
+    </section>`;
+  }
+
+  function customMoodsCardHtml() {
+    return `
       <section class="card" id="customMoodsCard">
         <div class="card-head">
           <div>
             <p class="eyebrow">Personalize</p>
             <h3>Saved custom moods</h3>
           </div>
-          <span class="history-count">${customMoods.length}</span>
+          <div class="card-head-tools">
+            <button type="button" class="card-add-btn" onclick="window.addCustomMood()" aria-label="Add custom mood" title="Add custom mood">
+              <svg class="icon"><use href="#i-plus"/></svg>
+            </button>
+            <span class="history-count">${customMoods.length}</span>
+          </div>
         </div>
         ${customMoods.length ? `
           <div class="record-list">
@@ -1095,27 +1207,78 @@ function logPage(cfg) {
           </div>
         ` : `
           <div class="empty-state" style="padding: 20px;">
-            <p class="muted" style="margin: 0;">No custom moods saved yet. Select "Other / Add your own mood" above to create one.</p>
+            <p class="muted" style="margin: 0;">No custom moods saved yet. Select "Other / Add your own mood" in the add form to create one.</p>
           </div>
         `}
-      </section>
-      ` : ''}
-      <section class="card">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">History</p>
-            <h3>Your records</h3>
-          </div>
-          <span class="history-count">${rows.length}</span>
-        </div>
-        ${rows.length
-        ? `<div class="record-list">${rows.map(rowHtml).join('')}</div>`
-        : `<div class="empty-state">
-                 <span class="empty-orb"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
-                 <h4>No records yet</h4>
-                 <p>Add your first entry above and it will appear here.</p>
-               </div>`}
       </section>`;
+  }
+
+  function formModalHtml(form) {
+    return `
+      <div id="logFormModal" class="log-modal" hidden>
+        <div class="log-modal-backdrop" onclick="window.closeLogForm()"></div>
+        <div class="log-modal-dialog log-form-dialog glassy" role="dialog" aria-modal="true" aria-labelledby="logFormTitle">
+          <header class="log-modal-head">
+            <div>
+              <p class="eyebrow">${edit ? 'Editing record' : 'New record'}</p>
+              <h3 id="logFormTitle">${edit ? 'Update this entry' : (cfg.formTitle || 'Add a new entry')}</h3>
+            </div>
+            <button type="button" class="icon-btn" onclick="window.closeLogForm()" aria-label="Close form">
+              <svg class="icon"><use href="#i-close"/></svg>
+            </button>
+          </header>
+          <div class="log-modal-body">
+            <p class="form-card-note">${esc(cfg.formNote || 'Fields left blank are saved as empty. Only the required details are needed.')}</p>
+            <p id="formMsg" class="form-message" role="alert" style="display:none"></p>
+            <form onsubmit="event.preventDefault(); window.saveLog()">
+              <div class="form-grid">${form}</div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                  <svg class="icon"><use href="#i-${edit ? 'check' : 'plus'}"/></svg>
+                  ${edit ? 'Save changes' : 'Add record'}
+                </button>
+                ${edit ? '<button type="button" class="btn btn-ghost" onclick="window.cancelLogEdit()">Cancel</button>' : ''}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function calendarModalHtml() {
+    return `
+      <div id="logCalendarModal" class="log-modal" hidden>
+        <div class="log-modal-backdrop" onclick="window.closeLogCalendar()"></div>
+        <div class="log-modal-dialog log-calendar-dialog glassy" role="dialog" aria-modal="true" aria-labelledby="logCalendarTitle">
+          <header class="log-modal-head">
+            <div>
+              <p class="eyebrow">Calendar</p>
+              <h3 id="logCalendarTitle">${esc(cfg.calendarTitle || cfg.title || 'Records')} · Day review</h3>
+            </div>
+            <button type="button" class="icon-btn" onclick="window.closeLogCalendar()" aria-label="Close calendar">
+              <svg class="icon"><use href="#i-close"/></svg>
+            </button>
+          </header>
+          <div class="log-modal-body">
+            <div id="logCalendar"></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function draw() {
+    const current = edit || {};
+    const form = cfg.fields.map(field => input(field, current[field[0]], current)).join('');
+
+    $('log').innerHTML = `
+      ${statsHtml()}
+      ${historyCardHtml()}
+      ${cfg.url === '/mood-logs' ? customMoodsCardHtml() : ''}
+      ${rows.length ? `<button type="button" id="logFab" class="fab" onclick="window.addLogRecord()" aria-label="Add record" title="Add record">
+        <svg class="icon"><use href="#i-plus"/></svg>
+      </button>` : ''}
+      ${formModalHtml(form)}
+      ${showCalendar ? calendarModalHtml() : ''}`;
 
     if (showCalendar) drawCalendar();
 
@@ -1177,11 +1340,63 @@ function logPage(cfg) {
     draw();
   }
 
+  window.openLogForm = () => {
+    const modal = $('logFormModal');
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add('log-modal-open');
+    setTimeout(() => modal.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 80);
+  };
+
+  window.closeLogForm = () => {
+    const modal = $('logFormModal');
+    if (modal) modal.hidden = true;
+    if (!$('logCalendarModal') || $('logCalendarModal').hidden) {
+      document.body.classList.remove('log-modal-open');
+    }
+  };
+
+  window.openLogCalendar = () => {
+    const modal = $('logCalendarModal');
+    if (!modal) return;
+    calendarOpen = true;
+    modal.hidden = false;
+    document.body.classList.add('log-modal-open');
+    drawCalendar();
+    setTimeout(() => modal.querySelector('.icon-btn')?.focus({ preventScroll: true }), 80);
+  };
+
+  window.closeLogCalendar = () => {
+    calendarOpen = false;
+    const modal = $('logCalendarModal');
+    if (modal) modal.hidden = true;
+    if (!$('logFormModal') || $('logFormModal').hidden) {
+      document.body.classList.remove('log-modal-open');
+    }
+  };
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if ($('logCalendarModal') && !$('logCalendarModal').hidden) window.closeLogCalendar();
+    else if ($('logFormModal') && !$('logFormModal').hidden) window.closeLogForm();
+  });
+
   window.addLogRecord = () => {
-    const card = $('recordFormCard');
-    if (!card) return;
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => card.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 260);
+    if (edit) {
+      edit = null;
+      msg('');
+      draw();
+    }
+    window.openLogForm();
+  };
+
+  window.addCustomMood = () => {
+    window.openLogForm();
+    const moodSelect = $('f_mood');
+    if (!moodSelect) return;
+    moodSelect.value = '__custom__';
+    moodSelect.dispatchEvent(new Event('change'));
+    setTimeout(() => $('f_custom_mood')?.focus({ preventScroll: true }), 120);
   };
 
   window.renameCustomMood = async (eventOrId, idOrOldName, maybeOldName) => {
@@ -1318,10 +1533,9 @@ function logPage(cfg) {
       edit = null;
       msg('');
       toast(wasEditing ? 'Changes saved.' : 'Record added.');
+      window.closeLogForm();
       await load();
-      if (wasEditing) {
-        $('recordFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (createdCustomMood && $('customMoodsCard')) {
+      if (createdCustomMood && $('customMoodsCard')) {
         $('customMoodsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1330,15 +1544,12 @@ function logPage(cfg) {
       const err = errText(data);
       msg(err);
       toast(err, 'error');
-      const card = $('recordFormCard');
-      if (card) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        if (data && data.errors) {
-          const firstErrKey = Object.keys(data.errors)[0];
-          const targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
-          if (targetField) {
-            targetField.focus({ preventScroll: true });
-          }
+      if (data && data.errors) {
+        const firstErrKey = Object.keys(data.errors)[0];
+        const targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
+        if (targetField) {
+          targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          targetField.focus({ preventScroll: true });
         }
       }
     }
@@ -1347,11 +1558,7 @@ function logPage(cfg) {
   window.editLog = id => {
     edit = rows.find(r => Number(r.id) === Number(id)) || null;
     draw();
-    const card = $('recordFormCard');
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(() => card.querySelector('input, select, textarea')?.focus({ preventScroll: true }), 260);
-    }
+    window.openLogForm();
   };
 
   window.cancelLogEdit = () => {

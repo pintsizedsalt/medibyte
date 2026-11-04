@@ -15,10 +15,6 @@
         <p>Store prescriptions, lab results, and medical certificates in your private record.</p>
       </div>
     </div>
-    <button type="button" class="btn btn-primary" onclick="openUploadModal()">
-      <svg class="icon"><use href="#i-plus"/></svg>
-      Upload
-    </button>
   </div>
 
   <p id="msg" class="form-message" role="alert"></p>
@@ -55,6 +51,10 @@
       <span>PDF, JPG, or PNG up to 10 MB</span>
     </div>
   </div>
+
+  <button type="button" id="doc-fab" class="fab" onclick="openUploadModal()" aria-label="Upload a file" title="Upload a file" hidden>
+    <svg class="icon"><use href="#i-plus"/></svg>
+  </button>
 
   {{-- Upload pop-up --}}
   <div id="doc-upload-modal" class="doc-preview-modal" hidden>
@@ -432,6 +432,7 @@ function renderDocuments() {
   const list = $('documents-list');
   const count = $('doc-count');
   if (count) count.textContent = documentRows.length;
+  $('doc-fab')?.toggleAttribute('hidden', documentRows.length === 0);
 
   $('view-grid')?.classList.toggle('is-active', docView === 'grid');
   $('view-list')?.classList.toggle('is-active', docView === 'list');

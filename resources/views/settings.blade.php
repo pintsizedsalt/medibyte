@@ -78,25 +78,40 @@
       <section class="card account-card">
         <span class="avatar" aria-hidden="true">{{ strtoupper(mb_substr(auth()->user()->first_name ?? auth()->user()->name ?? 'M', 0, 1)) }}</span>
         <h3>{{ auth()->user()->name ?? 'MediByte account' }}</h3>
-        <p class="muted">{{ auth()->user()->username ? '@'.auth()->user()->username : auth()->user()->email }}</p>
-        <p class="muted">{{ auth()->user()->email ?? '' }}</p>
+        @if (auth()->user()->username)
+          <p class="account-handle">{{ '@'.auth()->user()->username }}</p>
+        @endif
+        <p class="muted account-email">{{ auth()->user()->email ?? '' }}</p>
         <span class="badge">Private account</span>
-        <div class="form-actions">
+        <div class="form-actions account-actions">
           <a class="btn btn-ghost" href="/profile">Open profile</a>
         </div>
-      </section>
 
-      <section class="card">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">Need to change more?</p>
-            <h3>Your profile</h3>
-          </div>
-        </div>
-        <p class="muted">Update your name, username, cycle tracking, and daily health goals from your profile.</p>
-        <div class="form-actions">
-          <a class="btn btn-ghost" href="/profile">Go to profile</a>
-        </div>
+        <div class="account-divider" aria-hidden="true"></div>
+        <p class="account-eyebrow">Your daily goals</p>
+        <ul class="account-goals">
+          <li>
+            <svg class="icon" aria-hidden="true"><use href="#i-droplet"/></svg>
+            <span>Water</span>
+            <strong id="goal-water">—</strong>
+          </li>
+          <li>
+            <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+            <span>Sleep</span>
+            <strong id="goal-sleep">—</strong>
+          </li>
+          <li>
+            <svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg>
+            <span>Steps</span>
+            <strong id="goal-steps">—</strong>
+          </li>
+          <li>
+            <svg class="icon" aria-hidden="true"><use href="#i-meal"/></svg>
+            <span>Calories</span>
+            <strong id="goal-calories">—</strong>
+          </li>
+        </ul>
+        <p id="account-since" class="muted account-since"></p>
       </section>
     </aside>
   </div>
@@ -114,6 +129,19 @@ async function loadSettings() {
   }
 
   $('reminders_enabled').checked = Boolean(currentProfile.reminders_enabled);
+
+  $('goal-water').textContent = currentProfile.water_goal_ml ? waterLabel(currentProfile.water_goal_ml) : '—';
+  $('goal-sleep').textContent = currentProfile.sleep_goal_hours ? parseFloat(currentProfile.sleep_goal_hours) + 'h' : '—';
+  $('goal-steps').textContent = currentProfile.walking_goal_steps ? compactNumber(currentProfile.walking_goal_steps) : '—';
+  $('goal-calories').textContent = currentProfile.calorie_goal ? compactNumber(currentProfile.calorie_goal) + ' kcal' : '—';
+
+  const since = $('account-since');
+  if (since && currentProfile.created_at) {
+    const created = new Date(currentProfile.created_at);
+    if (!Number.isNaN(created.getTime())) {
+      since.textContent = 'Member since ' + created.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+  }
 }
 
 async function saveSettings() {

@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'MediByte')</title>
-  <link rel="stylesheet" href="/css/medibyte.css?v=11">
+  <link rel="stylesheet" href="/css/medibyte.css?v=13">
   @stack('styles')
 </head>
 <body class="@yield('body-class')">
@@ -164,7 +164,10 @@
             <svg class="icon"><use href="#i-menu"/></svg>
           </button>
           <a class="topbar-brand" href="/dashboard"><strong>MediByte</strong></a>
-          <span class="topbar-date">{{ now()->format('D, M j') }}</span>
+          <span class="topbar-date">
+            <svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+            {{ now()->format('D, M j') }}
+          </span>
         </div>
         <svg class="topbar-pulse" width="110" height="12" viewBox="0 0 110 12" aria-hidden="true">
           <path d="M2 7h30l5-4 6 7 5-6 4 3h56"/>
@@ -295,7 +298,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=5"></script>
+  <script src="/js/medibyte.js?v=8"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
