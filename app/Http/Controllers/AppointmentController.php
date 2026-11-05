@@ -2,18 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TextField;
 use Illuminate\Http\Request;
 
 class AppointmentController extends Controller
 {
+    /**
+     * @var array<string, string>
+     */
+    private const TEXT_FIELDS = [
+        'doctor_name' => 'name',
+        'specialty' => 'name',
+        'hospital' => 'name',
+        'contact_number' => 'phone',
+        'office_address' => 'address',
+    ];
+
     private function rules()
     {
         return [
-            'doctor_name' => 'required|string|max:150',
-            'specialty' => 'nullable|string|max:100',
-            'contact_number' => 'nullable|string|max:30',
-            'office_address' => 'nullable|string|max:255',
-            'hospital' => 'nullable|string|max:150',
+            'doctor_name' => TextField::rules('name', 'required', 150),
+            'specialty' => TextField::rules('name', 'nullable', 100),
+            'contact_number' => TextField::rules('phone', 'nullable', 30),
+            'office_address' => TextField::rules('address', 'nullable', 255),
+            'hospital' => TextField::rules('name', 'nullable', 150),
             'appointment_at' => 'required|date',
             'reason' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:500',
@@ -28,7 +40,9 @@ class AppointmentController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules());
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $data = $request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS));
 
         return response()->json($request->user()->appointments()->create($data), 201);
     }
@@ -37,7 +51,9 @@ class AppointmentController extends Controller
     {
         $appointment = $request->user()->appointments()->findOrFail($id);
 
-        $appointment->update($request->validate($this->rules()));
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $appointment->update($request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS)));
 
         return response()->json($appointment);
     }

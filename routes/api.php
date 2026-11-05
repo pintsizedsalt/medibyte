@@ -47,6 +47,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/avatar', [AvatarController::class, 'store']);
 
         Route::get('/account/export', [AccountController::class, 'export']);
+        Route::get('/account/export/pdf', [AccountController::class, 'exportPdf']);
         Route::delete('/account', [AccountController::class, 'destroy']);
 
         Route::get('/water-logs', [WaterLogController::class, 'index']);

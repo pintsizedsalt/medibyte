@@ -32,12 +32,12 @@
         <div class="form-grid">
           <label class="field">
             <span>First name</span>
-            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required oninput="formatNameInput(this)">
+            <input id="first_name" type="text" autocomplete="given-name" maxlength="80" required data-kind="name">
           </label>
 
           <label class="field">
             <span>Last name</span>
-            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required oninput="formatNameInput(this)">
+            <input id="last_name" type="text" autocomplete="family-name" maxlength="80" required data-kind="name">
           </label>
 
           <label class="field">
@@ -114,7 +114,7 @@
         <div class="form-grid">
           <label class="field">
             <span>Water goal (ml)</span>
-            <input id="water_goal_ml" type="number" min="500" step="100" value="2000">
+            <input id="water_goal_ml" type="number" min="500" max="20000" step="100" value="2000">
           </label>
           <label class="field">
             <span>Sleep goal (hours)</span>
@@ -122,11 +122,11 @@
           </label>
           <label class="field">
             <span>Daily steps goal</span>
-            <input id="walking_goal_steps" type="number" min="0" step="500" value="8000">
+            <input id="walking_goal_steps" type="number" min="0" max="100000" step="500" value="8000">
           </label>
           <label class="field">
             <span>Daily calorie goal (optional)</span>
-            <input id="calorie_goal" type="number" min="500" placeholder="e.g. 2000">
+            <input id="calorie_goal" type="number" min="500" max="10000" placeholder="e.g. 2000">
           </label>
           <label class="field">
             <span>Goal weight (kg, optional)</span>

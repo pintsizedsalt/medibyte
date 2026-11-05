@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\UploadEnvironment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -23,6 +24,8 @@ class DocumentController extends Controller
         'image/png' => ['extension' => 'png', 'signature' => "\x89PNG\r\n\x1a\n"],
     ];
 
+    private const SAVE_ERROR = 'The file could not be saved on this machine. Make storage/app/private writable by the user running the server.';
+
     public function index(Request $request)
     {
         return $request->user()->documents()->latest()->get();
@@ -30,6 +33,8 @@ class DocumentController extends Controller
 
     public function store(Request $request)
     {
+        UploadEnvironment::assertBodyArrived($request);
+
         $data = $request->validate([
             'type' => 'required|in:prescription,lab_result,medical_certificate,other',
             'title' => 'required|string|max:150',
@@ -46,6 +51,10 @@ class DocumentController extends Controller
             $file = $request->file('file');
             $path = $file->store('documents/'.$user->id, 'local');
 
+            if (! $path) {
+                throw ValidationException::withMessages(['file' => self::SAVE_ERROR]);
+            }
+
             $document = $user->documents()->create([
                 'type' => $data['type'],
                 'title' => $data['title'],
@@ -59,9 +68,9 @@ class DocumentController extends Controller
             return response()->json($document, 201);
         }
 
-        // The browser sends the bytes as base64 JSON, so PHP never needs to
-        // create an upload temp file. This path works even when upload_tmp_dir
-        // is not writable, which is what breaks multipart on shared hosting.
+        // Base64 JSON skips the multipart temp file, but PHP still spools a
+        // body this large to upload_tmp_dir — which is why the dev server pins
+        // that directory to a writable folder inside the project.
         $bytes = base64_decode((string) $data['file_data'], true);
 
         if ($bytes === false) {
@@ -94,7 +103,11 @@ class DocumentController extends Controller
 
         $path = 'documents/'.$user->id.'/'.Str::uuid().'.'.$extension;
 
-        Storage::disk('local')->put($path, $bytes);
+        // The local disk is configured not to throw, so a folder this machine
+        // cannot write would otherwise record a path to no file at all.
+        if (! Storage::disk('local')->put($path, $bytes)) {
+            throw ValidationException::withMessages(['file' => self::SAVE_ERROR]);
+        }
 
         $document = $user->documents()->create([
             'type' => $data['type'],

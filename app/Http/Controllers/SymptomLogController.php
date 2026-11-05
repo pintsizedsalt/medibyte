@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TextField;
 use Illuminate\Http\Request;
 
 class SymptomLogController extends Controller
 {
+    /**
+     * @var array<string, string>
+     */
+    private const TEXT_FIELDS = [
+        'illness_name' => 'label',
+        'symptom' => 'label',
+    ];
+
     private function rules()
     {
         return [
-            'illness_name' => 'nullable|string|max:100',
-            'symptom' => 'required|string|max:100',
+            'illness_name' => TextField::rules('label', 'nullable', 100),
+            'symptom' => TextField::rules('label', 'required', 100),
             'severity' => 'required|integer|min:1|max:5',
             'notes' => 'nullable|string|max:500',
             'log_date' => 'required|date',
@@ -32,7 +41,9 @@ class SymptomLogController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules());
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $data = $request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS));
 
         return response()->json($request->user()->symptomLogs()->create($data), 201);
     }
@@ -41,7 +52,9 @@ class SymptomLogController extends Controller
     {
         $log = $request->user()->symptomLogs()->findOrFail($id);
 
-        $log->update($request->validate($this->rules()));
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $log->update($request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS)));
 
         return response()->json($log);
     }

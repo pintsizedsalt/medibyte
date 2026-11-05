@@ -110,18 +110,19 @@ class HealthTrackingTest extends TestCase
         $response = $this->postJson('/api/v1/meal-logs', [
             'meal_type' => 'lunch',
             'meal_time' => '12:30',
-            'food_name' => 'Rice bowl',
+            'food_name' => 'rice bowl',
             'calories' => '',
             'log_date' => now()->toDateString(),
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('calories', null)
-            ->assertJsonPath('meal_time', '12:30');
+            ->assertJsonPath('meal_time', '12:30')
+            ->assertJsonPath('food_name', 'Rice Bowl');
 
         $this->assertDatabaseHas('meal_logs', [
             'user_id' => $user->id,
-            'food_name' => 'Rice bowl',
+            'food_name' => 'Rice Bowl',
             'meal_time' => '12:30',
             'calories' => null,
         ]);

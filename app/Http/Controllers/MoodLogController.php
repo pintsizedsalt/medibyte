@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MoodLog;
+use App\Support\TextField;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -30,7 +31,7 @@ class MoodLogController extends Controller
             'has_big_event' => 'nullable|boolean',
             'event_note' => 'nullable|string|max:255',
             'impacts' => 'nullable|array',
-            'impacts.*' => 'string|max:50',
+            'impacts.*' => TextField::rules('label', 'nullable', 50),
             'reflection' => 'nullable|string|max:2000',
             'log_date' => 'required|date_format:Y-m-d|before_or_equal:today',
         ];
@@ -75,7 +76,13 @@ class MoodLogController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules($request), [], $this->attributes());
+        TextField::normalize($request, ['impacts' => 'label']);
+
+        $data = $request->validate(
+            $this->rules($request),
+            TextField::messages(['impacts.*' => 'label']),
+            $this->attributes()
+        );
         $data['cried'] = $request->boolean('cried');
         $data['has_big_event'] = $request->boolean('has_big_event');
 
@@ -86,7 +93,13 @@ class MoodLogController extends Controller
     {
         $log = $request->user()->moodLogs()->findOrFail($id);
 
-        $data = $request->validate($this->rules($request, $log), [], $this->attributes());
+        TextField::normalize($request, ['impacts' => 'label']);
+
+        $data = $request->validate(
+            $this->rules($request, $log),
+            TextField::messages(['impacts.*' => 'label']),
+            $this->attributes()
+        );
         $data['cried'] = $request->boolean('cried');
         $data['has_big_event'] = $request->boolean('has_big_event');
 

@@ -10,7 +10,7 @@ class WalkingLogController extends Controller
     {
         return [
             'activity_type' => 'sometimes|in:walking',
-            'steps' => 'nullable|integer|min:0|required_without:minutes',
+            'steps' => 'nullable|integer|min:0|max:100000|required_without:minutes',
             'minutes' => 'nullable|integer|min:1|max:1440|required_without:steps',
             'log_date' => 'required|date',
         ];
