@@ -58,6 +58,64 @@ class NotificationTest extends TestCase
         Notification::assertSentToTimes($user, HealthReminder::class, 2);
     }
 
+    public function test_reminders_carry_the_details_the_companion_card_shows(): void
+    {
+        Carbon::setTestNow('2026-10-20 08:00:00');
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill([
+            'sex' => 'male',
+            'reminders_enabled' => true,
+        ])->save();
+
+        Medication::create([
+            'user_id' => $user->id,
+            'name' => 'Paracetamol',
+            'dosage' => '500 mg',
+            'times' => ['06:00', '08:00', '20:00'],
+            'start_date' => now()->toDateString(),
+            'is_active' => true,
+            'food_instruction' => 'after_meal',
+            'notes' => 'Take with a full glass of water.',
+        ]);
+
+        Appointment::create([
+            'user_id' => $user->id,
+            'doctor_name' => 'Dr. Cruz',
+            'specialty' => 'Dermatology',
+            'hospital' => 'MediByte Clinic',
+            'reason' => 'Annual skin check',
+            'appointment_at' => now()->addHour(),
+            'status' => 'scheduled',
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertSentTo($user, HealthReminder::class, function (HealthReminder $reminder) use ($user) {
+            $payload = $reminder->toArray($user);
+
+            return $payload['kind'] === 'medication'
+                && $payload['time'] === '08:00'
+                && $payload['name'] === 'Paracetamol'
+                && $payload['dosage'] === '500 mg'
+                && $payload['food_instruction'] === 'after_meal'
+                && $payload['notes'] === 'Take with a full glass of water.'
+                && $payload['schedule'] === ['06:00', '08:00', '20:00'];
+        });
+
+        Notification::assertSentTo($user, HealthReminder::class, function (HealthReminder $reminder) use ($user) {
+            $payload = $reminder->toArray($user);
+
+            return $payload['kind'] === 'appointment'
+                && $payload['doctor'] === 'Dr. Cruz'
+                && $payload['specialty'] === 'Dermatology'
+                && $payload['hospital'] === 'MediByte Clinic'
+                && $payload['reason'] === 'Annual skin check'
+                && $payload['at'] === now()->addHour()->toIso8601String();
+        });
+    }
+
     public function test_the_scheduler_respects_the_reminder_switch(): void
     {
         Carbon::setTestNow('2026-10-20 08:00:00');

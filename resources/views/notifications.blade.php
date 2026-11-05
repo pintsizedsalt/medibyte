@@ -97,7 +97,7 @@ function renderNotifications() {
     }
 
     return `
-      <div class="record ${item.read_at ? '' : 'record-unread'}">
+      <div class="record is-clickable ${item.read_at ? '' : 'record-unread'}" data-open-reminder="${esc(item.id)}" role="button" tabindex="0">
         <span class="record-icon"><svg class="icon"><use href="#i-${notificationTypeIcon(item)}"/></svg></span>
         <div class="record-main">
           <strong>${esc(payload.title || 'Reminder')}${item.read_at ? '' : ' · New'}</strong>
@@ -105,7 +105,6 @@ function renderNotifications() {
           <span class="record-meta">${esc(relativeTime(item.created_at))}</span>
         </div>
         <div class="record-actions">
-          ${payload.url ? `<a class="record-row-action" href="${esc(payload.url)}" aria-label="Open notification" title="Open"><svg class="icon"><use href="#i-arrow"/></svg></a>` : ''}
           ${item.read_at ? '' : `<button type="button" class="record-row-action" onclick="markRead('${esc(item.id)}')" aria-label="Mark as read" title="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
           <button type="button" class="record-row-action danger" onclick="dismissNotification('${esc(item.id)}')" aria-label="Dismiss notification" title="Dismiss"><svg class="icon"><use href="#i-close"/></svg></button>
         </div>
@@ -166,6 +165,28 @@ async function dismissNotification(id) {
 }
 
 window.loadNotificationsPage = loadNotificationsPage;
+
+function openReminderFromPage(event) {
+  if (event.target.closest('.record-actions')) return;
+
+  const row = event.target.closest('[data-open-reminder]');
+  if (!row) return;
+
+  const item = notificationRows.find(entry => String(entry.id) === String(row.dataset.openReminder));
+  if (item) openReminderCard(item);
+}
+
+const notificationList = $('notifications-list');
+if (notificationList) {
+  notificationList.addEventListener('click', openReminderFromPage);
+  notificationList.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openReminderFromPage(event);
+    }
+  });
+}
+
 loadNotificationsPage();
 </script>
 @endpush

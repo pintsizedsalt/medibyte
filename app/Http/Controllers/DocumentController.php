@@ -9,10 +9,18 @@ use Illuminate\Validation\ValidationException;
 
 class DocumentController extends Controller
 {
+    /**
+     * Every uploadable type, with the bytes that must open the file. Checking
+     * the signature matters because a base64 upload declares its own MIME
+     * type, and that value is replayed as the response Content-Type when the
+     * user previews the document.
+     *
+     * @var array<string, array{extension: string, signature: string}>
+     */
     private const ALLOWED_MIME_TYPES = [
-        'application/pdf' => 'pdf',
-        'image/jpeg' => 'jpg',
-        'image/png' => 'png',
+        'application/pdf' => ['extension' => 'pdf', 'signature' => '%PDF-'],
+        'image/jpeg' => ['extension' => 'jpg', 'signature' => "\xff\xd8\xff"],
+        'image/png' => ['extension' => 'png', 'signature' => "\x89PNG\r\n\x1a\n"],
     ];
 
     public function index(Request $request)
@@ -51,8 +59,9 @@ class DocumentController extends Controller
             return response()->json($document, 201);
         }
 
-        // Fallback for environments where PHP cannot create upload temp files.
-        // The browser sends the file as a base64 JSON string instead.
+        // The browser sends the bytes as base64 JSON, so PHP never needs to
+        // create an upload temp file. This path works even when upload_tmp_dir
+        // is not writable, which is what breaks multipart on shared hosting.
         $bytes = base64_decode((string) $data['file_data'], true);
 
         if ($bytes === false) {
@@ -62,9 +71,9 @@ class DocumentController extends Controller
         }
 
         $mime = (string) ($data['mime_type'] ?? '');
-        $extension = self::ALLOWED_MIME_TYPES[$mime] ?? null;
+        $allowed = self::ALLOWED_MIME_TYPES[$mime] ?? null;
 
-        if ($extension === null) {
+        if ($allowed === null || ! str_starts_with($bytes, $allowed['signature'])) {
             throw ValidationException::withMessages([
                 'file' => 'Only PDF, JPG, or PNG files are supported.',
             ]);
@@ -76,6 +85,7 @@ class DocumentController extends Controller
             ]);
         }
 
+        $extension = $allowed['extension'];
         $originalName = basename((string) ($data['file_name'] ?? 'document.'.$extension));
 
         if (! Str::endsWith(Str::lower($originalName), '.'.$extension)) {

@@ -1641,7 +1641,7 @@ function renderNotificationDrawer() {
     }
 
     return `
-      <article class="notification-row ${item.read_at ? '' : 'unread'}">
+      <article class="notification-row is-clickable ${item.read_at ? '' : 'unread'}" data-open-reminder="${esc(item.id)}" role="button" tabindex="0">
         <span class="record-icon"><svg class="icon"><use href="#i-${notificationIcon(item)}"/></svg></span>
         <div class="notification-copy">
           <strong>${esc(payload.title || 'Reminder')}</strong>
@@ -1649,7 +1649,6 @@ function renderNotificationDrawer() {
           <small>${esc(relativeTime(item.created_at))}</small>
         </div>
         <div class="notification-actions">
-          ${payload.url ? `<button type="button" class="record-row-action" data-open-notification="${esc(item.id)}" data-url="${esc(payload.url)}" aria-label="Open notification" title="Open notification"><svg class="icon"><use href="#i-arrow"/></svg></button>` : ''}
           ${item.read_at ? '' : `<button type="button" class="record-row-action" data-read-notification="${esc(item.id)}" aria-label="Mark as read" title="Mark as read"><svg class="icon"><use href="#i-check"/></svg></button>`}
         </div>
       </article>`;
@@ -1680,9 +1679,151 @@ async function markAllNotificationsRead() {
   }
 }
 
-async function openNotification(id, url) {
-  await markNotificationRead(id);
-  if (url) location.href = url;
+const REMINDER_TONES = {
+  medication: 'plum',
+  appointment: 'blue',
+  symptom: 'amber'
+};
+
+const REMINDER_GREETINGS = {
+  medication: "Don't forget to drink your meds!",
+  appointment: 'You have somewhere to be.',
+  symptom: 'A quick check-in keeps your record fresh.'
+};
+
+const REMINDER_FOOD_GUIDE = {
+  anytime: 'Any time of day works.',
+  before_meal: 'About 30 minutes before you eat.',
+  after_meal: 'Right after your meal.',
+  with_meal: 'Together with your food.'
+};
+
+function clockLabel(value) {
+  const [hourText, minuteText] = String(value || '').split(':');
+  const hour = Number(hourText);
+
+  if (!Number.isFinite(hour)) return String(value || '');
+
+  return (hour % 12 || 12) + ':' + String(minuteText || '0').padStart(2, '0') + ' ' + (hour < 12 ? 'AM' : 'PM');
+}
+
+function reminderSectionLabel(url) {
+  const slug = String(url || '').split('/').filter(Boolean).pop() || '';
+
+  return slug.replace(/[-_]/g, ' ').replace(/^./, character => character.toUpperCase());
+}
+
+function reminderFacts(payload) {
+  const facts = [];
+
+  if (payload.kind === 'medication') {
+    facts.push(['Medicine', payload.name || 'Your medication']);
+    if (payload.dosage) facts.push(['Dose', payload.dosage]);
+    if (payload.time) facts.push(['Due at', clockLabel(payload.time)]);
+    facts.push(['With food', REMINDER_FOOD_GUIDE[payload.food_instruction] || REMINDER_FOOD_GUIDE.anytime]);
+
+    const later = (Array.isArray(payload.schedule) ? payload.schedule : []).filter(time => time !== payload.time);
+    if (later.length) facts.push(['Also today', later.map(clockLabel).join(' · ')]);
+    if (payload.notes) facts.push(['Notes', payload.notes]);
+  } else if (payload.kind === 'appointment') {
+    if (payload.doctor) {
+      facts.push(['Doctor', payload.doctor + (payload.specialty ? ' · ' + payload.specialty : '')]);
+    }
+    if (payload.at) {
+      facts.push(['When', new Date(payload.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })]);
+    }
+    if (payload.hospital) facts.push(['Where', payload.hospital]);
+    if (payload.reason) facts.push(['Reason', payload.reason]);
+  } else if (payload.body) {
+    facts.push(['Message', payload.body]);
+  }
+
+  // Reminders stored before the payloads carried these fields would otherwise
+  // render an empty card, so fall back to the sentence that was always there.
+  if (!facts.length && payload.body) {
+    facts.push(['Message', payload.body]);
+  }
+
+  return facts;
+}
+
+function openReminderFromDrawer(id) {
+  const item = notificationCache.find(entry => String(entry.id) === String(id));
+  if (item) openReminderCard(item);
+}
+
+function closeReminderCard() {
+  document.removeEventListener('keydown', onReminderKeydown);
+  $('reminderSheet')?.remove();
+
+  if (!document.querySelector('.reminder-sheet')) {
+    document.body.classList.remove('reminder-open');
+  }
+}
+
+function onReminderKeydown(event) {
+  if (event.key === 'Escape') closeReminderCard();
+}
+
+/** The floating companion card behind a clicked reminder. */
+function openReminderCard(item) {
+  closeReminderCard();
+
+  const payload = item.data || {};
+  const kind = payload.kind || 'reminder';
+  const glyph = { medication: 'pill', appointment: 'calendar', symptom: 'thermometer' }[kind] || 'bell';
+  const facts = reminderFacts(payload);
+
+  const sheet = document.createElement('div');
+  sheet.className = 'reminder-sheet';
+  sheet.id = 'reminderSheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-labelledby', 'reminderHeadline');
+  sheet.innerHTML = `
+    <div class="reminder-backdrop" data-reminder-close></div>
+    <section class="reminder-card tone-${REMINDER_TONES[kind] || 'violet'}">
+      <button type="button" class="reminder-close" data-reminder-close aria-label="Close reminder" title="Close">
+        <svg class="icon"><use href="#i-close"/></svg>
+      </button>
+
+      <div class="reminder-companion" aria-hidden="true">
+        <span class="reminder-halo"></span>
+        <span class="reminder-orb"><svg class="icon"><use href="#i-${glyph}"/></svg></span>
+        <i class="reminder-spark spark-a"></i>
+        <i class="reminder-spark spark-b"></i>
+        <i class="reminder-spark spark-c"></i>
+      </div>
+
+      <p class="eyebrow">MediByte companion</p>
+      <h3 id="reminderHeadline">${esc(REMINDER_GREETINGS[kind] || payload.title || 'A friendly reminder')}</h3>
+
+      <ul class="reminder-facts">
+        ${facts.map(([label, value]) => `<li><span>${esc(label)}</span><strong>${esc(value)}</strong></li>`).join('')}
+      </ul>
+
+      <div class="reminder-actions">
+        ${payload.url ? `<a class="reminder-link" href="${esc(payload.url)}">Open ${esc(reminderSectionLabel(payload.url))}</a>` : '<span></span>'}
+        <button type="button" class="btn btn-primary reminder-done">
+          <svg class="icon"><use href="#i-check"/></svg>
+          ${kind === 'medication' ? 'Taken' : 'Got it'}
+        </button>
+      </div>
+    </section>`;
+
+  document.body.appendChild(sheet);
+  document.body.classList.add('reminder-open');
+
+  sheet.addEventListener('click', event => {
+    if (event.target.closest('[data-reminder-close]')) closeReminderCard();
+  });
+
+  sheet.querySelector('.reminder-done').addEventListener('click', async () => {
+    if (await markNotificationRead(item.id)) closeReminderCard();
+  });
+
+  document.addEventListener('keydown', onReminderKeydown);
+  sheet.querySelector('.reminder-done').focus();
 }
 
 async function dismissNotificationFromDrawer(id) {
@@ -1701,19 +1842,33 @@ async function dismissNotificationFromDrawer(id) {
 function bindShell() {
   const drawerList = $('drawerList');
   if (drawerList) {
+    const openFromRow = event => {
+      const row = event.target.closest('[data-open-reminder]');
+      if (row) openReminderFromDrawer(row.dataset.openReminder);
+    };
+
     drawerList.addEventListener('click', event => {
       const dismissButton = event.target.closest('[data-dismiss-notification]');
       if (dismissButton) {
         dismissNotificationFromDrawer(dismissButton.dataset.dismissNotification);
         return;
       }
-      const openButton = event.target.closest('[data-open-notification]');
-      if (openButton) {
-        openNotification(openButton.dataset.openNotification, openButton.dataset.url);
+      const readButton = event.target.closest('[data-read-notification]');
+      if (readButton) {
+        markNotificationRead(readButton.dataset.readNotification);
         return;
       }
-      const readButton = event.target.closest('[data-read-notification]');
-      if (readButton) markNotificationRead(readButton.dataset.readNotification);
+      openFromRow(event);
+    });
+
+    drawerList.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+
+      const row = event.target.closest('[data-open-reminder]');
+      if (!row) return;
+
+      event.preventDefault();
+      openReminderFromDrawer(row.dataset.openReminder);
     });
   }
 
@@ -1729,6 +1884,9 @@ function bindShell() {
 
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
+    // The companion card is the topmost layer; it closes itself, and the
+    // panels underneath must stay put so the user returns to them.
+    if ($('reminderSheet')) return;
     if (!$('accountDropdown')?.hidden) closeAccountMenu();
     else if ($('confirmModal')?.classList.contains('open')) closeConfirm(false);
     else if ($('quickSheet')?.classList.contains('open')) closeQuickSheet();

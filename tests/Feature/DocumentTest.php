@@ -85,6 +85,57 @@ class DocumentTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('file');
     }
 
+    public function test_a_user_can_upload_a_document_as_base64_without_a_temp_file(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        Sanctum::actingAs($user);
+
+        $bytes = "\x89PNG\r\n\x1a\n".str_repeat('x', 512);
+
+        $this->postJson('/api/v1/documents', [
+            'type' => 'lab_result',
+            'title' => 'Scan of a lab result',
+            'file_name' => 'lab result.png',
+            'mime_type' => 'image/png',
+            'file_data' => base64_encode($bytes),
+        ])->assertCreated()
+            ->assertJsonPath('original_name', 'lab result.png')
+            ->assertJsonPath('mime_type', 'image/png')
+            ->assertJsonPath('size', strlen($bytes));
+
+        $document = Document::firstOrFail();
+        Storage::disk('local')->assertExists($document->path);
+
+        $this->get('/api/v1/documents/'.$document->id.'/preview')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
+
+        $this->assertSame($bytes, Storage::disk('local')->get($document->path));
+    }
+
+    public function test_base64_uploads_reject_bytes_that_are_not_what_they_claim(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male'])->save();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/v1/documents', [
+            'type' => 'other',
+            'title' => 'Disguised script',
+            'file_name' => 'payload.png',
+            'mime_type' => 'image/png',
+            'file_data' => base64_encode('<script>alert(1)</script>'),
+        ]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors('file');
+        $this->assertDatabaseCount('documents', 0);
+    }
+
     public function test_a_user_can_rename_and_edit_document_details(): void
     {
         Storage::fake('local');
