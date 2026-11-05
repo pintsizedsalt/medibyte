@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Console\Commands\SendReminders;
+use App\Notifications\HealthReminder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -41,6 +42,16 @@ class NotificationController extends Controller
     public function destroy(Request $request, $id)
     {
         $notification = $request->user()->notifications()->where('id', $id)->firstOrFail();
+        $data = $notification->data;
+
+        // Throwing a reminder away deletes its row, and the row is what says the
+        // reminder already happened. Keep the answer in the cache so a dismissed
+        // reminder neither returns on the next sweep nor invites a follow-up — a
+        // follow-up carries the key of the schedule it repeats, so it answers for it.
+        foreach (array_filter([$data['dedupe_key'] ?? null, $data['anchor_key'] ?? null]) as $key) {
+            Cache::put(HealthReminder::dismissalMarker($key), true, HealthReminder::markerTtl());
+        }
+
         $notification->delete();
 
         return response()->json(['message' => 'Dismissed']);

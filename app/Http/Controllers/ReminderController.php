@@ -21,13 +21,15 @@ class ReminderController extends Controller
             ]);
         }
 
-        $medications = $user->medications()
-            ->where('is_active', true)
-            ->whereDate('start_date', '<=', $today)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('end_date')->orWhereDate('end_date', '>=', $today);
-            })
-            ->get();
+        $medications = $user->medication_reminders_enabled
+            ? $user->medications()
+                ->where('is_active', true)
+                ->whereDate('start_date', '<=', $today)
+                ->where(function ($q) use ($today) {
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', $today);
+                })
+                ->get()
+            : collect();
 
         $medicationReminders = [];
 
@@ -52,11 +54,13 @@ class ReminderController extends Controller
             }
         }
 
-        $appointments = $user->appointments()
-            ->where('status', 'scheduled')
-            ->whereBetween('appointment_at', [$now, $now->copy()->addDays(7)])
-            ->orderBy('appointment_at')
-            ->get();
+        $appointments = $user->appointment_reminders_enabled
+            ? $user->appointments()
+                ->where('status', 'scheduled')
+                ->whereBetween('appointment_at', [$now, $now->copy()->addDays(7)])
+                ->orderBy('appointment_at')
+                ->get()
+            : collect();
 
         return response()->json([
             'date' => $today,

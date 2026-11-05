@@ -27,6 +27,13 @@ use Laravel\Sanctum\HasApiTokens;
     'calorie_goal',
     'cycle_length',
     'reminders_enabled',
+    'appointment_reminders_enabled',
+    'appointment_lead_minutes',
+    'appointment_day_notice',
+    'appointment_repeat_minutes',
+    'medication_reminders_enabled',
+    'medication_lead_minutes',
+    'medication_repeat_minutes',
     'onboarding_completed_at',
     'consented_at',
 ])]
@@ -36,7 +43,77 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $appends = ['show_period_tracker', 'avatar_url'];
+    /**
+     * Every lead time a person may ask for ahead of an appointment, keyed by the
+     * minutes before it and labelled the way the Settings page shows it. The
+     * booked notice is the first key because it is what an account receives
+     * before anyone has chosen anything.
+     *
+     * @var array<int, string>
+     */
+    public const APPOINTMENT_LEADS = [
+        10080 => 'As soon as it is booked',
+        1440 => '1 day before',
+        180 => '3 hours before',
+        120 => '2 hours before',
+        60 => '1 hour before',
+        30 => '30 minutes before',
+        0 => 'At the appointment time',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
+    public const MEDICATION_LEADS = [
+        30 => '30 minutes before',
+        15 => '15 minutes before',
+        5 => '5 minutes before',
+        0 => 'At the scheduled time',
+    ];
+
+    /**
+     * How often a reminder may repeat itself while it is still unopened.
+     *
+     * @var array<int, string>
+     */
+    public const REPEAT_INTERVALS = [
+        15 => 'Every 15 minutes',
+        30 => 'Every 30 minutes',
+        60 => 'Every hour',
+        120 => 'Every 2 hours',
+    ];
+
+    /**
+     * @var array<int, int>
+     */
+    public const DEFAULT_APPOINTMENT_LEADS = [10080];
+
+    /**
+     * @var array<int, int>
+     */
+    public const DEFAULT_MEDICATION_LEADS = [0];
+
+    /**
+     * The hour an appointment day notice waits for, so a person is told about
+     * today's appointments with their morning rather than at 2am.
+     */
+    public const DAY_NOTICE_HOUR = 8;
+
+    protected $appends = ['show_period_tracker', 'avatar_url', 'reminder_preferences'];
+
+    /**
+     * Both reminder switches are on until a person says otherwise. The columns carry
+     * the same defaults, and spelling them here as well keeps a freshly built user —
+     * before it has been read back from the database — from looking like a person who
+     * turned their reminders off.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'appointment_reminders_enabled' => true,
+        'appointment_day_notice' => false,
+        'medication_reminders_enabled' => true,
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -49,6 +126,13 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'reminders_enabled' => 'boolean',
+            'appointment_reminders_enabled' => 'boolean',
+            'appointment_lead_minutes' => 'array',
+            'appointment_day_notice' => 'boolean',
+            'appointment_repeat_minutes' => 'integer',
+            'medication_reminders_enabled' => 'boolean',
+            'medication_lead_minutes' => 'array',
+            'medication_repeat_minutes' => 'integer',
             'onboarding_completed_at' => 'datetime',
             'consented_at' => 'datetime',
         ];
@@ -58,6 +142,87 @@ class User extends Authenticatable
     {
         // Only users who menstruate should see the cycle tracker.
         return $this->sex === 'female' && $this->period_status === 'active';
+    }
+
+    /**
+     * The reminder choices as the Settings page and the scheduler both read them:
+     * a null choice falls back to what this account was already getting.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function getReminderPreferencesAttribute(): array
+    {
+        return [
+            'appointment' => [
+                'enabled' => (bool) $this->appointment_reminders_enabled,
+                'leads' => $this->appointmentLeads(),
+                'day_notice' => (bool) $this->appointment_day_notice,
+                'repeat_minutes' => $this->appointmentRepeat(),
+            ],
+            'medication' => [
+                'enabled' => (bool) $this->medication_reminders_enabled,
+                'leads' => $this->medicationLeads(),
+                'repeat_minutes' => $this->medicationRepeat(),
+            ],
+        ];
+    }
+
+    /**
+     * The appointment notices this person asked for, shortest lead first.
+     *
+     * @return array<int, int>
+     */
+    public function appointmentLeads(): array
+    {
+        return $this->chosenLeads($this->appointment_lead_minutes, array_keys(self::APPOINTMENT_LEADS), self::DEFAULT_APPOINTMENT_LEADS);
+    }
+
+    /**
+     * The medication notices this person asked for, shortest lead first.
+     *
+     * @return array<int, int>
+     */
+    public function medicationLeads(): array
+    {
+        return $this->chosenLeads($this->medication_lead_minutes, array_keys(self::MEDICATION_LEADS), self::DEFAULT_MEDICATION_LEADS);
+    }
+
+    public function appointmentRepeat(): ?int
+    {
+        return $this->chosenRepeat($this->appointment_repeat_minutes);
+    }
+
+    public function medicationRepeat(): ?int
+    {
+        return $this->chosenRepeat($this->medication_repeat_minutes);
+    }
+
+    /**
+     * @param  array<int, int>  $allowed
+     * @param  array<int, int>  $fallback
+     * @return array<int, int>
+     */
+    private function chosenLeads(mixed $stored, array $allowed, array $fallback): array
+    {
+        if ($stored === null) {
+            return $fallback;
+        }
+
+        $chosen = array_map('intval', (array) $stored);
+
+        $leads = array_values(array_filter($allowed, fn (int $minutes) => in_array($minutes, $chosen, true)));
+
+        // Shortest lead first, which is the order the notices actually arrive.
+        sort($leads);
+
+        return $leads;
+    }
+
+    private function chosenRepeat(mixed $minutes): ?int
+    {
+        $minutes = $minutes === null ? null : (int) $minutes;
+
+        return $minutes !== null && in_array($minutes, array_keys(self::REPEAT_INTERVALS), true) ? $minutes : null;
     }
 
     /**

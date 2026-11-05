@@ -1073,6 +1073,23 @@ body.is-onboarding .toast, body.is-onboarding .scrim {
 }
 .field textarea { resize: vertical; }
 
+/* Dosage reads as one control: the amount typed by hand and the unit chosen
+   beside it share a line instead of stacking into two fields. */
+.dose-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.dose-field .dose-amount {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+.dose-field .cselect {
+  flex: 0 0 118px;
+  width: auto;
+}
+
 /* Themed selects */
 .field select, select {
   appearance: none;
@@ -1829,6 +1846,23 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 }
 .settings-note { color: var(--muted); font-size: 12px; }
 
+/* Each reminder choice belongs to the feature it configures, so a group hangs
+   under its own switch instead of flattening into one long list of checkboxes. */
+.reminder-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.reminder-group-head span { font-weight: 600; }
+.reminder-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
 .card.account-card { text-align: center; padding: 24px 16px 20px; }
 .account-card .avatar { margin: 0 auto 12px; }
 .account-card h3 { overflow-wrap: anywhere; font-size: 20px; }
@@ -2471,6 +2505,7 @@ body.drawer-open #drawerScrim { display: block; }
 
 @media (max-width: 520px) {
   .dash-heading, .page-heading { flex-direction: column; }
+  .reminder-options { grid-template-columns: 1fr; }
   .btn-quick span { display: none; }
   .btn-quick {
     width: 36px;

@@ -162,7 +162,16 @@ function clampNumberInput(el) {
   if (min !== null && value < min) value = min;
   if (max !== null && value > max) value = max;
 
-  el.value = String(Number(value.toFixed(Number.isInteger(step) ? 0 : 2)));
+  el.value = String(Number(value.toFixed(decimalsForStep(step))));
+}
+
+/* Rounding follows the step, so a dose typed as 0.125 is not quietly rewritten
+   to 0.13 on the way to the server. */
+function decimalsForStep(step) {
+  if (Number.isInteger(step)) return 0;
+  if (!Number.isFinite(step)) return 2;
+
+  return Math.max(2, String(step).split('.')[1]?.length || 0);
 }
 
 // The limits the server applies, mirrored here so a field cannot be typed past
@@ -520,6 +529,45 @@ function moodOptionHtml(moods, selected) {
   return `<option value="" ${selected ? '' : 'selected'}>Choose…</option>`
     + (personal.length ? `<optgroup label="Your moods">${personal.map(option).join('')}</optgroup>` : '')
     + predefined.map(option).join('');
+}
+
+/* A dose is one control holding two parts: the amount typed by hand and the unit
+   picked from a list, so "0.25 mg" is stored as a number and a unit rather than
+   free text a nurse has to interpret. Records written before this control held
+   the dose as text still open here, because the number in that text is real. */
+function doseFieldHtml(name, safeLabel, units, values) {
+  const stored = values || {};
+  const legacy = splitDoseText(stored.dosage);
+  const amount = stored[name] !== null && stored[name] !== undefined
+    ? String(stored[name])
+    : legacy.amount;
+  const unit = stored[doseUnitName(name)] || legacy.unit;
+
+  const options = ['<option value="">Unit…</option>'].concat(
+    (Array.isArray(units) ? units : []).map(unitName =>
+      `<option value="${esc(unitName)}" ${unitName.toLowerCase() === String(unit).toLowerCase() ? 'selected' : ''}>${esc(unitName)}</option>`)
+  );
+
+  return `<label class="field" data-grid-full="1"><span>${safeLabel}</span>
+      <span class="dose-field">
+        <input class="dose-amount" id="f_${esc(name)}" type="number" min="0" max="99999" step="0.001" inputmode="decimal" placeholder="e.g. 0.25" value="${esc(amount)}">
+        <select id="f_${esc(doseUnitName(name))}">${options.join('')}</select>
+      </span>
+    </label>`;
+}
+
+function doseUnitName(amountFieldName) {
+  return amountFieldName.replace(/_amount$/, '') + '_unit';
+}
+
+/* "500 mg" splits into 500 and mg; anything that is not a number wearing a unit
+   ("as directed") is left out rather than guessed at. */
+function splitDoseText(text) {
+  const match = /^(\d+(?:[.,]\d+)?)\s*([A-Za-zµ%/]*)$/.exec(String(text || '').trim());
+
+  return match
+    ? { amount: match[1].replace(',', '.'), unit: match[2] }
+    : { amount: '', unit: '' };
 }
 
 /* ---------------------------------------------------------
@@ -2360,6 +2408,8 @@ function logPage(cfg) {
 
     if (type === 'check') {
       html = switchRowHtml(id, safeLabel, v);
+    } else if (type === 'dose') {
+      html = doseFieldHtml(name, safeLabel, opts, values);
     } else if (type === 'method') {
       const pairs = Array.isArray(opts) ? opts : [];
       const selected = v === undefined || v === null ? (pairs[0] ? pairs[0][0] : '') : v;
@@ -2683,11 +2733,11 @@ function logPage(cfg) {
   async function reloadCustomMoods() {
     if (cfg.url !== '/mood-logs') return;
 
-    const cms = await api('/custom-moods');
+    const [cms, allMoods] = await Promise.all([api('/custom-moods'), api('/moods')]);
+
     customMoods = Array.isArray(cms) ? cms : (cms.data || []);
     rememberPersonalizedMoods(customMoods);
 
-    const allMoods = await api('/moods');
     const moodField = cfg.fields.find(f => f[0] === 'mood');
 
     if (moodField && Array.isArray(allMoods)) {
@@ -2696,10 +2746,14 @@ function logPage(cfg) {
   }
 
   async function load() {
-    if (cfg.url === '/mood-logs') {
-      await reloadCustomMoods();
-    }
-    const data = await api(cfg.url);
+    // The mood picker is the one field this page cannot paint without, and the
+    // dev server answers one request at a time — so the names arrive alongside
+    // the records instead of in front of them.
+    const [data] = await Promise.all([
+      api(cfg.url),
+      cfg.url === '/mood-logs' ? reloadCustomMoods() : null,
+    ]);
+
     rows = Array.isArray(data) ? data : (data.data || []);
     draw();
   }
@@ -2918,6 +2972,15 @@ function logPage(cfg) {
         return;
       }
 
+      if (type === 'dose') {
+        // Both halves are always sent, even blank, so clearing a dose really
+        // clears the record instead of leaving the previous text behind.
+        const unit = $('f_' + doseUnitName(name));
+        body[name] = el.value.trim();
+        body[doseUnitName(name)] = unit ? unit.value : '';
+        return;
+      }
+
       if (el.value === '') return;
       body[name] = el.value;
     });
@@ -2937,7 +3000,11 @@ function logPage(cfg) {
       toast(err, 'error');
       if (data && data.errors) {
         const firstErrKey = Object.keys(data.errors)[0];
-        const targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
+        let targetField = $('f_' + firstErrKey) || (firstErrKey === 'log_date' ? $('f_log_date') : null);
+        // A themed dropdown keeps its native select hidden, so the error has to
+        // land on the button the user can see and press.
+        const themed = targetField?.closest('.cselect');
+        if (themed) targetField = themed.querySelector('.cselect-btn');
         if (targetField) {
           targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
           targetField.focus({ preventScroll: true });

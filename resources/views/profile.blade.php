@@ -349,6 +349,9 @@ function stepVitals() {
   `);
 }
 
+/* Mirrors the units the Medications page offers and the server accepts. */
+const DOSE_UNITS = ['mcg', 'mg', 'g', 'mL', 'L', 'IU', 'mg/mL', 'tablet', 'capsule', 'puff', 'spray', 'drop', 'patch'];
+
 function stepMedications() {
   const medication = answers.medication || {};
 
@@ -363,7 +366,12 @@ function stepMedications() {
       </label>
       <label class="field">
         <span>Dosage (optional)</span>
-        <input id="w_med_dosage" type="text" placeholder="e.g. 500 mg" value="${esc(medication.dosage || '')}">
+        <span class="dose-field">
+          <input class="dose-amount" id="w_med_dosage_amount" type="number" min="0" max="99999" step="0.001" inputmode="decimal" placeholder="e.g. 0.25" value="${esc(medication.dosage_amount ?? '')}">
+          <select id="w_med_dosage_unit">
+            ${['', ...DOSE_UNITS].map(unit => `<option value="${esc(unit)}" ${medication.dosage_unit === unit ? 'selected' : ''}>${unit ? esc(unit) : 'Unit…'}</option>`).join('')}
+          </select>
+        </span>
       </label>
       <label class="field">
         <span>Times (24-hour, separated by commas)</span>
@@ -875,16 +883,22 @@ async function saveMedication() {
     is_active: $('w_is_active').checked
   };
 
-  const dosage = $('w_med_dosage').value.trim();
+  const dosageAmount = $('w_med_dosage_amount').value.trim();
+  const dosageUnit = $('w_med_dosage_unit').value;
   const notes = $('w_med_notes').value.trim();
-  if (dosage) body.dosage = dosage;
+
+  // Sent even when blank so clearing the dose clears the saved record.
+  body.dosage_amount = dosageAmount;
+  body.dosage_unit = dosageUnit;
   if (notes) body.notes = notes;
 
   const result = await upsert('medication', '/medications', body);
   if (result) {
     answers.medication = {
       name,
-      dosage,
+      dosage: result.dosage || '',
+      dosage_amount: result.dosage_amount ?? '',
+      dosage_unit: result.dosage_unit || '',
       times: times.join(', '),
       food_instruction: body.food_instruction,
       start_date: body.start_date,

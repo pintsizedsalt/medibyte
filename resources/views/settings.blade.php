@@ -32,7 +32,62 @@
           <input id="reminders_enabled" type="checkbox">
           <span>Show medication, appointment, and symptom check-in reminders in the notification inbox.</span>
         </label>
-        <p class="settings-note">Notifications are the single inbox for reminders and account updates.</p>
+
+        <div class="reminder-group">
+          <label class="check-row reminder-group-head">
+            <input id="appointment_reminders_enabled" type="checkbox">
+            <span>Appointments</span>
+          </label>
+          <p class="settings-note">Remind me ahead of the date and time I saved:</p>
+          <div class="reminder-options">
+            @foreach (\App\Models\User::APPOINTMENT_LEADS as $minutes => $label)
+              <label class="check-row">
+                <input type="checkbox" class="appointment-lead" value="{{ $minutes }}">
+                <span>{{ $label }}</span>
+              </label>
+            @endforeach
+          </div>
+          <label class="check-row">
+            <input id="appointment_day_notice" type="checkbox">
+            <span>Also tell me on the morning of the appointment</span>
+          </label>
+          <label class="field">
+            <span>Keep reminding until I open it</span>
+            <select id="appointment_repeat_minutes">
+              <option value="">Do not repeat</option>
+              @foreach (\App\Models\User::REPEAT_INTERVALS as $minutes => $label)
+                <option value="{{ $minutes }}">{{ $label }}</option>
+              @endforeach
+            </select>
+          </label>
+        </div>
+
+        <div class="reminder-group">
+          <label class="check-row reminder-group-head">
+            <input id="medication_reminders_enabled" type="checkbox">
+            <span>Medications</span>
+          </label>
+          <p class="settings-note">Remind me around each time I saved for a medication:</p>
+          <div class="reminder-options">
+            @foreach (\App\Models\User::MEDICATION_LEADS as $minutes => $label)
+              <label class="check-row">
+                <input type="checkbox" class="medication-lead" value="{{ $minutes }}">
+                <span>{{ $label }}</span>
+              </label>
+            @endforeach
+          </div>
+          <label class="field">
+            <span>Keep reminding until I open it</span>
+            <select id="medication_repeat_minutes">
+              <option value="">Do not repeat</option>
+              @foreach (\App\Models\User::REPEAT_INTERVALS as $minutes => $label)
+                <option value="{{ $minutes }}">{{ $label }}</option>
+              @endforeach
+            </select>
+          </label>
+        </div>
+
+        <p class="settings-note">Notifications are the single inbox for reminders and account updates. Each notice is sent once, and a reminder you throw away does not come back.</p>
 
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">
@@ -49,7 +104,7 @@
             <h3>Your health data</h3>
           </div>
         </div>
-        <p class="muted">Download a PDF summary of your last seven days — sleep, water, movement, meals, vitals, weight, symptoms, medications, appointments, mood, cycle, and documents — laid out for a doctor or nurse to read. Document files themselves can be downloaded from the Documents page.</p>
+        <p class="muted">Download a PDF summary of your last seven days — sleep, water, movement, meals, vitals, weight, symptoms, medications with each dose and its unit, appointments, mood, cycle, and documents — laid out for a doctor or nurse to read. A section with nothing logged that week is left out. Document files themselves can be downloaded from the Documents page.</p>
         <div class="form-actions">
           <button type="button" class="btn btn-primary" onclick="downloadWeeklyPdf()">
             <svg class="icon"><use href="#i-file"/></svg>
@@ -134,7 +189,7 @@ async function loadSettings() {
     return;
   }
 
-  $('reminders_enabled').checked = Boolean(currentProfile.reminders_enabled);
+  paintReminders(currentProfile);
 
   $('goal-water').textContent = currentProfile.water_goal_ml ? waterLabel(currentProfile.water_goal_ml) : '—';
   $('goal-sleep').textContent = currentProfile.sleep_goal_hours ? parseFloat(currentProfile.sleep_goal_hours) + 'h' : '—';
@@ -150,14 +205,67 @@ async function loadSettings() {
   }
 }
 
+// The server answers a reminder choice that was never made with what the account
+// already had, so the form is painted from the settled preferences it returns
+// rather than from the raw columns.
+function paintReminders(profile) {
+  const preferences = profile.reminder_preferences || {};
+  const appointment = preferences.appointment || {};
+  const medication = preferences.medication || {};
+
+  $('reminders_enabled').checked = Boolean(profile.reminders_enabled);
+  $('appointment_reminders_enabled').checked = appointment.enabled !== false;
+  $('medication_reminders_enabled').checked = medication.enabled !== false;
+  $('appointment_day_notice').checked = Boolean(appointment.day_notice);
+
+  tickLeads('appointment-lead', appointment.leads);
+  tickLeads('medication-lead', medication.leads);
+
+  chooseRepeat('appointment_repeat_minutes', appointment.repeat_minutes);
+  chooseRepeat('medication_repeat_minutes', medication.repeat_minutes);
+}
+
+function tickLeads(className, leads) {
+  const chosen = Array.isArray(leads) ? leads.map(Number) : [];
+
+  document.querySelectorAll('.' + className).forEach(input => {
+    input.checked = chosen.includes(Number(input.value));
+  });
+}
+
+function chosenLeads(className) {
+  return Array.from(document.querySelectorAll('.' + className))
+    .filter(input => input.checked)
+    .map(input => Number(input.value));
+}
+
+function chooseRepeat(id, minutes) {
+  const select = $(id);
+  select.value = minutes ? String(minutes) : '';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function repeatChoice(id) {
+  const value = $(id).value;
+  return value === '' ? null : Number(value);
+}
+
 async function saveSettings() {
   $('msg').textContent = 'Saving…';
   const result = await api('/profile', 'POST', {
-    reminders_enabled: $('reminders_enabled').checked
+    reminders_enabled: $('reminders_enabled').checked,
+    appointment_reminders_enabled: $('appointment_reminders_enabled').checked,
+    appointment_lead_minutes: chosenLeads('appointment-lead'),
+    appointment_day_notice: $('appointment_day_notice').checked,
+    appointment_repeat_minutes: repeatChoice('appointment_repeat_minutes'),
+    medication_reminders_enabled: $('medication_reminders_enabled').checked,
+    medication_lead_minutes: chosenLeads('medication-lead'),
+    medication_repeat_minutes: repeatChoice('medication_repeat_minutes')
   });
 
   if (result && result.id) {
     currentProfile = result;
+    paintReminders(result);
     $('msg').textContent = '';
     toast('Your settings have been saved.');
   } else {
