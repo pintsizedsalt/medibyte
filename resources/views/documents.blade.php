@@ -279,6 +279,26 @@ function closeUploadModal() {
   }
 }
 
+const MIME_BY_EXTENSION = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png'
+};
+
+/** Some browsers leave file.type blank, so fall back to the extension. */
+function fileMime(file) {
+  const declared = String(file.type || '').toLowerCase();
+
+  if (Object.values(MIME_BY_EXTENSION).includes(declared)) {
+    return declared;
+  }
+
+  const extension = String(file.name || '').split('.').pop().toLowerCase();
+
+  return MIME_BY_EXTENSION[extension] || declared;
+}
+
 function readFileBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -296,14 +316,6 @@ function uploadErrorMessage(result, file) {
   const lower = raw.toLowerCase();
 
   if (
-    lower.includes('temporary file') ||
-    lower.includes('upload_tmp_dir') ||
-    lower.includes('failed to upload')
-  ) {
-    return 'The server could not create a temporary upload file. MediByte will retry with a secure direct upload. If it still fails, please ask the administrator to set upload_tmp_dir to a writable folder.';
-  }
-
-  if (
     lower.includes('content-length') ||
     lower.includes('post content-length') ||
     lower.includes('exceeds the limit') ||
@@ -312,7 +324,7 @@ function uploadErrorMessage(result, file) {
     lower.includes('file is too large') ||
     (file && file.size > 5 * 1024 * 1024 && (!result || !result.errors))
   ) {
-    return 'This file is too large for the server to accept right now. Please use a file under 8 MB.';
+    return 'This file is too large for the server to accept right now. Please use a file under 5 MB.';
   }
 
   const plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -364,45 +376,30 @@ async function uploadDocument() {
     if (base) $('doc_title').value = base.slice(0, 150);
   }
 
-  const formData = new FormData();
-  formData.append('type', $('doc_type').value);
-  formData.append('title', $('doc_title').value.trim() || 'Untitled document');
-  formData.append('notes', $('doc_notes').value.trim());
-  formData.append('file', file);
-
   const submit = $('doc-submit');
   docUploading = true;
   submit.disabled = true;
-  $('upload-msg').textContent = 'Uploading…';
+  $('upload-msg').textContent = 'Reading file…';
 
   let result;
   try {
-    result = await api('/documents', 'POST', formData);
+    // Multipart uploads die when PHP cannot write upload_tmp_dir, so the bytes
+    // travel as base64 JSON and the server never needs a temporary file.
+    const encoded = await readFileBase64(file);
+    $('upload-msg').textContent = 'Uploading…';
+    result = await api('/documents', 'POST', {
+      type: $('doc_type').value,
+      title: $('doc_title').value.trim() || 'Untitled document',
+      notes: $('doc_notes').value.trim(),
+      file_name: file.name,
+      mime_type: fileMime(file),
+      file_data: encoded
+    });
+  } catch (error) {
+    result = { message: 'The file could not be read. Please choose it again.' };
   } finally {
     docUploading = false;
     submit.disabled = false;
-  }
-
-  if (!result || !result.id) {
-    const firstMessage = uploadErrorMessage(result, file);
-    const uploadStartupIssue = /temporary file|failed to upload|request startup|upload_tmp_dir/i.test(firstMessage);
-
-    if (uploadStartupIssue && file.size <= 5 * 1024 * 1024) {
-      try {
-        const encoded = await readFileBase64(file);
-        $('upload-msg').textContent = 'Secure upload retry…';
-        result = await api('/documents', 'POST', {
-          type: $('doc_type').value,
-          title: $('doc_title').value.trim() || 'Untitled document',
-          notes: $('doc_notes').value.trim(),
-          file_name: file.name,
-          mime_type: file.type,
-          file_data: encoded
-        });
-      } catch (error) {
-        result = result || { message: 'The file could not be read. Please choose it again.' };
-      }
-    }
   }
 
   if (result && result.id) {

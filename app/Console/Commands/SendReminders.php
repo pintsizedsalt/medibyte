@@ -78,6 +78,11 @@ class SendReminders extends Command
                 'body' => 'You have an appointment with '.$appointment->doctor_name.' on '
                     .$appointment->appointment_at->format('M j, Y g:i A').'.',
                 'url' => '/appointments',
+                'doctor' => $appointment->doctor_name,
+                'specialty' => $appointment->specialty,
+                'hospital' => $appointment->hospital,
+                'reason' => $appointment->reason,
+                'at' => $appointment->appointment_at->toIso8601String(),
             ]));
 
             $sent++;
@@ -123,6 +128,13 @@ class SendReminders extends Command
                         .($medication->dosage ? ' ('.$medication->dosage.')' : '')
                         .' at '.$time.'.',
                     'url' => '/medications',
+                    'medication_id' => $medication->id,
+                    'name' => $medication->name,
+                    'dosage' => $medication->dosage,
+                    'time' => $time,
+                    'food_instruction' => $medication->food_instruction ?: 'anytime',
+                    'schedule' => $medication->times ?? [],
+                    'notes' => $medication->notes,
                 ]));
 
                 $sent++;
