@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CustomMood;
 use App\Models\MoodLog;
+use App\Support\TextField;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class CustomMoodController extends Controller
 {
@@ -18,20 +17,21 @@ class CustomMoodController extends Controller
 
     public function store(Request $request)
     {
-        $name = is_string($request->input('name')) ? trim($request->input('name')) : $request->input('name');
-        $request->merge(['name' => $name]);
+        TextField::normalize($request, ['name' => 'name']);
 
         $data = $request->validate([
             'name' => [
                 'required',
                 'string',
                 'max:50',
+                'regex:'.TextField::NAME,
                 function ($attribute, $value, $fail) use ($request) {
                     $lower = mb_strtolower(trim($value));
 
                     $predefined = array_map('mb_strtolower', MoodLog::MOODS);
                     if (in_array($lower, $predefined, true)) {
                         $fail('This mood is already available as a predefined mood.');
+
                         return;
                     }
 
@@ -44,7 +44,7 @@ class CustomMoodController extends Controller
                     }
                 },
             ],
-        ]);
+        ], TextField::messages(['name' => 'name']));
 
         $mood = $request->user()->customMoods()->create($data);
 
@@ -55,20 +55,21 @@ class CustomMoodController extends Controller
     {
         $mood = $request->user()->customMoods()->findOrFail($id);
 
-        $name = is_string($request->input('name')) ? trim($request->input('name')) : $request->input('name');
-        $request->merge(['name' => $name]);
+        TextField::normalize($request, ['name' => 'name']);
 
         $data = $request->validate([
             'name' => [
                 'required',
                 'string',
                 'max:50',
+                'regex:'.TextField::NAME,
                 function ($attribute, $value, $fail) use ($request, $mood) {
                     $lower = mb_strtolower(trim($value));
 
                     $predefined = array_map('mb_strtolower', MoodLog::MOODS);
                     if (in_array($lower, $predefined, true)) {
                         $fail('This mood is already available as a predefined mood.');
+
                         return;
                     }
 
@@ -82,7 +83,7 @@ class CustomMoodController extends Controller
                     }
                 },
             ],
-        ]);
+        ], TextField::messages(['name' => 'name']));
 
         $mood->update($data);
 

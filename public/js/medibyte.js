@@ -52,19 +52,173 @@ function optionLabel(value) {
   );
 }
 
-function formatNameInput(el) {
-  const stripped = String(el.value ?? '')
-    .replace(/[^\p{L}\p{M}\s]/gu, '')
-    .replace(/\s+/gu, ' ');
-  const titled = stripped.replace(/\p{L}[\p{L}\p{M}]*/gu, word =>
-    word.charAt(0).toLocaleUpperCase() + word.slice(1).toLocaleLowerCase()
-  );
-  if (el.value !== titled) {
-    const caret = el.selectionStart ?? titled.length;
-    el.value = titled;
+/* Every field accepts only the characters its data can really hold, and the
+   names a person types are tidied into title case while they type. The server
+   enforces the same rules (App\Support\TextField), so a rejected keystroke here
+   never turns into a rejected record later. Free text — notes, reasons,
+   reflections, document titles — is left completely alone. */
+const TEXT_FIELD_KINDS = {
+  name: { keep: "[^\\p{L}\\p{M}\\s'’.\\-]", titled: true },
+  // A label is the name of a thing, so it starts with a letter; a dose is
+  // allowed to lead with its number ("500 mg").
+  label: { keep: "[^\\p{L}\\p{N}\\p{M}\\s'’.,:()/+&%\\-]", titled: true, letterStart: true },
+  measure: { keep: "[^\\p{L}\\p{N}\\p{M}\\s'’.,:()/+&%\\-]", titled: false },
+  phone: { keep: '[^\\p{N}\\s()+.\\-]', titled: false },
+  address: { keep: "[^\\p{L}\\p{N}\\s.,#'&()/\\-]", titled: false },
+  clock: { keep: '[^\\d:,.\\-\\s]', titled: false },
+  username: { keep: '[^A-Za-z0-9_]', lower: true }
+};
+
+const FIELD_KIND_BY_NAME = {
+  first_name: 'name',
+  last_name: 'name',
+  username: 'username',
+  doctor_name: 'name',
+  specialty: 'name',
+  hospital: 'name',
+  contact_number: 'phone',
+  office_address: 'address',
+  name: 'label',
+  med_name: 'label',
+  med_dosage: 'measure',
+  med_times: 'clock',
+  dosage: 'measure',
+  times: 'clock',
+  food_name: 'label',
+  illness_name: 'label',
+  symptom: 'label',
+  impacts: 'label'
+};
+
+// Generated fields are prefixed by the page that builds them (f_ on a record
+// page, q_ in the quick log modal, w_ in the setup wizard).
+function fieldNameOf(el) {
+  return el.id.replace(/^(f|q|w)_/, '');
+}
+
+function titleCaseText(value) {
+  // Mirrors PHP's MB_CASE_TITLE: a letter right after an apostrophe stays
+  // lower-case, so "luke's" becomes "Luke's" and not "Luke'S".
+  return value.toLocaleLowerCase().replace(/(^|[^\p{L}\p{M}'’])(\p{L})/gu,
+    (match, lead, letter) => lead + letter.toLocaleUpperCase());
+}
+
+function formatFieldInput(el) {
+  const kind = TEXT_FIELD_KINDS[el.dataset.kind || FIELD_KIND_BY_NAME[fieldNameOf(el)]];
+  if (!kind) return;
+
+  let cleaned = el.value.replace(new RegExp(kind.keep, 'gu'), '').replace(/\s+/gu, ' ');
+  if (kind.letterStart) cleaned = cleaned.replace(/^[\p{N}\s]+/u, '');
+  if (kind.titled) cleaned = titleCaseText(cleaned);
+  if (kind.lower) cleaned = cleaned.toLocaleLowerCase();
+
+  if (el.value !== cleaned) {
+    const caret = el.selectionStart ?? cleaned.length;
+    el.value = cleaned;
     try { el.setSelectionRange(caret, caret); } catch (error) { /* non-text input */ }
   }
 }
+
+const NUMBER_RANGE_BY_NAME = {
+  amount_ml: [1, 10000, 1],
+  hours: [0, 24, 0.1],
+  calories: [0, 10000, 1],
+  weight_kg: [1, 500, 0.1],
+  height_cm: [30, 300, 0.1],
+  steps: [0, 100000, 1],
+  minutes: [0, 1440, 1],
+  systolic: [30, 300, 1],
+  diastolic: [20, 200, 1],
+  heart_rate: [20, 300, 1],
+  temperature_c: [30, 45, 0.1],
+  oxygen_saturation: [50, 100, 1]
+};
+
+function numberRange(el) {
+  const known = NUMBER_RANGE_BY_NAME[fieldNameOf(el)];
+  const bound = (attr, fallback) => {
+    const value = Number(el.getAttribute(attr));
+    return el.hasAttribute(attr) && Number.isFinite(value) ? value : fallback;
+  };
+
+  return {
+    min: bound('min', known ? known[0] : null),
+    max: bound('max', known ? known[1] : null),
+    step: Number(el.getAttribute('step')) || (known ? known[2] : 'any')
+  };
+}
+
+function clampNumberInput(el) {
+  if (el.value === '') return;
+
+  const { min, max, step } = numberRange(el);
+  let value = Number(el.value);
+
+  if (!Number.isFinite(value)) {
+    el.value = '';
+    return;
+  }
+
+  if (min !== null && value < min) value = min;
+  if (max !== null && value > max) value = max;
+
+  el.value = String(Number(value.toFixed(Number.isInteger(step) ? 0 : 2)));
+}
+
+// The limits the server applies, mirrored here so a field cannot be typed past
+// the point where the record would be rejected.
+const FIELD_MAX_BY_NAME = {
+  doctor_name: 150,
+  specialty: 100,
+  hospital: 150,
+  contact_number: 30,
+  office_address: 255,
+  name: 150,
+  med_name: 150,
+  dosage: 100,
+  med_dosage: 100,
+  food_name: 255,
+  illness_name: 100,
+  symptom: 100,
+  impacts: 255,
+  times: 120,
+  med_times: 120,
+  reason: 255,
+  notes: 500,
+  med_notes: 500
+};
+
+function fieldConstraints(name, type) {
+  const attrs = [];
+  const max = FIELD_MAX_BY_NAME[name];
+
+  if (type === 'number') {
+    const range = NUMBER_RANGE_BY_NAME[name];
+    if (range) attrs.push(`min="${range[0]}" max="${range[1]}"`);
+    attrs.push('step="' + (range && Number.isInteger(range[2]) ? range[2] : 'any') + '"');
+    attrs.push('inputmode="decimal"');
+  } else if (type === 'text' || type === 'list' || type === 'textarea') {
+    if (max) attrs.push(`maxlength="${max}"`);
+  }
+
+  return attrs.length ? ' ' + attrs.join(' ') : '';
+}
+
+// One listener covers the record forms, the quick log modal, the setup wizard
+// and the profile pages, so no form has to remember to wire it up itself.
+document.addEventListener('input', event => {
+  const el = event.target;
+  if (el instanceof HTMLInputElement && el.type === 'text') formatFieldInput(el);
+});
+
+document.addEventListener('change', event => {
+  const el = event.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  if (el.type === 'number') clampNumberInput(el);
+  // Stripping a bad keystroke can leave a space at the end; the server trims it,
+  // so the box should not keep showing it either.
+  if (el.type === 'text') el.value = el.value.trim();
+});
 
 async function api(url, method = 'GET', body) {
   const headers = {
@@ -552,7 +706,7 @@ function promptText(options = {}) {
           <div class="form-grid">
             <label class="field" data-grid-full="1">
               <span>${esc(options.label || 'Name')}</span>
-              <input type="text" maxlength="${Number(options.maxLength) || 50}" autocomplete="off"
+              <input type="text" data-kind="${esc(options.kind || '')}" maxlength="${Number(options.maxLength) || 50}" autocomplete="off"
                 placeholder="${esc(options.placeholder || '')}" value="${esc(options.value || '')}">
             </label>
             <div class="form-grid-action">
@@ -1009,14 +1163,14 @@ function quickInputHtml([name, label, type, opts, def, placeholder, showsWhen], 
 
     html = `<label class="field"${type === 'method' || name === 'sleep_method' ? ' data-grid-full="1"' : ''}><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
   } else if (type === 'textarea') {
-    html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}" rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+    html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}"${fieldConstraints(name, 'textarea')} rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
   } else if (name === 'intensity' || type === 'slider') {
     return intensitySliderHtml(id, safeLabel, v ?? def ?? 3);
   } else {
     const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
     const maxAttr = type === 'today' ? ` max="${today()}"` : '';
     const listAttr = type === 'list' ? ' data-grid-full="1"' : '';
-    html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+    html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}"${fieldConstraints(name, type)}${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
   }
 
   if (showsWhen) {
@@ -2229,14 +2383,14 @@ function logPage(cfg) {
 
       html = `<label class="field"><span>${safeLabel}</span><select id="${id}">${options.join('')}</select></label>`;
     } else if (type === 'textarea') {
-      html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}" rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
+      html = `<label class="field diary-field${name === 'event_note' ? ' note-field' : ''}" data-grid-full="1"><span>${safeLabel}</span><textarea id="${id}"${fieldConstraints(name, 'textarea')} rows="${name === 'event_note' ? 3 : 7}" placeholder="${esc(placeholder || '')}">${esc(v ?? '')}</textarea></label>`;
     } else if (name === 'intensity' || type === 'intensity' || type === 'slider') {
       return intensitySliderHtml(id, safeLabel, v ?? def ?? 3);
     } else {
       const htmlType = type === 'list' ? 'text' : type === 'today' ? 'date' : type;
       const maxAttr = type === 'today' || opts === 'today' ? ` max="${today()}"` : '';
       const listAttr = type === 'list' ? ' data-grid-full="1"' : '';
-      html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}" step="any"${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
+      html = `<label class="field"${listAttr}><span>${safeLabel}</span><input id="${id}" type="${htmlType}"${fieldConstraints(name, type)}${maxAttr} value="${esc(v ?? '')}" placeholder="${esc(placeholder || '')}"></label>`;
     }
 
     if (showsWhen) {
@@ -2434,7 +2588,7 @@ function logPage(cfg) {
             <form class="custom-mood-form" onsubmit="event.preventDefault(); window.savePersonalizedMood()">
               <label class="field">
                 <span>New custom mood</span>
-                <input id="new_custom_mood" type="text" maxlength="50" placeholder="e.g. Overstimulated" autocomplete="off">
+                <input id="new_custom_mood" type="text" data-kind="name" maxlength="50" placeholder="e.g. Overstimulated" autocomplete="off">
               </label>
               <button type="submit" class="btn btn-primary">
                 <svg class="icon"><use href="#i-plus"/></svg>
@@ -2682,6 +2836,7 @@ function logPage(cfg) {
       eyebrow: 'Personalize',
       title: 'Rename custom mood',
       label: 'Mood name',
+      kind: 'name',
       placeholder: 'e.g. Overstimulated',
       value: oldName,
       note: 'Records you already logged keep this mood.',

@@ -130,7 +130,7 @@ function stepActivity() {
     <div class="wizard-fields">
       <label class="field">
         <span>Steps (optional)</span>
-        <input id="w_steps" type="number" min="0" placeholder="e.g. 3000" value="${esc(activity.steps || '')}">
+        <input id="w_steps" type="number" min="0" max="100000" placeholder="e.g. 3000" value="${esc(activity.steps || '')}">
       </label>
       <label class="field">
         <span>Active minutes (optional)</span>
@@ -209,7 +209,7 @@ function stepMeals() {
       </label>
       <label class="field">
         <span>Calories (optional)</span>
-        <input id="w_calories" type="number" min="0" placeholder="e.g. 350" value="${esc(meal.calories || '')}">
+        <input id="w_calories" type="number" min="0" max="10000" placeholder="e.g. 350" value="${esc(meal.calories || '')}">
       </label>
     </div>
   `);
@@ -411,7 +411,7 @@ function stepGoals() {
     <div class="wizard-fields">
       <label class="field">
         <span>Water goal (ml)</span>
-        <input id="w_water_goal" type="number" min="500" step="100" value="${esc(answers.water_goal_ml || 2000)}">
+        <input id="w_water_goal" type="number" min="500" max="20000" step="100" value="${esc(answers.water_goal_ml || 2000)}">
       </label>
       <label class="field">
         <span>Sleep goal (hours)</span>
@@ -419,11 +419,11 @@ function stepGoals() {
       </label>
       <label class="field">
         <span>Daily steps goal</span>
-        <input id="w_steps_goal" type="number" min="0" step="500" value="${esc(answers.walking_goal_steps || 8000)}">
+        <input id="w_steps_goal" type="number" min="0" max="100000" step="500" value="${esc(answers.walking_goal_steps || 8000)}">
       </label>
       <label class="field">
         <span>Daily calorie goal (optional)</span>
-        <input id="w_calorie_goal" type="number" min="500" placeholder="e.g. 2000" value="${esc(answers.calorie_goal || '')}">
+        <input id="w_calorie_goal" type="number" min="500" max="10000" placeholder="e.g. 2000" value="${esc(answers.calorie_goal || '')}">
       </label>
       ${answers.prediction && answers.prediction.predicted_next_start ? `<div class="wizard-success">Estimated next period: <strong>${esc(answers.prediction.predicted_next_start)}</strong> (about ${esc(answers.prediction.days_until_next)} days from today).</div>` : ''}
     </div>

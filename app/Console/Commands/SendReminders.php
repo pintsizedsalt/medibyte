@@ -58,9 +58,12 @@ class SendReminders extends Command
     {
         $sent = 0;
 
+        // Matches the seven-day window the reminders feed already shows, so an
+        // appointment booked for next week is announced as soon as it is saved
+        // instead of only in its last day.
         $appointments = $user->appointments()
             ->where('status', 'scheduled')
-            ->whereBetween('appointment_at', [$now, $now->copy()->addDay()])
+            ->whereBetween('appointment_at', [$now, $now->copy()->addDays(7)])
             ->orderBy('appointment_at')
             ->get();
 

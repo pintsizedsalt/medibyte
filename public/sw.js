@@ -1,4 +1,4 @@
-const CACHE = 'medibyte-shell-v13';
+const CACHE = 'medibyte-shell-v15';
 const ASSETS = [
   '/css/medibyte.css',
   '/js/medibyte.js',

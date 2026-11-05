@@ -329,4 +329,50 @@ class NotificationTest extends TestCase
 
         $this->assertSame(0, $user->notifications()->count());
     }
+
+    public function test_an_appointment_later_in_the_week_is_announced(): void
+    {
+        Carbon::setTestNow('2026-10-20 08:00:00');
+        Cache::flush();
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male', 'reminders_enabled' => true])->save();
+
+        Appointment::create([
+            'user_id' => $user->id,
+            'doctor_name' => 'Dr. Cruz',
+            'appointment_at' => now()->addDays(3),
+            'status' => 'scheduled',
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertSentTo(
+            $user,
+            HealthReminder::class,
+            fn ($notification) => ($notification->toDatabase($user)['kind'] ?? null) === 'appointment'
+        );
+    }
+
+    public function test_an_appointment_beyond_the_week_is_not_announced_yet(): void
+    {
+        Carbon::setTestNow('2026-10-20 08:00:00');
+        Cache::flush();
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $user->forceFill(['sex' => 'male', 'reminders_enabled' => true])->save();
+
+        Appointment::create([
+            'user_id' => $user->id,
+            'doctor_name' => 'Dr. Cruz',
+            'appointment_at' => now()->addDays(10),
+            'status' => 'scheduled',
+        ]);
+
+        $this->artisan('medibyte:send-reminders')->assertExitCode(0);
+
+        Notification::assertNothingSent();
+    }
 }

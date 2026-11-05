@@ -97,11 +97,25 @@ php artisan migrate --seed
 php artisan serve
 ```
 
+Or run the server, queue worker, and Vite together:
+
+```bash
+composer dev
+```
+
 Open `http://localhost:8000`.
+
+Both commands start PHP with `upload_tmp_dir` pointed at `storage/framework/tmp` and
+raise `upload_max_filesize`/`post_max_size` to 64M. Without that, any upload whose
+request body is larger than 16 KB is silently dropped by PHP whenever its system
+temporary directory is not writable, so document and profile-photo uploads fail on
+some machines only. If you serve the app another way (Herd, Valet, Docker, Apache),
+set the same values in that environment's `php.ini`.
 
 ### 5. Optional: run the reminder scheduler
 
-The reminder command is scheduled every 15 minutes. For local testing:
+The reminder command is scheduled every 15 minutes. Nothing is added to the
+notification inbox while it is stopped, so keep it running for local testing:
 
 ```bash
 php artisan schedule:work

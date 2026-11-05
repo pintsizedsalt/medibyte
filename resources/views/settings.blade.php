@@ -49,10 +49,16 @@
             <h3>Your health data</h3>
           </div>
         </div>
-        <p class="muted">Download a JSON copy of your profile, logs, medications, appointments, and document details. Document files themselves can be downloaded from the Documents page.</p>
+        <p class="muted">Download a PDF summary of your last seven days — sleep, water, movement, meals, vitals, weight, symptoms, medications, appointments, mood, cycle, and documents — laid out for a doctor or nurse to read. Document files themselves can be downloaded from the Documents page.</p>
         <div class="form-actions">
-          <button type="button" class="btn" onclick="downloadExport()">Download my data</button>
+          <button type="button" class="btn btn-primary" onclick="downloadWeeklyPdf()">
+            <svg class="icon"><use href="#i-file"/></svg>
+            Download weekly PDF
+          </button>
           <a class="btn btn-ghost" href="/privacy">Privacy notice</a>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="text-button" onclick="downloadExport()">Download all my data (JSON)</button>
         </div>
       </section>
 
@@ -158,6 +164,38 @@ async function saveSettings() {
     $('msg').textContent = errText(result);
     toast(errText(result), 'error');
   }
+}
+
+async function downloadWeeklyPdf() {
+  const response = await fetch('/api/v1/account/export/pdf', {
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin'
+  });
+
+  if (response.status === 401) {
+    location.replace('/login');
+    return;
+  }
+
+  if (!response.ok) {
+    $('msg').textContent = 'Could not prepare your weekly PDF. Please try again.';
+    toast('Could not prepare your weekly PDF. Please try again.', 'error');
+    return;
+  }
+
+  const named = (response.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = named ? named[1] : 'medibyte-weekly-summary-' + today() + '.pdf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  toast('Your weekly summary is downloading.');
 }
 
 async function downloadExport() {

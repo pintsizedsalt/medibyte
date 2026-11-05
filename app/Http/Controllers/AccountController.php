@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\WeeklyReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -78,6 +79,18 @@ class AccountController extends Controller
             'Content-Disposition',
             'attachment; filename="medibyte-export-'.now()->format('Y-m-d').'.json"'
         );
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $pdf = (new WeeklyReport($request->user()))->pdf();
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdf),
+            'Content-Disposition' => 'attachment; filename="'.WeeklyReport::fileName().'"',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     public function destroy(Request $request)

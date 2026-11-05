@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TextField;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -23,15 +24,11 @@ class ProfileController extends Controller
             ]);
         }
 
-        foreach (['first_name', 'last_name'] as $field) {
-            if ($request->has($field)) {
-                $request->merge([$field => $this->titleCaseName((string) $request->input($field))]);
-            }
-        }
+        TextField::normalize($request, ['first_name' => 'name', 'last_name' => 'name']);
 
         $data = $request->validate([
-            'first_name' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
-            'last_name' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
+            'first_name' => array_merge(['sometimes'], TextField::rules('name', 'required', 80)),
+            'last_name' => array_merge(['sometimes'], TextField::rules('name', 'required', 80)),
             'username' => [
                 'sometimes',
                 'required',
@@ -50,14 +47,14 @@ class ProfileController extends Controller
             ],
             'sex' => 'sometimes|in:female,male',
             'period_status' => 'nullable|in:active,not_yet,menopause,prefer_not_to_track',
-            'weight_goal' => 'nullable|numeric',
-            'water_goal_ml' => 'integer|min:500',
+            'weight_goal' => 'nullable|numeric|min:1|max:500',
+            'water_goal_ml' => 'integer|min:500|max:20000',
             'sleep_goal_hours' => 'numeric|min:1|max:16',
-            'walking_goal_steps' => 'integer|min:0',
-            'calorie_goal' => 'nullable|integer|min:500',
+            'walking_goal_steps' => 'integer|min:0|max:100000',
+            'calorie_goal' => 'nullable|integer|min:500|max:10000',
             'cycle_length' => 'integer|min:20|max:45',
             'reminders_enabled' => 'boolean',
-        ]);
+        ], TextField::messages(['first_name' => 'name', 'last_name' => 'name']));
 
         if (($data['sex'] ?? null) === 'male') {
             $data['period_status'] = null;
@@ -93,12 +90,5 @@ class ProfileController extends Controller
         $user->forceFill(['onboarding_completed_at' => now()])->save();
 
         return response()->json($user->refresh());
-    }
-
-    private function titleCaseName(string $value): string
-    {
-        $normalized = (string) preg_replace('/\s+/u', ' ', trim($value));
-
-        return mb_convert_case(mb_strtolower($normalized, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
     }
 }

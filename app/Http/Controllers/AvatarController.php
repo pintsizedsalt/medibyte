@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\UploadEnvironment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -12,6 +13,8 @@ class AvatarController extends Controller
 
     public function store(Request $request)
     {
+        UploadEnvironment::assertBodyArrived($request, 'image');
+
         $data = $request->validate([
             'image_data' => 'required|string',
         ]);
@@ -41,7 +44,13 @@ class AvatarController extends Controller
 
         $path = 'avatars/'.$user->id.'.jpg';
 
-        Storage::disk('local')->put($path, $bytes);
+        // The local disk is configured not to throw, so a folder this machine
+        // cannot write would otherwise save a path to no file at all.
+        if (! Storage::disk('local')->put($path, $bytes)) {
+            throw ValidationException::withMessages([
+                'image' => 'The photo could not be saved on this machine. Make storage/app/private writable by the user running the server.',
+            ]);
+        }
 
         $user->forceFill(['avatar_path' => $path])->save();
 

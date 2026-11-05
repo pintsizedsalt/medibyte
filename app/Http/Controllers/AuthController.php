@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Notifications\HealthReminder;
+use App\Support\TextField;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,22 +19,23 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        TextField::normalize($request, ['first_name' => 'name', 'last_name' => 'name']);
+
         $request->merge([
             'username' => strtolower(trim((string) $request->input('username'))),
-            'first_name' => $this->titleCaseName((string) $request->input('first_name')),
-            'last_name' => $this->titleCaseName((string) $request->input('last_name')),
         ]);
 
         $result = DB::transaction(function () use ($request) {
             $data = $request->validate([
-                'first_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
-                'last_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u'],
+                'first_name' => TextField::rules('name', 'required', 80),
+                'last_name' => TextField::rules('name', 'required', 80),
                 'username' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[A-Za-z0-9_]+$/', 'unique:users,username'],
                 'email' => ['required', 'email:rfc,dns', 'unique:users', 'max:255'],
                 'password' => 'required|min:8',
                 'sex' => 'required|in:female,male',
                 'consent' => 'accepted',
             ], [
+                ...TextField::messages(['first_name' => 'name', 'last_name' => 'name']),
                 'email.email' => 'Enter an email at a domain that can receive mail. Check the spelling, especially the part after the @.',
             ]);
 
@@ -72,13 +74,6 @@ class AuthController extends Controller
         }
 
         return response()->json($result, 201);
-    }
-
-    private function titleCaseName(string $value): string
-    {
-        $normalized = (string) preg_replace('/\s+/u', ' ', trim($value));
-
-        return mb_convert_case(mb_strtolower($normalized, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
     }
 
     public function login(Request $request)

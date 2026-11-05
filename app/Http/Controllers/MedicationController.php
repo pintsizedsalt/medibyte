@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TextField;
 use Illuminate\Http\Request;
 
 class MedicationController extends Controller
 {
+    /**
+     * @var array<string, string>
+     */
+    private const TEXT_FIELDS = [
+        'name' => 'label',
+        'dosage' => 'measure',
+    ];
+
     private function rules()
     {
         return [
-            'name' => 'required|string|max:150',
-            'dosage' => 'nullable|string|max:100',
+            'name' => TextField::rules('label', 'required', 150),
+            'dosage' => TextField::rules('measure', 'nullable', 100),
             'times' => 'nullable|array',
             'times.*' => 'date_format:H:i',
             'start_date' => 'required|date',
@@ -28,7 +37,9 @@ class MedicationController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules());
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $data = $request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS));
 
         return response()->json($request->user()->medications()->create($data), 201);
     }
@@ -37,7 +48,9 @@ class MedicationController extends Controller
     {
         $medication = $request->user()->medications()->findOrFail($id);
 
-        $medication->update($request->validate($this->rules()));
+        TextField::normalize($request, self::TEXT_FIELDS);
+
+        $medication->update($request->validate($this->rules(), TextField::messages(self::TEXT_FIELDS)));
 
         return response()->json($medication);
     }
