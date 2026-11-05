@@ -50,6 +50,7 @@ class AccountController extends Controller
                 'calorie_goal' => $user->calorie_goal,
                 'cycle_length' => $user->cycle_length,
                 'reminders_enabled' => $user->reminders_enabled,
+                'reminder_preferences' => $user->reminder_preferences,
                 'onboarding_completed_at' => $user->onboarding_completed_at,
                 'show_period_tracker' => $user->show_period_tracker,
             ],

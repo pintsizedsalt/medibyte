@@ -21,7 +21,7 @@ logPage({
   formNote: 'Use 24-hour times separated by commas, for example 08:00, 20:00.',
   fields: [
     ['name', 'Medication name', 'text'],
-    ['dosage', 'Dosage (as prescribed)', 'text'],
+    ['dosage_amount', 'Dosage (as prescribed)', 'dose', ['mcg', 'mg', 'g', 'mL', 'L', 'IU', 'mg/mL', 'tablet', 'capsule', 'puff', 'spray', 'drop', 'patch']],
     ['times', 'Times (24-hour, separated by commas)', 'list', null, null, 'e.g. 08:00, 20:00'],
     ['food_instruction', 'Food instruction', 'select', ['anytime', 'before_meal', 'after_meal', 'with_meal']],
     ['start_date', 'Start date', 'today'],

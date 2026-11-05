@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=31">
+  <link rel="stylesheet" href="/css/medibyte.css?v=33">
   @if ($avatarPhoto)
     <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
   @endif
@@ -65,12 +65,25 @@
   <script>
     try {
       var splash = document.getElementById('splash');
-      var splashTimer = setTimeout(function () {
-        if (splash) splash.classList.add('is-hidden');
-      }, 3000);
+
+      // Faded but still in the DOM, the splash stays a full-viewport layer whose
+      // logo, dots and bar animate forever. Page bodies inserted underneath it
+      // then went unpainted until something forced a repaint. Drop the node once
+      // the fade has played.
+      var discardSplash = function () {
+        if (splash) splash.remove();
+        splash = null;
+      };
+      var hideSplash = function () {
+        if (!splash || splash.classList.contains('is-hidden')) return;
+        splash.classList.add('is-hidden');
+        splash.addEventListener('transitionend', discardSplash, { once: true });
+        setTimeout(discardSplash, 900);
+      };
+      var splashTimer = setTimeout(hideSplash, 3000);
       window.addEventListener('load', function () {
         clearTimeout(splashTimer);
-        if (splash) setTimeout(function () { splash.classList.add('is-hidden'); }, 200);
+        if (splash) setTimeout(hideSplash, 200);
       });
     } catch (error) {}
   </script>
@@ -360,7 +373,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=21"></script>
+  <script src="/js/medibyte.js?v=22"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

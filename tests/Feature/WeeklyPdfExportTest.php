@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Medication;
 use App\Models\User;
 use App\Support\WeeklyReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -129,7 +130,72 @@ class WeeklyPdfExportTest extends TestCase
         $pdf = (new WeeklyReport($user))->pdf();
 
         $this->assertStringContainsString('Not logged', $pdf);
-        $this->assertStringContainsString('Nothing logged this week', $pdf);
-        $this->assertStringNotContainsString('CYCLE', $pdf);
+        $this->assertSame(['AT A GLANCE', 'THE WEEK, DAY BY DAY'], $this->sections($pdf));
+    }
+
+    public function test_only_the_kinds_with_records_get_a_section(): void
+    {
+        $user = $this->user();
+        $today = now()->toDateString();
+
+        $user->vitalSignLogs()->create(['log_date' => $today, 'systolic' => 118, 'diastolic' => 76]);
+        $user->symptomLogs()->create(['symptom' => 'Headache', 'severity' => 3, 'log_date' => $today]);
+
+        $pdf = (new WeeklyReport($user))->pdf();
+
+        $this->assertStringContainsString('118/76 mmHg', $pdf);
+        $this->assertStringContainsString('Headache', $pdf);
+
+        $this->assertSame(['AT A GLANCE', 'THE WEEK, DAY BY DAY', 'VITAL SIGNS', 'SYMPTOMS'], $this->sections($pdf));
+    }
+
+    public function test_an_upcoming_appointment_is_reported_even_when_the_week_was_empty(): void
+    {
+        $user = $this->user();
+
+        $user->appointments()->create([
+            'doctor_name' => 'Rhea Vance',
+            'appointment_at' => now()->addDays(9),
+            'status' => 'scheduled',
+        ]);
+
+        $pdf = (new WeeklyReport($user))->pdf();
+
+        $this->assertSame(['AT A GLANCE', 'THE WEEK, DAY BY DAY', 'APPOINTMENTS'], $this->sections($pdf));
+        $this->assertStringContainsString('Next scheduled', $pdf);
+    }
+
+    public function test_each_dose_is_printed_with_its_unit(): void
+    {
+        $user = $this->user();
+
+        $user->medications()->create([
+            'name' => 'Levothyroxine',
+            'dosage' => Medication::dosageText(0.25, 'mg'),
+            'dosage_amount' => 0.25,
+            'dosage_unit' => 'mg',
+            'times' => ['07:00'],
+            'start_date' => now()->subWeek()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $pdf = (new WeeklyReport($user))->pdf();
+
+        $this->assertStringContainsString('Levothyroxine', $pdf);
+        $this->assertStringContainsString('0.25 mg', $pdf);
+    }
+
+    /**
+     * The section titles a report paints, read back out of the PDF. Every heading
+     * is drawn in bold nine point so they can be told from the table headers, which
+     * are seven and a half, and the stat cards, which are seven.
+     *
+     * @return array<int, string>
+     */
+    private function sections(string $pdf): array
+    {
+        preg_match_all('/BT \/F2 9 Tf 1 0 0 1 [-\d.]+ [-\d.]+ Tm \(([^)]*)\) Tj ET/', $pdf, $headings);
+
+        return $headings[1];
     }
 }

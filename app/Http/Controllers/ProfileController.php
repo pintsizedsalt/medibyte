@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Support\TextField;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -54,7 +55,18 @@ class ProfileController extends Controller
             'calorie_goal' => 'nullable|integer|min:500|max:10000',
             'cycle_length' => 'integer|min:20|max:45',
             'reminders_enabled' => 'boolean',
+            'appointment_reminders_enabled' => 'sometimes|boolean',
+            'appointment_lead_minutes' => ['sometimes', 'array', 'max:'.count(User::APPOINTMENT_LEADS)],
+            'appointment_lead_minutes.*' => ['integer', Rule::in(array_keys(User::APPOINTMENT_LEADS))],
+            'appointment_day_notice' => 'sometimes|boolean',
+            'appointment_repeat_minutes' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(User::REPEAT_INTERVALS))],
+            'medication_reminders_enabled' => 'sometimes|boolean',
+            'medication_lead_minutes' => ['sometimes', 'array', 'max:'.count(User::MEDICATION_LEADS)],
+            'medication_lead_minutes.*' => ['integer', Rule::in(array_keys(User::MEDICATION_LEADS))],
+            'medication_repeat_minutes' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(User::REPEAT_INTERVALS))],
         ], TextField::messages(['first_name' => 'name', 'last_name' => 'name']));
+
+        $data = $this->orderedLeads($data);
 
         if (($data['sex'] ?? null) === 'male') {
             $data['period_status'] = null;
@@ -69,6 +81,29 @@ class ProfileController extends Controller
         $user->fill($data)->save();
 
         return response()->json($user->refresh(), 201);
+    }
+
+    /**
+     * Lead times are stored once each, nearest notice first, so the choices a
+     * person unticks really disappear instead of leaving a duplicate behind.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function orderedLeads(array $data): array
+    {
+        foreach (['appointment_lead_minutes', 'medication_lead_minutes'] as $field) {
+            if (! array_key_exists($field, $data)) {
+                continue;
+            }
+
+            $leads = array_values(array_unique(array_map('intval', $data[$field])));
+            sort($leads);
+
+            $data[$field] = $leads;
+        }
+
+        return $data;
     }
 
     public function complete(Request $request)

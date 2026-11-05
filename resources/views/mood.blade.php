@@ -12,7 +12,7 @@
 
 @push('scripts')
 <script>
-api('/moods').then(moods => logPage({
+logPage({
   title: 'Mood',
   icon: 'smile',
   tone: 'gold',
@@ -20,7 +20,7 @@ api('/moods').then(moods => logPage({
   formTitle: 'Check in with yourself',
   formNote: 'Choose the mood that fits best. The reflection and event notes are optional.',
   fields: [
-    ['mood', 'Mood', 'select', ['', ...moods]],
+    ['mood', 'Mood', 'select', ['']],
     ['intensity', 'Intensity', 'slider', null, 3],
     ['cried', 'I cried today', 'check'],
     ['has_big_event', 'Something big happened today', 'check'],
@@ -31,6 +31,6 @@ api('/moods').then(moods => logPage({
   ],
   value: r => (r.mood || 'Mood').replace(/^./, c => c.toUpperCase()) + ' · ' + r.intensity + '/5',
   meta: r => [dateLabel(r.log_date), r.cried ? 'cried' : null, r.event_note || null].filter(Boolean).join(' · ')
-}));
+});
 </script>
 @endpush

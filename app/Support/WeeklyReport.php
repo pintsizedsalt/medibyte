@@ -14,7 +14,9 @@ use Illuminate\Support\Str;
  * It covers the seven days ending today — the same window the dashboard and the
  * record pages show — and is laid out for someone reading it on paper: who the
  * report is about first, then the daily trend, then one small table per kind of
- * record, and a plain statement that everything here was self-reported.
+ * record, and a plain statement that everything here was self-reported. A kind
+ * with nothing logged in the week is left out entirely, so the report carries
+ * what happened rather than a list of things the account holder did not do.
  */
 class WeeklyReport
 {
@@ -205,13 +207,11 @@ class WeeklyReport
 
     private function vitalSigns(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Vital signs');
-
         if ($this->vitals->isEmpty()) {
-            $this->nothingLogged($pdf, 'blood pressure', 'pulse', 'temperature', 'oxygen');
-
             return;
         }
+
+        $pdf->sectionHeading('Vital signs');
 
         $columns = [
             ['label' => 'When', 'width' => 100],
@@ -234,18 +234,16 @@ class WeeklyReport
 
     private function weight(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Weight and BMI');
-
         $outsideWindow = $this->weights->isEmpty();
         $logs = $outsideWindow
             ? $this->user->weightLogs()->latest('log_date')->limit(1)->get()
             : $this->weights;
 
         if ($logs->isEmpty()) {
-            $this->nothingLogged($pdf, 'weight');
-
             return;
         }
+
+        $pdf->sectionHeading('Weight and BMI');
 
         $columns = [
             ['label' => 'Day', 'width' => 96],
@@ -272,13 +270,11 @@ class WeeklyReport
 
     private function symptoms(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Symptoms');
-
         if ($this->symptoms->isEmpty()) {
-            $this->nothingLogged($pdf, 'symptoms');
-
             return;
         }
+
+        $pdf->sectionHeading('Symptoms');
 
         $columns = [
             ['label' => 'Day', 'width' => 74],
@@ -301,13 +297,11 @@ class WeeklyReport
 
     private function medications(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Medications');
-
         if ($this->medications->isEmpty()) {
-            $this->nothingLogged($pdf, 'medications');
-
             return;
         }
+
+        $pdf->sectionHeading('Medications');
 
         $columns = [
             ['label' => 'Medicine', 'width' => 118],
@@ -330,56 +324,55 @@ class WeeklyReport
 
     private function appointments(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Appointments');
-
         $next = $this->user->appointments()
             ->where('appointment_at', '>', $this->to->copy()->endOfDay())
             ->where('status', 'scheduled')
             ->orderBy('appointment_at')
             ->first();
 
-        if ($this->appointments->isEmpty()) {
-            $this->nothingLogged($pdf, 'appointments');
-
-            if ($next) {
-                $pdf->pair('Next scheduled', $next->appointment_at->format('D j M Y, H:i').' · '.($next->doctor_name ?: 'Doctor not named'));
-            }
-
+        if ($this->appointments->isEmpty() && ! $next) {
             return;
         }
 
-        $columns = [
-            ['label' => 'When', 'width' => 96],
-            ['label' => 'Who', 'width' => 112],
-            ['label' => 'Where', 'width' => 118],
-            ['label' => 'Reason', 'width' => 110],
-            ['label' => 'Status', 'width' => 63],
-        ];
+        $pdf->sectionHeading('Appointments');
 
-        $rows = $this->appointments->map(fn ($appointment) => [
-            $appointment->appointment_at->format('D j M, H:i'),
-            $appointment->doctor_name.($appointment->specialty ? ' · '.Str::limit((string) $appointment->specialty, 26, '') : ''),
-            $appointment->hospital ?: '—',
-            $appointment->reason ? Str::limit((string) $appointment->reason, 80) : '—',
-            ucfirst((string) $appointment->status),
-        ])->all();
+        if ($this->appointments->isNotEmpty()) {
+            $columns = [
+                ['label' => 'When', 'width' => 96],
+                ['label' => 'Who', 'width' => 112],
+                ['label' => 'Where', 'width' => 118],
+                ['label' => 'Reason', 'width' => 110],
+                ['label' => 'Status', 'width' => 63],
+            ];
 
-        $pdf->table($columns, $rows);
+            $rows = $this->appointments->map(fn ($appointment) => [
+                $appointment->appointment_at->format('D j M, H:i'),
+                $appointment->doctor_name.($appointment->specialty ? ' · '.Str::limit((string) $appointment->specialty, 26, '') : ''),
+                $appointment->hospital ?: '—',
+                $appointment->reason ? Str::limit((string) $appointment->reason, 80) : '—',
+                ucfirst((string) $appointment->status),
+            ])->all();
+
+            $pdf->table($columns, $rows);
+        }
 
         if ($next) {
-            $pdf->pair('Next scheduled', $next->appointment_at->format('D j M Y, H:i').' · '.($next->doctor_name ?: 'Doctor not named'));
+            $pdf->pair('Next scheduled', $this->appointmentLine($next));
         }
+    }
+
+    private function appointmentLine($appointment): string
+    {
+        return $appointment->appointment_at->format('D j M Y, H:i').' · '.($appointment->doctor_name ?: 'Doctor not named');
     }
 
     private function mood(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Mood');
-
         if ($this->moods->isEmpty()) {
-            $this->nothingLogged($pdf, 'moods');
-
             return;
         }
+
+        $pdf->sectionHeading('Mood');
 
         $columns = [
             ['label' => 'Day', 'width' => 74],
@@ -413,7 +406,7 @@ class WeeklyReport
 
     private function cycle(Pdf $pdf): void
     {
-        if (! $this->user->show_period_tracker) {
+        if (! $this->user->show_period_tracker || $this->periods->isEmpty()) {
             return;
         }
 
@@ -423,12 +416,6 @@ class WeeklyReport
             ['Cycle length', ($this->user->cycle_length ?: 28).' days'],
             ['Period status', $this->periodStatus()],
         ]);
-
-        if ($this->periods->isEmpty()) {
-            $this->nothingLogged($pdf, 'period bleeding');
-
-            return;
-        }
 
         $columns = [
             ['label' => 'Start', 'width' => 96],
@@ -449,13 +436,11 @@ class WeeklyReport
 
     private function documents(Pdf $pdf): void
     {
-        $pdf->sectionHeading('Documents');
-
         if ($this->documents->isEmpty()) {
-            $this->nothingLogged($pdf, 'documents');
-
             return;
         }
+
+        $pdf->sectionHeading('Documents');
 
         $columns = [
             ['label' => 'Added', 'width' => 84],
@@ -482,11 +467,6 @@ class WeeklyReport
         $pdf->band(self::DISCLAIMER.' Gaps are shown as — and mean nothing was logged, not a zero reading.');
 
         $pdf->text('Generated by MediByte for '.$this->user->email.' on '.now()->format('j F Y \a\t H:i').' (Asia/Manila).', 8, Pdf::ITALIC);
-    }
-
-    private function nothingLogged(Pdf $pdf, string ...$kinds): void
-    {
-        $pdf->text('Nothing logged this week: '.implode(', ', $kinds).'.', 9, Pdf::ITALIC);
     }
 
     /** @return array<int, Carbon> */
