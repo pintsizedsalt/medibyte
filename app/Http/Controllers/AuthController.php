@@ -45,7 +45,7 @@ class AuthController extends Controller
                 'last_name' => $data['last_name'],
                 'username' => $data['username'],
                 'email' => $data['email'],
-                'password' => $data['password'],
+                'password' => Hash::make($data['password']),
                 'sex' => $data['sex'],
                 'reminders_enabled' => true,
             ]);

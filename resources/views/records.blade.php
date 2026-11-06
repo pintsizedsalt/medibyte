@@ -38,6 +38,22 @@
     </div>
     <div class="records-grid" id="records-grid"></div>
   </section>
+
+  <!-- Record detail modal -->
+  <div class="modal" id="recordDetailModal" aria-hidden="true" role="dialog" aria-labelledby="recordDetailTitle">
+    <div class="modal-scrim" onclick="closeRecordDetail()"></div>
+    <div class="detail-card">
+      <div class="detail-head">
+        <h2 id="recordDetailTitle">Record details</h2>
+        <button type="button" class="icon-btn" onclick="closeRecordDetail()" aria-label="Close detail view">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </div>
+      <div class="detail-body" id="recordDetailBody">
+        <p class="muted">Loading record details…</p>
+      </div>
+    </div>
+  </div>
 @endsection
 
 @push('scripts')
@@ -74,17 +90,91 @@ async function loadRecordsSummary() {
       </div>`;
 
   $('records-grid').innerHTML = features.map(feature => `
-    <a class="record-hub-card" href="${esc(feature.href)}">
+    <div class="record-hub-card" tabindex="0" role="button" aria-label="${esc(feature.label)} record" onclick="openRecordDetail(${feature.id})">
       <span class="record-hub-icon tone-${esc(feature.tone)}"><svg class="icon" aria-hidden="true"><use href="#i-${esc(feature.icon)}"/></svg></span>
       <span class="record-hub-copy">
         <strong>${esc(feature.label)}</strong>
         <small>${feature.count} ${entryPlural(feature.count)}</small>
         ${feature.last_date ? `<small class="records-last">Last: ${esc(feature.last_value || dateLabel(feature.last_date))} · ${esc(dateLabel(feature.last_date))}</small>` : ''}
       </span>
-      <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
-    </a>`).join('');
+      <div class="record-hub-overflow">
+        <svg class="icon" aria-hidden="true"><use href="#i-ellipsis-v"/></svg>
+        <div class="record-hub-menu">
+          <div class="record-hub-menu-line"></div>
+          <div class="record-hub-menu-line"></div>
+          <div class="record-hub-menu-line"></div>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 loadRecordsSummary();
+</script>
+<!-- Record detail interaction -->
+<script>
+function openRecordDetail(recordId) {
+  recordIdToDelete = recordId;
+  api(`/records/${recordId}`).then(data => {
+    if (!data || !data.id) {
+      toast('Record not found.');
+      return;
+    }
+    const body = `
+      <div class="detail-section">
+        <h3>${esc(data.label)}</h3>
+        <p><strong>Count:</strong> ${data.count}${data.unit ? ` ${data.unit}` : ''}</p>
+        ${data.last_value !== undefined ? `<p><strong>Last value:</strong> ${esc(data.last_value)} ${data.unit || ''}</p>` : ''}
+        ${data.description ? `<p><strong>Description:</strong> ${esc(data.description)}</p>` : ''}
+      </div>
+    `;
+    $('recordDetailBody').innerHTML = body;
+    $('recordDetailTitle').textContent = `${esc(data.label)} Details`;
+    showElement('recordDetailModal');
+  }).catch(() => toast('Failed to load record details.'));
+}
+
+function closeRecordDetail() {
+  hideElement('recordDetailModal');
+}
+
+function toggleRecordMenu(elem) {
+  const menu = elem.nextElementSibling;
+  const isOpen = menu?.style.display === 'block';
+  // Close all other menus
+  document.querySelectorAll('.record-hub-menu').forEach(m => {
+    m.style.display = 'none';
+  });
+  if (!isOpen) {
+    menu.style.display = 'block';
+  }
+}
+
+function selectRecordMenuAction(action) {
+  closeRecordDetail();
+  if (action === 'edit') {
+    openQuickSheet();
+  } else if (action === 'delete') {
+    showElement('confirmModal');
+    $('confirmTitle').textContent = 'Delete this record?';
+    $('confirmOk').onclick = () => {
+      closeConfirm(true);
+      api(`/records/${recordIdToDelete}`, 'DELETE').then(() => {
+        toast('Record deleted.');
+        loadRecordsSummary();
+        closeConfirm(false);
+      }).catch(() => toast('Failed to delete record.'));
+    };
+  }
+  hideElement('recordDetailModal');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.record-hub-card')) {
+    document.querySelectorAll('.record-hub-menu').forEach(m => {
+      m.style.display = 'none';
+    });
+  }
+});
 </script>
 @endpush
