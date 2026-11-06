@@ -73,13 +73,18 @@ class ReminderSettingsTest extends TestCase
         $this->assertNull($this->user->fresh()->medicationRepeat());
     }
 
-    public function test_only_the_lead_times_and_intervals_the_app_offers_are_accepted(): void
+    /**
+     * A lead time is either one of the offered choices or a custom amount, so what
+     * refuses a number is the window it sits in: a month ahead of an appointment, a
+     * day ahead of a dose, and only the listed rates for repeating.
+     */
+    public function test_a_lead_time_outside_the_window_of_its_feature_is_refused(): void
     {
-        $this->postJson('/api/v1/profile', ['appointment_lead_minutes' => [45]])
+        $this->postJson('/api/v1/profile', ['appointment_lead_minutes' => [User::CUSTOM_LEAD_CEILINGS['appointment'] + 1]])
             ->assertStatus(422)
             ->assertJsonValidationErrors('appointment_lead_minutes.0');
 
-        $this->postJson('/api/v1/profile', ['medication_lead_minutes' => [1440]])
+        $this->postJson('/api/v1/profile', ['medication_lead_minutes' => [User::CUSTOM_LEAD_CEILINGS['medication'] + 1]])
             ->assertStatus(422)
             ->assertJsonValidationErrors('medication_lead_minutes.0');
 
@@ -88,6 +93,24 @@ class ReminderSettingsTest extends TestCase
             ->assertJsonValidationErrors('appointment_repeat_minutes');
 
         $this->assertNull($this->user->fresh()->appointment_lead_minutes);
+    }
+
+    public function test_a_custom_lead_time_is_kept_alongside_the_offered_ones(): void
+    {
+        $this->postJson('/api/v1/profile', [
+            'appointment_lead_minutes' => [45, 1440, 45],
+            'medication_lead_minutes' => [20, 0],
+        ])->assertCreated();
+
+        $settled = $this->user->fresh();
+
+        $this->assertSame([45, 1440], $settled->appointment_lead_minutes);
+        $this->assertSame([45, 1440], $settled->appointmentLeads());
+        $this->assertSame([0, 20], $settled->medicationLeads());
+
+        $profile = $this->getJson('/api/v1/profile')->assertOk()->json();
+
+        $this->assertSame([45, 1440], $profile['reminder_preferences']['appointment']['leads']);
     }
 
     public function test_either_feature_can_be_silenced_on_its_own(): void
@@ -141,5 +164,27 @@ class ReminderSettingsTest extends TestCase
 
         $this->assertStringContainsString('id="appointment_reminders_enabled"', $page);
         $this->assertStringContainsString('id="medication_reminders_enabled"', $page);
+    }
+
+    public function test_the_cycle_card_appears_only_for_accounts_with_the_tracker_on(): void
+    {
+        $withoutTracker = $this->get('/settings')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('id="cycle_reminders_enabled"', $withoutTracker);
+
+        $this->user->forceFill(['sex' => 'female', 'period_status' => 'active'])->save();
+
+        $withTracker = $this->get('/settings')->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-reminder-card="cycle"', $withTracker);
+        $this->assertStringContainsString('id="cycle_reminders_enabled"', $withTracker);
+        $this->assertStringContainsString('id="cycle_lead_days"', $withTracker);
+        $this->assertStringContainsString('id="cycle_fertile_reminder"', $withTracker);
+        $this->assertStringContainsString('id="cycle_daily_log_reminder"', $withTracker);
+        $this->assertStringContainsString('id="cycle_discreet"', $withTracker);
+
+        foreach (User::CYCLE_LEAD_DAYS as $label) {
+            $this->assertStringContainsString($label, $withTracker);
+        }
     }
 }

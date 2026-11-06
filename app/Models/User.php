@@ -34,6 +34,20 @@ use Laravel\Sanctum\HasApiTokens;
     'medication_reminders_enabled',
     'medication_lead_minutes',
     'medication_repeat_minutes',
+    'cycle_reminders_enabled',
+    'cycle_lead_days',
+    'cycle_reminder_time',
+    'cycle_fertile_reminder',
+    'cycle_ovulation_reminder',
+    'cycle_pms_reminder',
+    'cycle_late_reminder',
+    'cycle_daily_log_reminder',
+    'cycle_daily_log_time',
+    'cycle_pill_reminder',
+    'cycle_pill_time',
+    'cycle_discreet',
+    'cycle_paused',
+    'cycle_pause_reason',
     'onboarding_completed_at',
     'consented_at',
 ])]
@@ -84,6 +98,24 @@ class User extends Authenticatable
     ];
 
     /**
+     * Reminders may be set further ahead than the choices above, so each feature
+     * also takes a custom lead time written in minutes: anywhere from a minute to
+     * a month ahead of an appointment, and from a minute to a day ahead of a dose.
+     * A number outside that window is a mistyped amount rather than a reminder.
+     *
+     * @var array<string, int>
+     */
+    public const CUSTOM_LEAD_CEILINGS = [
+        'appointment' => 43200,
+        'medication' => 1440,
+    ];
+
+    /**
+     * @var int
+     */
+    public const MAX_CUSTOM_LEADS = 5;
+
+    /**
      * @var array<int, int>
      */
     public const DEFAULT_APPOINTMENT_LEADS = [10080];
@@ -99,6 +131,37 @@ class User extends Authenticatable
      */
     public const DAY_NOTICE_HOUR = 8;
 
+    /**
+     * How far ahead of a predicted period the cycle card may speak up, keyed by
+     * the number of days before it and labelled the way the Settings page shows it.
+     *
+     * @var array<int, string>
+     */
+    public const CYCLE_LEAD_DAYS = [
+        1 => '1 day before',
+        2 => '2 days before',
+        3 => '3 days before',
+        7 => '1 week before',
+    ];
+
+    public const DEFAULT_CYCLE_LEAD_DAYS = 2;
+
+    public const DEFAULT_CYCLE_REMINDER_TIME = '08:00';
+
+    /**
+     * The reasons a person may pause cycle predictions, e.g. while pregnant or on
+     * hormonal birth control. Kept as free text so the page can offer these while
+     * still accepting anything a doctor might phrase differently.
+     */
+    public const CYCLE_PAUSE_REASONS = [
+        'pregnancy',
+        'postpartum',
+        'breastfeeding',
+        'hormonal_birth_control',
+        'menopause',
+        'other',
+    ];
+
     protected $appends = ['show_period_tracker', 'avatar_url', 'reminder_preferences'];
 
     /**
@@ -113,6 +176,10 @@ class User extends Authenticatable
         'appointment_reminders_enabled' => true,
         'appointment_day_notice' => false,
         'medication_reminders_enabled' => true,
+        'cycle_reminders_enabled' => true,
+        'cycle_lead_days' => self::DEFAULT_CYCLE_LEAD_DAYS,
+        'cycle_reminder_time' => self::DEFAULT_CYCLE_REMINDER_TIME,
+        'cycle_late_reminder' => true,
     ];
 
     /**
@@ -133,6 +200,16 @@ class User extends Authenticatable
             'medication_reminders_enabled' => 'boolean',
             'medication_lead_minutes' => 'array',
             'medication_repeat_minutes' => 'integer',
+            'cycle_reminders_enabled' => 'boolean',
+            'cycle_lead_days' => 'integer',
+            'cycle_fertile_reminder' => 'boolean',
+            'cycle_ovulation_reminder' => 'boolean',
+            'cycle_pms_reminder' => 'boolean',
+            'cycle_late_reminder' => 'boolean',
+            'cycle_daily_log_reminder' => 'boolean',
+            'cycle_pill_reminder' => 'boolean',
+            'cycle_discreet' => 'boolean',
+            'cycle_paused' => 'boolean',
             'onboarding_completed_at' => 'datetime',
             'consented_at' => 'datetime',
         ];
@@ -164,6 +241,20 @@ class User extends Authenticatable
                 'leads' => $this->medicationLeads(),
                 'repeat_minutes' => $this->medicationRepeat(),
             ],
+            'cycle' => [
+                'enabled' => (bool) $this->cycle_reminders_enabled,
+                'lead_days' => $this->cycleLeadDays(),
+                'time' => $this->cycleReminderTime(),
+                'fertile' => (bool) $this->cycle_fertile_reminder,
+                'ovulation' => (bool) $this->cycle_ovulation_reminder,
+                'pms' => (bool) $this->cycle_pms_reminder,
+                'late' => (bool) $this->cycle_late_reminder,
+                'daily_log' => (bool) $this->cycle_daily_log_reminder,
+                'daily_log_time' => $this->cycle_daily_log_time,
+                'pill' => (bool) $this->cycle_pill_reminder,
+                'pill_time' => $this->cycle_pill_time,
+                'discreet' => (bool) $this->cycle_discreet,
+            ],
         ];
     }
 
@@ -174,7 +265,12 @@ class User extends Authenticatable
      */
     public function appointmentLeads(): array
     {
-        return $this->chosenLeads($this->appointment_lead_minutes, array_keys(self::APPOINTMENT_LEADS), self::DEFAULT_APPOINTMENT_LEADS);
+        return $this->chosenLeads(
+            $this->appointment_lead_minutes,
+            array_keys(self::APPOINTMENT_LEADS),
+            self::DEFAULT_APPOINTMENT_LEADS,
+            self::CUSTOM_LEAD_CEILINGS['appointment'],
+        );
     }
 
     /**
@@ -184,7 +280,12 @@ class User extends Authenticatable
      */
     public function medicationLeads(): array
     {
-        return $this->chosenLeads($this->medication_lead_minutes, array_keys(self::MEDICATION_LEADS), self::DEFAULT_MEDICATION_LEADS);
+        return $this->chosenLeads(
+            $this->medication_lead_minutes,
+            array_keys(self::MEDICATION_LEADS),
+            self::DEFAULT_MEDICATION_LEADS,
+            self::CUSTOM_LEAD_CEILINGS['medication'],
+        );
     }
 
     public function appointmentRepeat(): ?int
@@ -197,12 +298,32 @@ class User extends Authenticatable
         return $this->chosenRepeat($this->medication_repeat_minutes);
     }
 
+    /** How many days before a predicted period the cycle card speaks up. */
+    public function cycleLeadDays(): int
+    {
+        return in_array($this->cycle_lead_days, array_keys(self::CYCLE_LEAD_DAYS), true)
+            ? (int) $this->cycle_lead_days
+            : self::DEFAULT_CYCLE_LEAD_DAYS;
+    }
+
+    /** The time of day the cycle notice waits for, falling back to 8am. */
+    public function cycleReminderTime(): string
+    {
+        return preg_match('/^\d{2}:\d{2}$/', (string) $this->cycle_reminder_time)
+            ? $this->cycle_reminder_time
+            : self::DEFAULT_CYCLE_REMINDER_TIME;
+    }
+
     /**
+     * The notices this person asked for, shortest lead first. A value is kept when it
+     * is one of the offered choices or a custom lead inside the feature's own window,
+     * so an amount typed in by hand survives alongside the presets.
+     *
      * @param  array<int, int>  $allowed
      * @param  array<int, int>  $fallback
      * @return array<int, int>
      */
-    private function chosenLeads(mixed $stored, array $allowed, array $fallback): array
+    private function chosenLeads(mixed $stored, array $allowed, array $fallback, int $ceiling): array
     {
         if ($stored === null) {
             return $fallback;
@@ -210,7 +331,10 @@ class User extends Authenticatable
 
         $chosen = array_map('intval', (array) $stored);
 
-        $leads = array_values(array_filter($allowed, fn (int $minutes) => in_array($minutes, $chosen, true)));
+        $leads = array_values(array_unique(array_filter(
+            $chosen,
+            fn (int $minutes) => in_array($minutes, $allowed, true) || ($minutes >= 1 && $minutes <= $ceiling)
+        )));
 
         // Shortest lead first, which is the order the notices actually arrive.
         sort($leads);
@@ -281,6 +405,11 @@ class User extends Authenticatable
     public function periodLogs()
     {
         return $this->hasMany(PeriodLog::class);
+    }
+
+    public function periodDays()
+    {
+        return $this->hasMany(PeriodDay::class);
     }
 
     public function symptomLogs()

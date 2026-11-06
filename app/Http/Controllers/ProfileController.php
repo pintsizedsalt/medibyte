@@ -56,20 +56,40 @@ class ProfileController extends Controller
             'cycle_length' => 'integer|min:20|max:45',
             'reminders_enabled' => 'boolean',
             'appointment_reminders_enabled' => 'sometimes|boolean',
-            'appointment_lead_minutes' => ['sometimes', 'array', 'max:'.count(User::APPOINTMENT_LEADS)],
-            'appointment_lead_minutes.*' => ['integer', Rule::in(array_keys(User::APPOINTMENT_LEADS))],
+            // A lead time is either one of the offered choices or a custom amount typed
+            // in by hand, so the bound is the feature's window rather than a whitelist.
+            'appointment_lead_minutes' => ['sometimes', 'array', 'max:'.(count(User::APPOINTMENT_LEADS) + User::MAX_CUSTOM_LEADS)],
+            'appointment_lead_minutes.*' => ['integer', 'between:0,'.User::CUSTOM_LEAD_CEILINGS['appointment']],
             'appointment_day_notice' => 'sometimes|boolean',
             'appointment_repeat_minutes' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(User::REPEAT_INTERVALS))],
             'medication_reminders_enabled' => 'sometimes|boolean',
-            'medication_lead_minutes' => ['sometimes', 'array', 'max:'.count(User::MEDICATION_LEADS)],
-            'medication_lead_minutes.*' => ['integer', Rule::in(array_keys(User::MEDICATION_LEADS))],
+            'medication_lead_minutes' => ['sometimes', 'array', 'max:'.(count(User::MEDICATION_LEADS) + User::MAX_CUSTOM_LEADS)],
+            'medication_lead_minutes.*' => ['integer', 'between:0,'.User::CUSTOM_LEAD_CEILINGS['medication']],
             'medication_repeat_minutes' => ['sometimes', 'nullable', 'integer', Rule::in(array_keys(User::REPEAT_INTERVALS))],
+            'cycle_reminders_enabled' => 'sometimes|boolean',
+            'cycle_lead_days' => ['sometimes', 'integer', Rule::in(array_keys(User::CYCLE_LEAD_DAYS))],
+            'cycle_reminder_time' => 'sometimes|date_format:H:i',
+            'cycle_fertile_reminder' => 'sometimes|boolean',
+            'cycle_ovulation_reminder' => 'sometimes|boolean',
+            'cycle_pms_reminder' => 'sometimes|boolean',
+            'cycle_late_reminder' => 'sometimes|boolean',
+            'cycle_daily_log_reminder' => 'sometimes|boolean',
+            'cycle_daily_log_time' => 'sometimes|nullable|date_format:H:i',
+            'cycle_pill_reminder' => 'sometimes|boolean',
+            'cycle_pill_time' => 'sometimes|nullable|date_format:H:i',
+            'cycle_discreet' => 'sometimes|boolean',
+            'cycle_paused' => 'sometimes|boolean',
+            'cycle_pause_reason' => ['sometimes', 'nullable', 'string', 'max:60'],
         ], TextField::messages(['first_name' => 'name', 'last_name' => 'name']));
 
         $data = $this->orderedLeads($data);
 
         if (($data['sex'] ?? null) === 'male') {
             $data['period_status'] = null;
+        }
+
+        if (array_key_exists('cycle_paused', $data) && ! $data['cycle_paused']) {
+            $data['cycle_pause_reason'] = null;
         }
 
         if (array_key_exists('first_name', $data) || array_key_exists('last_name', $data)) {

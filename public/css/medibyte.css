@@ -1846,23 +1846,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 }
 .settings-note { color: var(--muted); font-size: 12px; }
 
-/* Each reminder choice belongs to the feature it configures, so a group hangs
-   under its own switch instead of flattening into one long list of checkboxes. */
-.reminder-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.reminder-group-head span { font-weight: 600; }
-.reminder-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
-}
-
 .card.account-card { text-align: center; padding: 24px 16px 20px; }
 .account-card .avatar { margin: 0 auto 12px; }
 .account-card h3 { overflow-wrap: anywhere; font-size: 20px; }
@@ -2505,7 +2488,6 @@ body.drawer-open #drawerScrim { display: block; }
 
 @media (max-width: 520px) {
   .dash-heading, .page-heading { flex-direction: column; }
-  .reminder-options { grid-template-columns: 1fr; }
   .btn-quick span { display: none; }
   .btn-quick {
     width: 36px;
@@ -6034,4 +6016,707 @@ body.reminder-open { overflow: hidden; }
   .reminder-orb,
   .reminder-spark { animation: none; }
   .reminder-close:hover { transform: none; }
+}
+
+/* =========================================================
+   Phase 14 — medication dose times
+   A schedule is a set of picked times rather than one text box. The slots share
+   the width of the field so the row reads as a group of controls, the same size
+   and finish as every other input on the form.
+   ========================================================= */
+.time-list-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.time-slot .time-slot-input { width: 100%; min-width: 0; }
+.time-slot-remove {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--card-line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.time-slot-remove:hover { color: var(--danger); border-color: var(--danger); }
+.time-slot-remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.time-list-add { margin-top: 8px; align-self: flex-start; }
+
+@media (max-width: 420px) {
+  .time-list-slots { grid-template-columns: 1fr; }
+}
+
+/* =========================================================
+   Phase 15 — records read as cards
+   Each record gets its own rounded card so a scan of the week breaks into
+   separate entries. Scoped to .history-card, which the Documents list and the
+   notification inbox do not use.
+   ========================================================= */
+.history-card .record-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 12px;
+}
+.history-card .record {
+  padding: 14px 16px;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: var(--row-bg);
+  box-shadow: 0 4px 14px rgba(63, 91, 208, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.history-card .record:first-child,
+.history-card .record:last-child {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  border-top: 1px solid var(--card-line);
+}
+.history-card .record.is-clickable { cursor: pointer; }
+.history-card .record.is-clickable:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 20px rgba(63, 91, 208, 0.1);
+  transform: translateY(-1px);
+}
+.history-card .record.is-clickable:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* A name that will not fit stops short with an ellipsis rather than spilling
+   into three lines of a card. */
+.history-card .record-main strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.history-card .record-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-card .record-menu-toggle { flex: 0 0 auto; }
+
+html[data-theme="dark"] .history-card .record { box-shadow: var(--shadow-sm); }
+
+@media (max-width: 560px) {
+  .history-card .record-list { grid-template-columns: 1fr; }
+}
+
+/* =========================================================
+   Phase 16 — the record menu and its detail card
+   Edit and delete live behind the three dots now, so a card carries one control
+   instead of two, and the whole card opens the record.
+   ========================================================= */
+.record-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 190px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 12px 30px rgba(63, 91, 208, 0.18);
+}
+.record-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.record-menu button .icon { width: 16px; height: 16px; color: var(--muted); }
+.record-menu button:hover,
+.record-menu button:focus-visible { background: var(--soft); outline: none; }
+.record-menu button.danger { color: var(--danger); }
+.record-menu button.danger .icon { color: var(--danger); }
+
+/* The detail card reuses the reminder card, so its text link is a real button. */
+button.reminder-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+button.reminder-link.record-delete { color: var(--danger); }
+
+/* =========================================================
+   Phase 17 — reminder settings as separated glass cards
+   The settings cards carry their own class so they do not inherit the
+   notification popup's width cap, centred text and bobbing animation.
+   ========================================================= */
+
+.reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.reminder-panel {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border-color: rgba(var(--glass-rgb), 0.85);
+  background:
+    linear-gradient(160deg, rgba(var(--glass-rgb), 0.78) 0%, rgba(var(--glass-rgb), 0.5) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.95) inset,
+    0 6px 20px rgba(var(--ink-rgb), 0.07);
+}
+
+.reminder-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.reminder-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  background: var(--tint, var(--soft));
+  color: var(--tn, var(--ink));
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.45) inset,
+    0 4px 10px rgba(var(--ink-rgb), 0.12);
+}
+.reminder-icon .icon { width: 22px; height: 22px; stroke-width: 1.9; }
+.reminder-head-text { flex: 1; min-width: 0; }
+.reminder-head-text h3 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+.reminder-head-text p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.reminder-head-text .eyebrow { margin: 0 0 2px; }
+
+.switch-compact {
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  gap: 0;
+}
+.switch-compact:hover { border-color: transparent; }
+
+.reminder-body { margin-top: 18px; }
+
+/* A card switched off, either on its own or from the inbox above it, is dimmed and
+   its controls are disabled by the page so nothing can be set by keyboard either. */
+.reminder-panel.is-muted .reminder-body { opacity: 0.45; }
+
+/* A time field that belongs to a daily/pill toggle sits tucked under the row's
+   label instead of stretching the width of the card. */
+.cycle-time-row {
+  margin: -6px 0 14px 62px;
+  max-width: 220px;
+}
+.cycle-time-row .field { margin-bottom: 0; }
+
+.lead-group { margin-top: 18px; }
+.lead-group:first-child { margin-top: 0; }
+.lead-group h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.repeat-hint { margin: -4px 0 10px; color: var(--muted); font-size: 12px; }
+
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+/* Each reminder is a pill you tap, the way the reference puts them on raised glass.
+   The tone of the card decides the fill, so the feature keeps its own accent. */
+.chip { position: relative; }
+.chip input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.chip span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 10px 14px;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 65%, var(--row-bg));
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+  box-shadow: 0 1px 0 rgba(var(--glass-rgb), 0.9) inset;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.chip span::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--card);
+}
+.chip input:checked + span {
+  border-color: var(--tn, var(--ink));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tone, var(--brand)) 82%, var(--card)) 0%, var(--tn, var(--ink)) 100%);
+  color: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.4) inset,
+    0 4px 10px rgba(var(--ink-rgb), 0.2);
+}
+.chip input:checked + span::before {
+  content: "\2713";
+  display: grid;
+  place-items: center;
+  border-color: var(--card);
+  background: var(--card);
+  color: var(--tn, var(--ink));
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+.chip input:active + span { transform: scale(0.98); }
+.chip input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.chip-custom span { padding-right: 44px; }
+.chip-remove {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: 1px solid var(--card-line);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chip-remove:hover { color: var(--danger); border-color: var(--danger); }
+.chip-remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.custom-add { margin-top: 10px; }
+
+.custom-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--soft) 55%, var(--card));
+}
+.custom-form .custom-amount { grid-column: 1; }
+.custom-form .custom-unit { grid-column: 2; }
+.custom-suffix {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.custom-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 13px; }
+.custom-actions { grid-column: 1 / -1; justify-content: flex-end; }
+
+/* Segmented repeat control: one raised slot per rate the server accepts. */
+.seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 6px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--soft) 75%, var(--card));
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.07) inset;
+}
+.seg-item { position: relative; }
+.seg-item input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.seg-item span {
+  display: block;
+  padding: 10px 6px;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.seg-item input:checked + span {
+  color: var(--tn, var(--ink));
+  background: var(--card);
+  box-shadow:
+    0 1px 0 rgba(var(--glass-rgb), 0.9) inset,
+    0 2px 6px rgba(var(--ink-rgb), 0.14);
+}
+.seg-item input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.reminder-summary {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--soft) 45%, var(--card));
+  color: var(--text);
+  font-size: 13px;
+}
+.reminder-summary:empty { display: none; }
+
+html[data-theme="dark"] .reminder-panel {
+  border-color: rgba(var(--line-rgb), 0.9);
+  background: linear-gradient(160deg, rgba(var(--glass-rgb), 0.7) 0%, rgba(var(--glass-rgb), 0.42) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    var(--shadow-sm);
+}
+html[data-theme="dark"] .chip input:checked + span { color: var(--tn, var(--ink)); }
+html[data-theme="dark"] .chip input:checked + span::before { color: var(--tn, var(--ink)); }
+html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card) 70%, transparent); }
+
+@media (max-width: 720px) {
+  .reminder-panel { padding: 16px; }
+  .reminder-head { align-items: flex-start; }
+  .custom-form { grid-template-columns: 1fr; }
+  .custom-form .custom-amount,
+  .custom-form .custom-unit { grid-column: 1; }
+}
+
+@media (max-width: 520px) {
+  .chip-grid { grid-template-columns: 1fr; }
+  .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* =========================================================
+   Phase 18 — cycle dashboard
+   ========================================================= */
+.cycle-dash {
+  --cyc-fertile: #2f9e6b;
+  --cyc-fertile-tint: #dcefe3;
+  --cyc-fertile-deep: #1d6b3f;
+  display: grid;
+  gap: 16px;
+}
+.cycle-dash[hidden] { display: none; }
+.cycle-dash .btn-primary {
+  border-color: var(--tn);
+  background: var(--tone);
+  box-shadow: 0 4px 12px rgba(154, 47, 88, 0.25);
+}
+.cycle-dash .btn-primary:hover { box-shadow: 0 6px 16px rgba(154, 47, 88, 0.32); }
+
+.cycle-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+.cyc-card { display: flex; flex-direction: column; }
+
+/* Week strip */
+.cyc-week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.cyc-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  background: rgba(var(--glass-rgb), 0.6);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.cyc-day:hover { border-color: var(--tone); transform: translateY(-1px); }
+.cyc-day-dow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cyc-day-num { font-size: 16px; font-weight: 700; line-height: 1; }
+.cyc-day.today {
+  border-color: var(--tone);
+  background: linear-gradient(165deg, var(--card) 0%, var(--tint) 100%);
+}
+.cyc-day.today .cyc-day-num { color: var(--tn); }
+.cyc-day-dots { display: flex; gap: 3px; min-height: 6px; }
+.cyc-dot { width: 6px; height: 6px; border-radius: 50%; }
+.cyc-dot.period { background: var(--tone); }
+.cyc-dot.log { background: var(--muted); }
+
+/* Cycle ring */
+.cyc-ring-card {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+.cyc-ring { position: relative; width: 200px; height: 200px; }
+.cyc-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.cyc-ring-track { stroke: var(--tint); }
+.cyc-ring-bar { stroke: var(--tone); transition: stroke-dashoffset 0.5s ease, opacity 0.3s ease; }
+.cyc-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 26px;
+}
+.cyc-ring-day {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--tn);
+}
+.cyc-ring-sub { font-size: 13px; font-weight: 600; color: var(--muted); }
+.cyc-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--tn);
+  font-size: 12px;
+  font-weight: 700;
+}
+.cyc-ring-msg { max-width: 320px; margin: 0; color: var(--muted); font-size: 13.5px; }
+.cyc-ring-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* Calendar */
+.cyc-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.cyc-cal-nav { display: flex; align-items: center; gap: 6px; }
+.cyc-cal-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.cyc-cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+.cyc-cal-dow span {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cyc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cyc-cal-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border: 1px solid rgba(var(--line-rgb), 0.55);
+  border-radius: 12px;
+  background: rgba(var(--glass-rgb), 0.45);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.cyc-cal-cell.muted { border-color: transparent; background: transparent; cursor: default; }
+.cyc-cal-cell:hover { border-color: var(--tone); }
+.cyc-cal-cell.period { background: var(--tint); border-color: var(--tone); color: var(--tn); }
+.cyc-cal-cell.predicted {
+  background: color-mix(in srgb, var(--tint) 45%, transparent);
+  border-style: dashed;
+  border-color: var(--tone);
+}
+.cyc-cal-cell.fertile {
+  background: var(--cyc-fertile-tint);
+  border-color: color-mix(in srgb, var(--cyc-fertile) 40%, transparent);
+}
+.cyc-cal-cell.ovulation { border-color: var(--cyc-fertile); }
+.cyc-cell-ov {
+  position: absolute;
+  bottom: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyc-fertile);
+}
+.cyc-cal-cell.today { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(var(--ink-rgb), 0.16); }
+.cyc-cal-cell.sel { outline: 2px solid var(--tone); outline-offset: 1px; }
+
+/* Legend */
+.cyc-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.cyc-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cyc-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.cyc-legend-dot.period { background: var(--tint); border: 1px solid var(--tone); }
+.cyc-legend-dot.log { background: var(--muted); }
+.cyc-legend-dot.predicted { background: transparent; border: 1px dashed var(--tone); }
+.cyc-legend-dot.fertile { background: var(--cyc-fertile-tint); border: 1px solid var(--cyc-fertile); }
+.cyc-legend-dot.ovulation { background: var(--cyc-fertile); }
+.cyc-legend-dot.today { background: var(--ink); }
+
+/* Late / paused banner */
+.cyc-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e6b8b2;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--tint) 60%, var(--card));
+}
+.cyc-banner[hidden] { display: none; }
+.cyc-banner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--tint);
+  color: var(--tn);
+}
+.cyc-banner-icon .icon { width: 19px; height: 19px; }
+.cyc-banner-copy { flex: 1; min-width: 0; }
+.cyc-banner-copy strong { display: block; font-size: 14px; color: var(--tn); }
+.cyc-banner-copy p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.cyc-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Summary cards */
+.cyc-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.cyc-stat { padding: 16px; border: 1px solid var(--card-line); border-radius: 18px; background: var(--card); }
+.cyc-stat-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cyc-stat-value { display: block; margin-top: 4px; font-size: 16px; font-weight: 800; color: var(--text); }
+.cyc-stat-sub { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* For you today */
+.cyc-for-you { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cyc-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+a.cyc-action:hover { border-color: var(--tone); transform: translateY(-1px); }
+.cyc-action-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--tint);
+  color: var(--tn);
+}
+.cyc-action-ic .icon { width: 19px; height: 19px; }
+.cyc-action-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cyc-action-copy strong { font-size: 14px; }
+.cyc-action-copy small { font-size: 12px; color: var(--muted); }
+
+/* Period list rows */
+.cyc-period-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: rgba(var(--glass-rgb), 0.7);
+}
+.cyc-period-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cyc-period-meta strong { font-size: 14px; }
+.cyc-period-meta span { font-size: 12px; color: var(--muted); }
+.cyc-period-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+
+.cyc-spacer { flex: 1; }
+
+@media (max-width: 900px) {
+  .cycle-hero { grid-template-columns: 1fr; }
+  .cyc-summary { grid-template-columns: repeat(2, 1fr); }
+  .cyc-for-you { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .cyc-summary { grid-template-columns: 1fr; }
+  .cyc-cal-cell { height: 38px; }
+  .cyc-cal-head { flex-wrap: wrap; }
 }

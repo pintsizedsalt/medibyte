@@ -18,11 +18,11 @@ logPage({
   tone: 'plum',
   url: '/medications',
   formTitle: 'Add a medication',
-  formNote: 'Use 24-hour times separated by commas, for example 08:00, 20:00.',
+  formNote: 'Pick the time of each dose and add another for every time you take it. Clear a time to drop it. A reminder follows this list.',
   fields: [
     ['name', 'Medication name', 'text'],
     ['dosage_amount', 'Dosage (as prescribed)', 'dose', ['mcg', 'mg', 'g', 'mL', 'L', 'IU', 'mg/mL', 'tablet', 'capsule', 'puff', 'spray', 'drop', 'patch']],
-    ['times', 'Times (24-hour, separated by commas)', 'list', null, null, 'e.g. 08:00, 20:00'],
+    ['times', 'Dose times', 'timelist'],
     ['food_instruction', 'Food instruction', 'select', ['anytime', 'before_meal', 'after_meal', 'with_meal']],
     ['start_date', 'Start date', 'today'],
     ['end_date', 'End date (optional)', 'date'],
@@ -31,7 +31,7 @@ logPage({
   ],
   value: r => r.name + (r.dosage ? ' · ' + r.dosage : ''),
   meta: r => [
-    r.times && r.times.length ? r.times.join(', ') : null,
+    r.times && r.times.length ? r.times.map(clockLabel).join(' · ') : null,
     (r.food_instruction || 'anytime').replace(/_/g, ' '),
     r.is_active === false ? 'Inactive' : null
   ].filter(Boolean).join(' · ')

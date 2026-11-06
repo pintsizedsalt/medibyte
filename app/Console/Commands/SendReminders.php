@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Medication;
 use App\Models\User;
 use App\Notifications\HealthReminder;
+use App\Support\CyclePrediction;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -21,6 +22,12 @@ class SendReminders extends Command
      * was due, so a forgotten 8am tablet does not go on asking until midnight.
      */
     private const MEDICATION_LATE_MINUTES = 180;
+
+    /** The PMS notice leads the predicted period by a week. */
+    private const PMS_LEAD_DAYS = 7;
+
+    /** A period more than a week late earns a gentle prompt to see a doctor. */
+    private const DOCTOR_LATE_DAYS = 7;
 
     public function handle(): int
     {
@@ -54,7 +61,9 @@ class SendReminders extends Command
 
         return $this->sendAppointmentReminders($user, $now, $since)
             + $this->sendMedicationReminders($user, $now, $since)
-            + $this->sendSymptomCheckIn($user, $now);
+            + $this->sendSymptomCheckIn($user, $now)
+            + $this->sendCycleReminders($user, $now)
+            + $this->sendDailyCycleNudges($user, $now);
     }
 
     private function lastSweepAt(Carbon $now): Carbon
@@ -295,6 +304,228 @@ class SendReminders extends Command
     }
 
     /**
+     * Cycle reminders are anchored to the predicted next period, so a notice is
+     * keyed by the predicted date and sent once: when the prediction shifts after
+     * a period is logged or edited, the next sweep anchors to the new date instead.
+     */
+    private function sendCycleReminders(User $user, Carbon $now): int
+    {
+        if (! $user->cycle_reminders_enabled || ! $user->show_period_tracker || $user->cycle_paused) {
+            return 0;
+        }
+
+        $prediction = CyclePrediction::predict(
+            $user->periodLogs()->orderBy('start_date')->pluck('start_date')->all(),
+            (int) ($user->cycle_length ?? 28),
+            $now
+        );
+
+        $next = $prediction['predicted_next_start'];
+
+        if ($next === null) {
+            return 0;
+        }
+
+        $sent = 0;
+        $nextDate = Carbon::parse($next);
+        $time = $user->cycleReminderTime();
+
+        // The core notice: a chosen number of days before, never after the day it
+        // predicted, because a late period is a different message entirely.
+        $dueAt = $nextDate->copy()->subDays($user->cycleLeadDays())->setTimeFromTimeString($time);
+
+        if ($now->greaterThanOrEqualTo($dueAt) && $now->lessThanOrEqualTo($nextDate->copy()->endOfDay())) {
+            if ($this->remind($user, 'cycle:'.$next.':due', $this->cyclePayload($user, $prediction, 'due', $now))) {
+                $sent++;
+            }
+        }
+
+        if ($user->cycle_fertile_reminder && $prediction['fertile_start'] !== null) {
+            $fertileStart = Carbon::parse($prediction['fertile_start'])->setTimeFromTimeString($time);
+            $fertileEnd = Carbon::parse($prediction['fertile_end'])->endOfDay();
+
+            if ($now->greaterThanOrEqualTo($fertileStart) && $now->lessThanOrEqualTo($fertileEnd)) {
+                if ($this->remind($user, 'cycle:'.$next.':fertile', $this->cyclePayload($user, $prediction, 'fertile', $now))) {
+                    $sent++;
+                }
+            }
+        }
+
+        if ($user->cycle_ovulation_reminder && $prediction['ovulation_date'] !== null) {
+            $ovulation = Carbon::parse($prediction['ovulation_date'])->setTimeFromTimeString($time);
+
+            if ($now->greaterThanOrEqualTo($ovulation) && $now->lessThanOrEqualTo($ovulation->copy()->endOfDay())) {
+                if ($this->remind($user, 'cycle:'.$next.':ovulation', $this->cyclePayload($user, $prediction, 'ovulation', $now))) {
+                    $sent++;
+                }
+            }
+        }
+
+        if ($user->cycle_pms_reminder) {
+            $pmsAt = $nextDate->copy()->subDays(self::PMS_LEAD_DAYS)->setTimeFromTimeString($time);
+
+            if ($now->greaterThanOrEqualTo($pmsAt) && $now->lessThanOrEqualTo($nextDate->copy()->endOfDay())) {
+                if ($this->remind($user, 'cycle:'.$next.':pms', $this->cyclePayload($user, $prediction, 'pms', $now))) {
+                    $sent++;
+                }
+            }
+        }
+
+        if ($user->cycle_late_reminder && $prediction['is_late']) {
+            if ($this->remind($user, 'cycle:'.$next.':late', $this->cyclePayload($user, $prediction, 'late', $now))) {
+                $sent++;
+            }
+        }
+
+        if ($prediction['is_late'] && $prediction['days_late'] >= self::DOCTOR_LATE_DAYS) {
+            if ($this->remind($user, 'cycle:'.$next.':doctor', $this->cyclePayload($user, $prediction, 'doctor', $now))) {
+                $sent++;
+            }
+        }
+
+        return $sent;
+    }
+
+    /**
+     * The cycle card's two daily nudges are not tied to a prediction, so they keep
+     * their own clock: a birth-control pill at its time, and a symptom-log prompt at
+     * its time on days nothing has been logged. Both are keyed by the day they land
+     * on, so each fires once and a pause in predictions never silences them.
+     */
+    private function sendDailyCycleNudges(User $user, Carbon $now): int
+    {
+        if (! $user->cycle_reminders_enabled || ! $user->show_period_tracker) {
+            return 0;
+        }
+
+        $sent = 0;
+        $today = $now->toDateString();
+
+        if ($user->cycle_pill_reminder && $user->cycle_pill_time) {
+            $pillAt = $now->copy()->startOfDay()->setTimeFromTimeString($user->cycle_pill_time);
+
+            if ($now->greaterThanOrEqualTo($pillAt)) {
+                if ($this->remind($user, 'cycle-pill:'.$today, $this->cycleNudgePayload($user, 'pill', $now))) {
+                    $sent++;
+                }
+            }
+        }
+
+        if ($user->cycle_daily_log_reminder && $user->cycle_daily_log_time) {
+            $logAt = $now->copy()->startOfDay()->setTimeFromTimeString($user->cycle_daily_log_time);
+
+            if ($now->greaterThanOrEqualTo($logAt) && ! $user->symptomLogs()->whereDate('log_date', $today)->exists()) {
+                if ($this->remind($user, 'cycle-daily:'.$today, $this->cycleNudgePayload($user, 'daily_log', $now))) {
+                    $sent++;
+                }
+            }
+        }
+
+        return $sent;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cycleNudgePayload(User $user, string $kind, Carbon $now): array
+    {
+        if ((bool) $user->cycle_discreet) {
+            return $this->discreetCyclePayload($kind);
+        }
+
+        $payloads = [
+            'pill' => [
+                'kind' => 'cycle',
+                'title' => 'Birth control pill',
+                'body' => 'Time to take your pill.',
+                'url' => '/medications',
+            ],
+            'daily_log' => [
+                'kind' => 'cycle',
+                'title' => 'Daily symptom log',
+                'body' => 'Take a moment to log how you feel today.',
+                'url' => '/symptoms',
+            ],
+        ];
+
+        return $payloads[$kind];
+    }
+
+    /**
+     * @param  array<string, mixed>  $prediction
+     * @return array<string, mixed>
+     */
+    private function cyclePayload(User $user, array $prediction, string $kind, Carbon $now): array
+    {
+        if ((bool) $user->cycle_discreet) {
+            return $this->discreetCyclePayload($kind);
+        }
+
+        $next = $prediction['predicted_next_start'];
+        $days = (int) $now->startOfDay()->diffInDays(Carbon::parse($next)->startOfDay(), false);
+
+        $payloads = [
+            'due' => [
+                'kind' => 'cycle',
+                'title' => $days === 0
+                    ? 'Your period is expected today'
+                    : 'Your period is expected in '.$days.' day'.($days === 1 ? '' : 's'),
+                'body' => 'Predicted for '.$this->longDate($next).'. Log your period when it starts to keep the prediction accurate.',
+            ],
+            'fertile' => [
+                'kind' => 'cycle',
+                'title' => 'Your fertile window begins',
+                'body' => 'Your fertile window runs '.$this->dateRange($prediction['fertile_start'], $prediction['fertile_end']).'.',
+            ],
+            'ovulation' => [
+                'kind' => 'cycle',
+                'title' => 'Your predicted ovulation day',
+                'body' => 'Today is your predicted ovulation day.',
+            ],
+            'pms' => [
+                'kind' => 'cycle',
+                'title' => 'Your PMS window may be starting',
+                'body' => 'Your period is expected in about a week. Note how you feel over the coming days.',
+            ],
+            'late' => [
+                'kind' => 'cycle',
+                'title' => 'Your period is '.$prediction['days_late'].' day'.($prediction['days_late'] === 1 ? '' : 's').' late',
+                'body' => 'Your period was expected '.$this->longDate($next).'. Cycles vary — take it easy, and consider logging a pregnancy test if this is unusual for you.',
+            ],
+            'doctor' => [
+                'kind' => 'cycle',
+                'title' => 'Consider checking in with a doctor',
+                'body' => 'Your period is '.$prediction['days_late'].' days late. If this is unusual for you, a doctor can help.',
+            ],
+        ];
+
+        return $payloads[$kind] + ['url' => '/period', 'predicted_date' => $next];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function discreetCyclePayload(string $kind): array
+    {
+        return [
+            'kind' => 'cycle',
+            'title' => 'Health reminder',
+            'body' => 'You have a private health update. Open MediByte to view it.',
+            'url' => '/period',
+        ];
+    }
+
+    private function longDate(string $date): string
+    {
+        return Carbon::parse($date)->format('D j M Y');
+    }
+
+    private function dateRange(?string $start, ?string $end): string
+    {
+        return $this->longDate((string) $start).' to '.$this->longDate((string) $end);
+    }
+
+    /**
      * The notice the inbox opens. A null lead is the one sent on the day itself.
      *
      * @return array<string, mixed>
@@ -369,15 +600,29 @@ class SendReminders extends Command
         ];
     }
 
+    /**
+     * How far ahead of the dose the notice sits. A custom lead is spelled out in full,
+     * because ninety minutes rounded to "1 hour" would tell the person the wrong thing.
+     */
     private function leadAhead(int $minutes): string
     {
         if ($minutes < 60) {
             return 'in '.$minutes.' minute'.($minutes === 1 ? '' : 's');
         }
 
-        $hours = intdiv($minutes, 60);
+        if ($minutes < 1440) {
+            $hours = intdiv($minutes, 60);
+            $rest = $minutes % 60;
 
-        return 'in '.$hours.' hour'.($hours === 1 ? '' : 's');
+            return 'in '.$hours.' hour'.($hours === 1 ? '' : 's')
+                .($rest ? ' '.$rest.' minute'.($rest === 1 ? '' : 's') : '');
+        }
+
+        $days = intdiv($minutes, 1440);
+        $rest = intdiv($minutes % 1440, 60);
+
+        return 'in '.$days.' day'.($days === 1 ? '' : 's')
+            .($rest ? ' '.$rest.' hour'.($rest === 1 ? '' : 's') : '');
     }
 
     /** The gap between now and the appointment, left blank once it has arrived. */
