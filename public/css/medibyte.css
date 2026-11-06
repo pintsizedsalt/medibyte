@@ -1119,6 +1119,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   margin-bottom: 14px;
 }
 .span-full { grid-column: 1 / -1; }
+/* Any field that the JS marks data-grid-full="1" should span both columns
+   so it stretches the full width of the form — matching its label alignment. */
+.form-grid [data-grid-full] { grid-column: 1 / -1; }
 
 .form-note, .form-card-note {
   margin: 2px 0 0;
