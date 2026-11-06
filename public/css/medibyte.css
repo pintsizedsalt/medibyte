@@ -1119,6 +1119,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
   margin-bottom: 14px;
 }
 .span-full { grid-column: 1 / -1; }
+/* Any field that the JS marks data-grid-full="1" should span both columns
+   so it stretches the full width of the form — matching its label alignment. */
+.form-grid [data-grid-full] { grid-column: 1 / -1; }
 
 .form-note, .form-card-note {
   margin: 2px 0 0;
@@ -4650,6 +4653,12 @@ select.cselect-native {
 .form-grid-action .btn,
 .custom-mood-form .btn { height: var(--control-h); }
 
+/* Compact prompt modals (rename, single-input dialogs) — tighten the gap
+   between the name label/input and the Save/Cancel row so the modal looks
+   balanced rather than leaving a big empty stretch above the buttons. */
+.log-form-dialog .log-modal-body .field { margin-bottom: 6px; }
+.log-form-dialog .log-modal-body .form-card-note { margin-bottom: 10px; }
+
 /* Records toolbar must never spill off a phone screen */
 @media (max-width: 620px) {
   .card-head { flex-wrap: wrap; row-gap: 8px; }
@@ -6020,13 +6029,14 @@ body.reminder-open { overflow: hidden; }
 
 /* =========================================================
    Phase 14 — medication dose times
-   A schedule is a set of picked times rather than one text box. The slots share
-   the width of the field so the row reads as a group of controls, the same size
-   and finish as every other input on the form.
+   A schedule is a set of picked times rather than one text box. Each slot
+   stretches the full width of the field (same as the medication name input)
+   and stacks under the previous one when "+ Add another time" is clicked.
+   The first slot never shows a remove button — only extra rows get one.
    ========================================================= */
 .time-list-slots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 .time-slot {
@@ -6035,6 +6045,8 @@ body.reminder-open { overflow: hidden; }
   gap: 6px;
 }
 .time-slot .time-slot-input { width: 100%; min-width: 0; }
+/* Hide the × button on the first dose-time row; show it on every extra row. */
+.time-slot:first-child .time-slot-remove { display: none; }
 .time-slot-remove {
   flex: 0 0 auto;
   display: grid;
@@ -6054,10 +6066,6 @@ body.reminder-open { overflow: hidden; }
 .time-slot-remove:hover { color: var(--danger); border-color: var(--danger); }
 .time-slot-remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .time-list-add { margin-top: 8px; align-self: flex-start; }
-
-@media (max-width: 420px) {
-  .time-list-slots { grid-template-columns: 1fr; }
-}
 
 /* =========================================================
    Phase 15 — records read as cards
@@ -6177,7 +6185,10 @@ button.reminder-link.record-delete { color: var(--danger); }
 
 .reminder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  /* Wider minimum so each card is "fatter" and fills the space evenly.
+     repeat(auto-fit, …) instead of auto-fill collapses empty columns,
+     so 2 cards share the row equally and 3 cards each take ⅓. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -6446,27 +6457,31 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
 }
 
 /* =========================================================
-   Phase 18 — cycle dashboard
+   Phase 18 — cycle dashboard (Flo style redesign)
    ========================================================= */
 .cycle-dash {
-  --cyc-fertile: #2f9e6b;
-  --cyc-fertile-tint: #dcefe3;
-  --cyc-fertile-deep: #1d6b3f;
+  --cyc-fertile: #8c68f5;
+  --cyc-fertile-tint: rgba(140, 104, 245, 0.15);
+  --cyc-fertile-deep: #5e3cc4;
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 .cycle-dash[hidden] { display: none; }
 .cycle-dash .btn-primary {
   border-color: var(--tn);
-  background: var(--tone);
-  box-shadow: 0 4px 12px rgba(154, 47, 88, 0.25);
+  background: linear-gradient(135deg, #f768b8 0%, #d63384 100%);
+  box-shadow: 0 4px 14px rgba(214, 51, 132, 0.3);
+  color: #ffffff;
 }
-.cycle-dash .btn-primary:hover { box-shadow: 0 6px 16px rgba(154, 47, 88, 0.32); }
+.cycle-dash .btn-primary:hover {
+  box-shadow: 0 6px 18px rgba(214, 51, 132, 0.4);
+  transform: translateY(-1px);
+}
 
-.cycle-hero {
+.cycle-hero-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 20px;
   align-items: stretch;
 }
 .cyc-card { display: flex; flex-direction: column; }
@@ -6475,7 +6490,9 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
 .cyc-week-strip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
 }
 .cyc-day {
   position: relative;
@@ -6486,7 +6503,7 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
   padding: 10px 4px 8px;
   border: 1px solid var(--card-line);
   border-radius: 16px;
-  background: rgba(var(--glass-rgb), 0.6);
+  background: rgba(var(--glass-rgb), 0.5);
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
@@ -6502,25 +6519,36 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
 .cyc-day-num { font-size: 16px; font-weight: 700; line-height: 1; }
 .cyc-day.today {
   border-color: var(--tone);
-  background: linear-gradient(165deg, var(--card) 0%, var(--tint) 100%);
+  background: linear-gradient(165deg, rgba(var(--glass-rgb), 0.9) 0%, var(--tint) 100%);
+  box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.08);
 }
 .cyc-day.today .cyc-day-num { color: var(--tn); }
 .cyc-day-dots { display: flex; gap: 3px; min-height: 6px; }
 .cyc-dot { width: 6px; height: 6px; border-radius: 50%; }
-.cyc-dot.period { background: var(--tone); }
+.cyc-dot.period { background: #e03e8f; }
 .cyc-dot.log { background: var(--muted); }
 
-/* Cycle ring */
+/* Cycle ring card */
 .cyc-ring-card {
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   text-align: center;
-  gap: 12px;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 24px;
 }
-.cyc-ring { position: relative; width: 200px; height: 200px; }
+.cyc-ring {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 6px 0;
+}
 .cyc-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.cyc-ring-track { stroke: var(--tint); }
-.cyc-ring-bar { stroke: var(--tone); transition: stroke-dashoffset 0.5s ease, opacity 0.3s ease; }
+.cyc-ring-track { stroke: rgba(var(--line-rgb), 0.5); }
+.cyc-ring-ticks { color: var(--muted); }
+.cyc-ring-bar {
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
 .cyc-ring-center {
   position: absolute;
   inset: 0;
@@ -6528,11 +6556,11 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 0 26px;
+  gap: 4px;
+  padding: 0 22px;
 }
 .cyc-ring-day {
-  font-size: 25px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.1;
@@ -6547,61 +6575,182 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
   border-radius: 999px;
   background: var(--tint);
   color: var(--tn);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.05);
 }
-.cyc-ring-msg { max-width: 320px; margin: 0; color: var(--muted); font-size: 13.5px; }
+.cyc-ring-msg {
+  max-width: 420px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
 .cyc-ring-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 
+/* Summary cards (Flo style vibrant cards) */
+.cyc-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.cyc-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cyc-stat:hover { transform: translateY(-2px); }
+
+.cyc-stat-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.cyc-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.cyc-stat-icon .icon { width: 17px; height: 17px; stroke: #ffffff; }
+.cyc-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.01em;
+}
+.cyc-stat-value {
+  font-size: 21px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.cyc-stat-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 4px;
+}
+
+/* Card 1: Next period (Sky / Cyan gradient) */
+.cyc-stat-next {
+  background: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
+  box-shadow: 0 8px 22px rgba(52, 152, 219, 0.28), 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+/* Card 2: Fertile window (Pink / Magenta gradient) */
+.cyc-stat-fertile {
+  background: linear-gradient(135deg, #f768b8 0%, #e0338f 100%);
+  box-shadow: 0 8px 22px rgba(224, 51, 143, 0.28), 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+/* Card 3: Ovulation (Coral / Peach gradient) */
+.cyc-stat-ovulation {
+  background: linear-gradient(135deg, #ff8e75 0%, #f15b4c 100%);
+  box-shadow: 0 8px 22px rgba(241, 91, 76, 0.28), 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+/* Card 4: Cycle day (Lavender / Purple gradient) */
+.cyc-stat-day {
+  background: linear-gradient(135deg, #9b87fc 0%, #765cf2 100%);
+  box-shadow: 0 8px 22px rgba(118, 92, 242, 0.28), 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+/* Dark mode summary cards */
+html[data-theme="dark"] .cyc-stat-next {
+  background: linear-gradient(135deg, rgba(30, 95, 175, 0.85) 0%, rgba(18, 55, 120, 0.9) 100%);
+  border-color: rgba(93, 173, 226, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(52, 152, 219, 0.22);
+}
+html[data-theme="dark"] .cyc-stat-fertile {
+  background: linear-gradient(135deg, rgba(180, 35, 110, 0.85) 0%, rgba(115, 18, 70, 0.9) 100%);
+  border-color: rgba(247, 104, 184, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(224, 51, 143, 0.22);
+}
+html[data-theme="dark"] .cyc-stat-ovulation {
+  background: linear-gradient(135deg, rgba(195, 65, 45, 0.85) 0%, rgba(125, 30, 20, 0.9) 100%);
+  border-color: rgba(255, 142, 117, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(241, 91, 76, 0.22);
+}
+html[data-theme="dark"] .cyc-stat-day {
+  background: linear-gradient(135deg, rgba(95, 70, 195, 0.85) 0%, rgba(55, 35, 135, 0.9) 100%);
+  border-color: rgba(155, 135, 252, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(118, 92, 242, 0.22);
+}
+
 /* Calendar */
+.cyc-calendar-card {
+  padding: 22px;
+  border-radius: 24px;
+}
 .cyc-cal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .cyc-cal-nav { display: flex; align-items: center; gap: 6px; }
-.cyc-cal-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
-.cyc-cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+.cyc-cal-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+.cyc-cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
 .cyc-cal-dow span {
   padding: 4px 0;
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.cyc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cyc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .cyc-cal-cell {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
+  height: 46px;
   border: 1px solid rgba(var(--line-rgb), 0.55);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(var(--glass-rgb), 0.45);
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.14s ease, background 0.14s ease;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
 }
 .cyc-cal-cell.muted { border-color: transparent; background: transparent; cursor: default; }
-.cyc-cal-cell:hover { border-color: var(--tone); }
-.cyc-cal-cell.period { background: var(--tint); border-color: var(--tone); color: var(--tn); }
+.cyc-cal-cell:hover:not(.muted) { border-color: var(--tone); transform: scale(1.04); }
+.cyc-cal-cell.period {
+  background: rgba(247, 104, 184, 0.22);
+  border-color: #f768b8;
+  color: var(--tn);
+  font-weight: 700;
+}
 .cyc-cal-cell.predicted {
-  background: color-mix(in srgb, var(--tint) 45%, transparent);
+  background: rgba(247, 104, 184, 0.1);
   border-style: dashed;
-  border-color: var(--tone);
+  border-color: #f768b8;
 }
 .cyc-cal-cell.fertile {
   background: var(--cyc-fertile-tint);
   border-color: color-mix(in srgb, var(--cyc-fertile) 40%, transparent);
 }
-.cyc-cal-cell.ovulation { border-color: var(--cyc-fertile); }
+.cyc-cal-cell.ovulation {
+  border-color: var(--cyc-fertile);
+  background: rgba(140, 104, 245, 0.25);
+}
 .cyc-cell-ov {
   position: absolute;
   bottom: 5px;
@@ -6610,16 +6759,19 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
   border-radius: 50%;
   background: var(--cyc-fertile);
 }
-.cyc-cal-cell.today { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(var(--ink-rgb), 0.16); }
+.cyc-cal-cell.today {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(var(--ink-rgb), 0.18);
+  font-weight: 800;
+}
 .cyc-cal-cell.sel { outline: 2px solid var(--tone); outline-offset: 1px; }
 
 /* Legend */
-.cyc-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.cyc-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--card-line); }
 .cyc-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .cyc-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-.cyc-legend-dot.period { background: var(--tint); border: 1px solid var(--tone); }
-.cyc-legend-dot.log { background: var(--muted); }
-.cyc-legend-dot.predicted { background: transparent; border: 1px dashed var(--tone); }
+.cyc-legend-dot.period { background: #f768b8; }
+.cyc-legend-dot.predicted { background: transparent; border: 1px dashed #f768b8; }
 .cyc-legend-dot.fertile { background: var(--cyc-fertile-tint); border: 1px solid var(--cyc-fertile); }
 .cyc-legend-dot.ovulation { background: var(--cyc-fertile); }
 .cyc-legend-dot.today { background: var(--ink); }
@@ -6629,67 +6781,61 @@ html[data-theme="dark"] .chip-remove { background: color-mix(in srgb, var(--card
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   border: 1px solid #e6b8b2;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--tint) 60%, var(--card));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--tint) 65%, var(--card));
+  box-shadow: 0 4px 14px rgba(var(--ink-rgb), 0.04);
 }
 .cyc-banner[hidden] { display: none; }
 .cyc-banner-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   flex: 0 0 auto;
   border-radius: 12px;
   background: var(--tint);
   color: var(--tn);
 }
-.cyc-banner-icon .icon { width: 19px; height: 19px; }
+.cyc-banner-icon .icon { width: 20px; height: 20px; }
 .cyc-banner-copy { flex: 1; min-width: 0; }
-.cyc-banner-copy strong { display: block; font-size: 14px; color: var(--tn); }
+.cyc-banner-copy strong { display: block; font-size: 14.5px; color: var(--tn); }
 .cyc-banner-copy p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .cyc-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* Summary cards */
-.cyc-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.cyc-stat { padding: 16px; border: 1px solid var(--card-line); border-radius: 18px; background: var(--card); }
-.cyc-stat-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
-.cyc-stat-value { display: block; margin-top: 4px; font-size: 16px; font-weight: 800; color: var(--text); }
-.cyc-stat-sub { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
-
 /* For you today */
-.cyc-for-you { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cyc-for-you { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .cyc-action {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid var(--card-line);
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--card);
   color: var(--text);
   text-decoration: none;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-a.cyc-action:hover { border-color: var(--tone); transform: translateY(-1px); }
+a.cyc-action:hover { border-color: var(--tone); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .cyc-action-ic {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   flex: 0 0 auto;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--tint);
   color: var(--tn);
 }
-.cyc-action-ic .icon { width: 19px; height: 19px; }
-.cyc-action-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cyc-action-ic .icon { width: 21px; height: 21px; }
+.cyc-action-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cyc-action-copy strong { font-size: 14px; }
-.cyc-action-copy small { font-size: 12px; color: var(--muted); }
+.cyc-action-copy small { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 
 /* Period list rows */
 .cyc-period-row {
@@ -6698,12 +6844,12 @@ a.cyc-action:hover { border-color: var(--tone); transform: translateY(-1px); }
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--card-line);
   border-radius: 14px;
   background: rgba(var(--glass-rgb), 0.7);
 }
-.cyc-period-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cyc-period-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cyc-period-meta strong { font-size: 14px; }
 .cyc-period-meta span { font-size: 12px; color: var(--muted); }
 .cyc-period-actions { display: flex; gap: 6px; flex: 0 0 auto; }
@@ -6711,12 +6857,12 @@ a.cyc-action:hover { border-color: var(--tone); transform: translateY(-1px); }
 .cyc-spacer { flex: 1; }
 
 @media (max-width: 900px) {
-  .cycle-hero { grid-template-columns: 1fr; }
+  .cycle-hero-grid { grid-template-columns: 1fr; }
   .cyc-summary { grid-template-columns: repeat(2, 1fr); }
   .cyc-for-you { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
   .cyc-summary { grid-template-columns: 1fr; }
-  .cyc-cal-cell { height: 38px; }
+  .cyc-cal-cell { height: 40px; }
   .cyc-cal-head { flex-wrap: wrap; }
 }

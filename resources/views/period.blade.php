@@ -10,41 +10,95 @@
   ])
 
   <div class="cycle-dash tone-rose" id="cycleDash" hidden>
-    <div class="cycle-hero">
-      <section class="card cyc-card">
-        <div class="cyc-week-strip" id="cycWeek" aria-label="This week"></div>
-        <div class="cyc-legend" aria-hidden="true">
-          <span class="cyc-legend-item"><i class="cyc-legend-dot period"></i>Period</span>
-          <span class="cyc-legend-item"><i class="cyc-legend-dot log"></i>Daily log</span>
-          <span class="cyc-legend-item"><i class="cyc-legend-dot today"></i>Today</span>
-        </div>
-      </section>
-
+    <div class="cycle-hero-grid">
       <section class="card cyc-card cyc-ring-card">
+        <div class="cyc-week-strip" id="cycWeek" aria-label="This week"></div>
+
         <div class="cyc-ring" id="cycRing" role="img" aria-label="Cycle progress">
-          <svg viewBox="0 0 180 180" aria-hidden="true">
-            <circle class="cyc-ring-track" cx="90" cy="90" r="80" fill="none" stroke-width="13"/>
-            <circle class="cyc-ring-bar" id="cycRingBar" cx="90" cy="90" r="80" fill="none" stroke-width="13" stroke-linecap="round"/>
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <defs>
+              <linearGradient id="cycRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ff76ac"/>
+                <stop offset="50%" stop-color="#e03e8f"/>
+                <stop offset="100%" stop-color="#8c68f5"/>
+              </linearGradient>
+            </defs>
+            <circle class="cyc-ring-track" cx="100" cy="100" r="84" fill="none" stroke-width="12"/>
+            <circle class="cyc-ring-ticks" cx="100" cy="100" r="74" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="2 6" opacity="0.3"/>
+            <circle class="cyc-ring-bar" id="cycRingBar" cx="100" cy="100" r="84" fill="none" stroke="url(#cycRingGrad)" stroke-width="12" stroke-linecap="round"/>
           </svg>
           <div class="cyc-ring-center">
+            <span class="cyc-phase" id="cycPhase" hidden></span>
             <span class="cyc-ring-day" id="cycRingDay">—</span>
             <span class="cyc-ring-sub" id="cycRingSub">No data yet</span>
           </div>
         </div>
-        <span class="cyc-phase" id="cycPhase" hidden></span>
+
         <p class="cyc-ring-msg" id="cycRingMsg">Loading…</p>
+
         <div class="cyc-ring-actions">
-          <button type="button" class="btn btn-primary" data-cyc="periods">
-            <svg class="icon"><use href="#i-cycle"/></svg>
-            Log a period
+          <button type="button" class="btn btn-primary" data-cyc="day" data-date="{{ now()->toDateString() }}">
+            <svg class="icon"><use href="#i-plus"/></svg>
+            Log today
           </button>
-          <button type="button" class="btn btn-ghost" data-cyc="pause" id="cycPauseBtn">Pause predictions</button>
-          <button type="button" class="btn btn-ghost" data-cyc="resume" id="cycResumeBtn" hidden>Resume predictions</button>
+          <button type="button" class="btn btn-ghost" data-cyc="periods">
+            <svg class="icon"><use href="#i-cycle"/></svg>
+            Period log
+          </button>
+          <button type="button" class="btn btn-ghost btn-small" data-cyc="pause" id="cycPauseBtn">Pause predictions</button>
+          <button type="button" class="btn btn-ghost btn-small" data-cyc="resume" id="cycResumeBtn" hidden>Resume predictions</button>
         </div>
       </section>
+
+      <div class="cyc-summary">
+        <div class="cyc-stat cyc-stat-next">
+          <div class="cyc-stat-top">
+            <span class="cyc-stat-icon"><svg class="icon"><use href="#i-calendar"/></svg></span>
+            <span class="cyc-stat-label">Next period</span>
+          </div>
+          <span class="cyc-stat-value" id="cycNext">—</span>
+          <span class="cyc-stat-sub" id="cycNextSub"></span>
+        </div>
+
+        <div class="cyc-stat cyc-stat-fertile">
+          <div class="cyc-stat-top">
+            <span class="cyc-stat-icon"><svg class="icon"><use href="#i-heart"/></svg></span>
+            <span class="cyc-stat-label">Fertile window</span>
+          </div>
+          <span class="cyc-stat-value" id="cycFertile">—</span>
+          <span class="cyc-stat-sub" id="cycFertileSub"></span>
+        </div>
+
+        <div class="cyc-stat cyc-stat-ovulation">
+          <div class="cyc-stat-top">
+            <span class="cyc-stat-icon"><svg class="icon"><use href="#i-sun"/></svg></span>
+            <span class="cyc-stat-label">Ovulation</span>
+          </div>
+          <span class="cyc-stat-value" id="cycOvulation">—</span>
+          <span class="cyc-stat-sub" id="cycOvulationSub"></span>
+        </div>
+
+        <div class="cyc-stat cyc-stat-day">
+          <div class="cyc-stat-top">
+            <span class="cyc-stat-icon"><svg class="icon"><use href="#i-cycle"/></svg></span>
+            <span class="cyc-stat-label">Cycle day</span>
+          </div>
+          <span class="cyc-stat-value" id="cycDay">—</span>
+          <span class="cyc-stat-sub" id="cycDaySub"></span>
+        </div>
+      </div>
     </div>
 
-    <section class="card cyc-card">
+    <section class="cyc-banner" id="cycStatus" hidden>
+      <span class="cyc-banner-icon" aria-hidden="true"><svg class="icon"><use href="#i-heart"/></svg></span>
+      <div class="cyc-banner-copy">
+        <strong id="cycStatusTitle">…</strong>
+        <p id="cycStatusBody">…</p>
+      </div>
+      <div class="cyc-banner-actions" id="cycStatusActions"></div>
+    </section>
+
+    <section class="card cyc-card cyc-calendar-card">
       <div class="cyc-cal-head">
         <div class="cyc-cal-nav">
           <button type="button" class="btn btn-small" data-cyc="move" data-delta="-1" aria-label="Previous month" title="Previous month">
@@ -70,38 +124,6 @@
         <span class="cyc-legend-item"><i class="cyc-legend-dot today"></i>Today</span>
       </div>
     </section>
-
-    <section class="cyc-banner" id="cycStatus" hidden>
-      <span class="cyc-banner-icon" aria-hidden="true"><svg class="icon"><use href="#i-heart"/></svg></span>
-      <div class="cyc-banner-copy">
-        <strong id="cycStatusTitle">…</strong>
-        <p id="cycStatusBody">…</p>
-      </div>
-      <div class="cyc-banner-actions" id="cycStatusActions"></div>
-    </section>
-
-    <div class="cyc-summary">
-      <div class="cyc-stat">
-        <span class="cyc-stat-label">Next period</span>
-        <span class="cyc-stat-value" id="cycNext">—</span>
-        <span class="cyc-stat-sub" id="cycNextSub"></span>
-      </div>
-      <div class="cyc-stat">
-        <span class="cyc-stat-label">Fertile window</span>
-        <span class="cyc-stat-value" id="cycFertile">—</span>
-        <span class="cyc-stat-sub" id="cycFertileSub"></span>
-      </div>
-      <div class="cyc-stat">
-        <span class="cyc-stat-label">Ovulation</span>
-        <span class="cyc-stat-value" id="cycOvulation">—</span>
-        <span class="cyc-stat-sub" id="cycOvulationSub"></span>
-      </div>
-      <div class="cyc-stat">
-        <span class="cyc-stat-label">Cycle day</span>
-        <span class="cyc-stat-value" id="cycDay">—</span>
-        <span class="cyc-stat-sub" id="cycDaySub"></span>
-      </div>
-    </div>
 
     <section class="card cyc-card">
       <div class="card-head"><h3>For you today</h3></div>
@@ -281,14 +303,14 @@
     other: 'Other'
   };
   const PHASE_DESC = {
-    period: 'A time to rest and be gentle with yourself.',
-    follicular: 'Energy and focus tend to climb now.',
-    fertile: 'Your fertile window — ovulation is near.',
-    ovulation: 'Ovulation day, your most fertile point.',
-    luteal: 'Your body is preparing for your period.'
+    period: 'Menstrual phase: Your body is resetting. Rest, stay warm, and be gentle with yourself.',
+    follicular: 'Follicular phase: Estrogen rises and energy climbs. Great time for focus and new projects.',
+    fertile: 'Fertile window: Ovulation is approaching. Energy, stamina, and skin glow tend to peak here.',
+    ovulation: 'Ovulation day: Your most fertile point. You might notice mild twinges or heightened senses.',
+    luteal: 'Luteal phase: Progesterone dominates. Rest well, hydrate, and prepare for your period.'
   };
 
-  const RING_R = 80;
+  const RING_R = 84;
   const RING_C = Math.PI * 2 * RING_R;
 
   const pad2 = n => String(n).padStart(2, '0');
@@ -349,7 +371,12 @@
 
   function supportMessage(p, phase) {
     if (!p) return 'Log your first period to start seeing predictions.';
-    if (p.is_late || p.state === 'still_learning') return p.message;
+    if (p.is_late) return 'Your period is ' + p.days_late + ' day' + (p.days_late === 1 ? '' : 's') + ' late. Cycles vary naturally — take it easy and consider logging a test.';
+    if (p.state === 'still_learning') return p.message;
+    if (p.days_until_next !== null && p.days_until_next <= 3 && p.days_until_next >= 0) {
+      const dayWord = p.days_until_next === 0 ? 'today' : (p.days_until_next === 1 ? 'tomorrow' : 'in ' + p.days_until_next + ' days');
+      return 'Heads up: Your period is expected ' + dayWord + '. You might experience mood changes, irritability, cramps, or bloating — be kind to yourself.';
+    }
     if (!phase) return p.message;
     return PHASE_DESC[phase.key] || p.message;
   }
@@ -360,7 +387,8 @@
     if (p.days_until_next === null || p.days_until_next === undefined) return '';
     const n = p.days_until_next;
     if (n === 0) return 'Expected today';
-    return 'in ' + n + (n === 1 ? ' day' : ' days');
+    const prefix = p.irregular ? '~' : '';
+    return prefix + 'in ' + n + (n === 1 ? ' day' : ' days');
   }
 
   /* -----------------------------------------------------
@@ -483,14 +511,20 @@
       return;
     }
 
-    $('cycNext').textContent = p.predicted_next_start ? dateLabel(p.predicted_next_start) : '—';
-    $('cycNextSub').textContent = daysPhrase(p);
+    if (p.predicted_range && p.predicted_range.start && p.predicted_range.end) {
+      $('cycNext').textContent = dateLabel(p.predicted_range.start) + ' – ' + dateLabel(p.predicted_range.end);
+      $('cycNextSub').textContent = (p.irregular ? 'Varies · ' : '') + daysPhrase(p);
+    } else {
+      $('cycNext').textContent = p.predicted_next_start ? dateLabel(p.predicted_next_start) : '—';
+      $('cycNextSub').textContent = (p.irregular ? 'Varies · ' : '') + daysPhrase(p);
+    }
+
     $('cycFertile').textContent = (p.fertile_start && p.fertile_end) ? dateLabel(p.fertile_start) + ' – ' + dateLabel(p.fertile_end) : '—';
-    $('cycFertileSub').textContent = '';
+    $('cycFertileSub').textContent = p.fertile_start ? 'High fertility window' : '';
     $('cycOvulation').textContent = p.ovulation_date ? dateLabel(p.ovulation_date) : '—';
-    $('cycOvulationSub').textContent = '';
+    $('cycOvulationSub').textContent = p.ovulation_date ? 'Estimated peak' : '';
     $('cycDay').textContent = p.cycle_day != null ? 'Day ' + p.cycle_day : '—';
-    $('cycDaySub').textContent = 'of ~' + (p.average_cycle_length || 28) + ' days';
+    $('cycDaySub').textContent = 'of ~' + (p.average_cycle_length || 28) + ' days' + (p.irregular ? ' (irregular)' : '');
   }
 
   function renderPhase() {

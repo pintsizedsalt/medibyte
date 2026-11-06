@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=38">
+  <link rel="stylesheet" href="/css/medibyte.css?v=41">
   @if ($avatarPhoto)
     <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
   @endif
@@ -176,7 +176,9 @@
         <a class="side-link" data-nav href="/mood" title="Mood"><svg class="icon"><use href="#i-smile"/></svg><span>Mood</span></a>
         <a class="side-link" data-nav href="/symptoms" title="Symptoms"><svg class="icon"><use href="#i-thermometer"/></svg><span>Symptoms</span></a>
         <a class="side-link" data-nav href="/vitals" title="Vitals"><svg class="icon"><use href="#i-heart"/></svg><span>Vitals</span></a>
-        <a class="side-link" data-cycle data-nav href="/period" title="Cycle" hidden><svg class="icon"><use href="#i-cycle"/></svg><span>Cycle</span></a>
+        @if (auth()->user()?->show_period_tracker)
+          <a class="side-link" data-cycle data-nav href="/period" title="Cycle"><svg class="icon"><use href="#i-cycle"/></svg><span>Cycle</span></a>
+        @endif
 
         <p class="nav-label">Care</p>
         <a class="side-link" data-nav href="/medications" title="Medications"><svg class="icon"><use href="#i-pill"/></svg><span>Medications</span></a>
