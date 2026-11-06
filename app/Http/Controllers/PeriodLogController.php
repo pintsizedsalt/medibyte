@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\CyclePrediction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class PeriodLogController extends Controller
 {
@@ -65,33 +67,79 @@ class PeriodLogController extends Controller
     {
         $this->ensureActive($request);
 
-        $starts = $request->user()->periodLogs()
-            ->orderBy('start_date')
-            ->get()
-            ->pluck('start_date');
+        $prediction = $this->prediction($request->user());
 
-        if ($starts->isEmpty()) {
+        if ($prediction['last_period_start'] === null) {
             return response()->json(['message' => 'No period logs yet.']);
         }
 
-        $gaps = [];
-        for ($i = 1; $i < $starts->count(); $i++) {
-            $gaps[] = (int) abs($starts[$i - 1]->diffInDays($starts[$i]));
-        }
+        return response()->json($prediction);
+    }
 
-        $fallback = $request->user()->cycle_length ?? 28;
-        $average = count($gaps) ? (int) round(array_sum($gaps) / count($gaps)) : $fallback;
+    /**
+     * Everything the redesigned cycle page paints in one round trip: the
+     * prediction, the period episodes that colour the calendar, and the daily
+     * log entries for the month on screen.
+     */
+    public function overview(Request $request)
+    {
+        $this->ensureActive($request);
 
-        $last = $starts->last();
-        $next = $last->copy()->addDays($average);
+        $user = $request->user();
+
+        $month = Carbon::parse($request->query('month', now()->toDateString()));
+        $window = [$month->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()];
+
+        $prediction = $this->prediction($user);
+        $prediction['state'] = $user->cycle_paused ? 'paused' : $prediction['state'];
+        $prediction['paused'] = (bool) $user->cycle_paused;
+        $prediction['pause_reason'] = $user->cycle_pause_reason;
 
         return response()->json([
-            'last_period_start' => $last->toDateString(),
-            'average_cycle_length' => $average,
-            'based_on_cycles' => count($gaps),
-            'cycle_day' => (int) abs($last->diffInDays(today())) + 1,
-            'predicted_next_start' => $next->toDateString(),
-            'days_until_next' => (int) today()->diffInDays($next, false),
+            'prediction' => $prediction,
+            'period_logs' => $user->periodLogs()
+                ->orderBy('start_date')
+                ->get()
+                ->map(fn ($log) => [
+                    'id' => $log->id,
+                    'start_date' => $log->start_date->toDateString(),
+                    'end_date' => $log->end_date?->toDateString(),
+                    'flow' => $log->flow,
+                    'notes' => $log->notes,
+                ])
+                ->values(),
+            'period_days' => $user->periodDays()
+                ->whereBetween('log_date', $window)
+                ->orderBy('log_date')
+                ->get()
+                ->map(fn ($day) => [
+                    'id' => $day->id,
+                    'log_date' => $day->log_date->toDateString(),
+                    'flow' => $day->flow,
+                    'pain' => $day->pain,
+                    'symptoms' => $day->symptoms,
+                    'mood' => $day->mood,
+                    'discharge' => $day->discharge,
+                    'bbt' => $day->bbt,
+                    'lh_test' => $day->lh_test,
+                    'pregnancy_test' => $day->pregnancy_test,
+                    'medication' => $day->medication,
+                    'sexual_activity' => $day->sexual_activity,
+                    'protection' => $day->protection,
+                    'notes' => $day->notes,
+                ])
+                ->values(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function prediction($user): array
+    {
+        return CyclePrediction::predict(
+            $user->periodLogs()->orderBy('start_date')->pluck('start_date')->all(),
+            (int) ($user->cycle_length ?? 28)
+        );
     }
 }

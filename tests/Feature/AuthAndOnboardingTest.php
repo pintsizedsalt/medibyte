@@ -419,6 +419,30 @@ class AuthAndOnboardingTest extends TestCase
         $this->get('/dashboard')->assertOk();
     }
 
+    /**
+     * "artisan dev" serves from whichever port is free, so a login must still start a
+     * session on a port nobody listed in SANCTUM_STATEFUL_DOMAINS. Without it the API
+     * answers with a token, the browser sends no cookie, and every page bounces back
+     * to the log in screen after a login that reported no error at all.
+     */
+    public function test_login_starts_a_session_on_a_port_that_is_not_a_configured_stateful_domain(): void
+    {
+        $this->assertNotContains('127.0.0.1:8123', config('sanctum.stateful'));
+
+        $user = User::factory()->create(['sex' => 'male']);
+
+        $this->withoutMiddleware(ValidateCsrfToken::class);
+
+        $this->withHeader('Referer', 'http://127.0.0.1:8123/login')
+            ->postJson('http://127.0.0.1:8123/api/v1/login', [
+                'email' => $user->email,
+                'password' => 'password',
+            ])->assertOk()->assertJsonPath('token', null);
+
+        $this->assertAuthenticated();
+        $this->get('/dashboard')->assertOk();
+    }
+
     public function test_public_pages_render_and_root_redirects_to_login(): void
     {
         $this->get('/')->assertRedirect('/login');

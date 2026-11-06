@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=33">
+  <link rel="stylesheet" href="/css/medibyte.css?v=38">
   @if ($avatarPhoto)
     <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
   @endif
@@ -373,7 +373,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/js/medibyte.js?v=22"></script>
+  <script src="/js/medibyte.js?v=25"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

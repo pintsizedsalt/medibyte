@@ -229,6 +229,36 @@ document.addEventListener('change', event => {
   if (el.type === 'text') el.value = el.value.trim();
 });
 
+/* The add-record form is redrawn whenever a schedule is edited, so the dose-time
+   slots are handled from the document instead of wired to each form. */
+document.addEventListener('click', event => {
+  const add = event.target.closest('[data-time-list-add]');
+  const list = add?.closest('.time-list');
+  if (!list) return;
+
+  const slots = list.querySelector('.time-list-slots');
+  const label = esc(list.dataset.label || 'Time');
+
+  slots.insertAdjacentHTML('beforeend', timeSlotHtml(label, ''));
+  slots.lastElementChild?.querySelector('input')?.focus();
+});
+
+document.addEventListener('click', event => {
+  const remove = event.target.closest('[data-time-slot-remove]');
+  const slot = remove?.closest('.time-slot');
+  if (!slot) return;
+
+  const slots = slot.parentElement;
+  // The last slot keeps its input so the schedule never loses every field;
+  // clearing it is how a schedule loses its final entry.
+  if (slots.children.length > 1) {
+    slot.remove();
+  } else {
+    const input = slot.querySelector('.time-slot-input');
+    if (input) input.value = '';
+  }
+});
+
 async function api(url, method = 'GET', body) {
   const headers = {
     Accept: 'application/json',
@@ -568,6 +598,49 @@ function splitDoseText(text) {
   return match
     ? { amount: match[1].replace(',', '.'), unit: match[2] }
     : { amount: '', unit: '' };
+}
+
+/* One dose can fall at several times of day, so the schedule is a list of picked
+   times rather than one box where "08:00, 20:00" has to be typed and spaced
+   correctly. Each entry uses the same native time control the app already themes
+   for bedtime and meal times, which keeps the date picker untouched. A time left
+   blank is dropped on save, which is how a schedule loses an entry. */
+function timeListHtml(name, safeLabel, value) {
+  const times = normalizeTimes(value);
+
+  return `<div class="field time-list" id="f_${esc(name)}" data-label="${safeLabel}" data-grid-full="1">
+      <span>${safeLabel}</span>
+      <div class="time-list-slots">
+        ${(times.length ? times : ['']).map(time => timeSlotHtml(safeLabel, time)).join('')}
+      </div>
+      <button type="button" class="btn btn-ghost btn-small time-list-add" data-time-list-add>
+        <svg class="icon"><use href="#i-plus"/></svg>
+        Add another time
+      </button>
+    </div>`;
+}
+
+function timeSlotHtml(safeLabel, value) {
+  return `<span class="time-slot">
+      <input type="time" class="time-slot-input" value="${esc(value ?? '')}" aria-label="${safeLabel}">
+      <button type="button" class="time-slot-remove" data-time-slot-remove aria-label="Remove time">&times;</button>
+    </span>`;
+}
+
+/* Saved schedules arrive as an array from the API and as "08:00, 20:00" from any
+   record written while the field was a plain text box. */
+function normalizeTimes(value) {
+  const text = Array.isArray(value) ? value.join(',') : String(value ?? '');
+
+  return text.split(',').map(time => time.trim()).filter(time => /^\d{1,2}:\d{2}$/.test(time));
+}
+
+function collectTimes(container) {
+  const picked = [...container.querySelectorAll('.time-slot-input')]
+    .map(input => input.value.trim())
+    .filter(Boolean);
+
+  return [...new Set(picked)].sort();
 }
 
 /* ---------------------------------------------------------
@@ -2410,6 +2483,8 @@ function logPage(cfg) {
       html = switchRowHtml(id, safeLabel, v);
     } else if (type === 'dose') {
       html = doseFieldHtml(name, safeLabel, opts, values);
+    } else if (type === 'timelist') {
+      return timeListHtml(name, safeLabel, value);
     } else if (type === 'method') {
       const pairs = Array.isArray(opts) ? opts : [];
       const selected = v === undefined || v === null ? (pairs[0] ? pairs[0][0] : '') : v;
@@ -2475,21 +2550,217 @@ function logPage(cfg) {
   function rowHtml(row) {
     const label = rowLabel(row);
     const meta = rowMeta(row);
-    return `<div class="record">
+
+    return `<div class="record is-clickable" data-record-detail="${Number(row.id)}" role="button" tabindex="0">
         <span class="record-icon tone-${esc(tone)}"><svg class="icon"><use href="#i-${esc(icon)}"/></svg></span>
         <div class="record-main">
           <strong>${esc(label)}</strong>
           ${meta ? `<span class="record-meta">${esc(meta)}</span>` : ''}
         </div>
-        <div class="record-actions">
-          <button type="button" class="record-row-action" onclick="window.editLog(${Number(row.id)})" aria-label="Edit record" title="Edit record">
+        <button type="button" class="record-row-action record-menu-toggle" data-record-menu="${Number(row.id)}" aria-haspopup="menu" aria-label="Record options" title="Record options">
+          <svg class="icon"><use href="#i-dots"/></svg>
+        </button>
+      </div>`;
+  }
+
+  /* One value per saved field, worded the way the form words it, so the card a
+     record opens with is the record rather than a summary of it. */
+  function factValue(row, name, type) {
+    const value = row[name];
+
+    // Records written before the dose was split into an amount and a unit only
+    // carry the text, which is still the answer the card should show.
+    if (type === 'dose') {
+      const legacy = splitDoseText(row.dosage);
+      const amount = value === null || value === undefined || value === '' ? legacy.amount : String(value);
+      const unit = row[doseUnitName(name)] || legacy.unit;
+
+      return [amount, unit].filter(Boolean).join(' ');
+    }
+
+    if (value === null || value === undefined || value === '') return '';
+
+    if (type === 'check') return value ? 'Yes' : 'No';
+    if (type === 'timelist') return normalizeTimes(value).map(clockLabel).join(' · ');
+    if (type === 'list') return Array.isArray(value) ? value.join(', ') : String(value);
+    if (type === 'today' || type === 'date') return dateLabel(ld(value)) || String(value);
+    if (type === 'time') return clockLabel(value);
+    if (type === 'datetime-local') return dateTimeLabel(value) || String(value);
+    if (type === 'select' || type === 'method') return optionLabel(String(value));
+    if (type === 'intensity' || type === 'slider') return value + ' / 5';
+
+    return String(value);
+  }
+
+  function recordFacts(row) {
+    const facts = [];
+
+    cfg.fields.forEach(([name, label, type, , , , showsWhen]) => {
+      if (showsWhen && String(row[showsWhen[0]] ?? '') !== String(showsWhen[1])) return;
+
+      const value = factValue(row, name, type);
+      if (value !== '') facts.push([label, value]);
+    });
+
+    return facts;
+  }
+
+  function closeRecordSheet() {
+    const sheet = $('recordSheet');
+    if (!sheet) return;
+    sheet.remove();
+    document.removeEventListener('keydown', onSheetKeydown);
+
+    if (!document.querySelector('.reminder-sheet')) {
+      document.body.classList.remove('reminder-open');
+    }
+  }
+
+  /** The floating card behind a clicked record, in the same shape as a reminder. */
+  function openRecordSheet(row) {
+    closeRecordSheet();
+
+    const facts = recordFacts(row);
+
+    const sheet = document.createElement('div');
+    sheet.className = 'reminder-sheet';
+    sheet.id = 'recordSheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-labelledby', 'recordSheetHeadline');
+    sheet.innerHTML = `
+      <div class="reminder-backdrop" data-record-close></div>
+      <section class="reminder-card tone-${esc(cfg.tone || 'violet')}">
+        <button type="button" class="reminder-close" data-record-close aria-label="Close record" title="Close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+
+        <div class="reminder-companion" aria-hidden="true">
+          <span class="reminder-halo"></span>
+          <span class="reminder-orb"><svg class="icon"><use href="#i-${esc(cfg.icon || 'file')}"/></svg></span>
+          <i class="reminder-spark spark-a"></i>
+          <i class="reminder-spark spark-b"></i>
+          <i class="reminder-spark spark-c"></i>
+        </div>
+
+        <p class="eyebrow">${esc(cfg.title || 'Record')} detail</p>
+        <h3 id="recordSheetHeadline">${esc(rowLabel(row))}</h3>
+
+        <ul class="reminder-facts">
+          ${facts.length
+            ? facts.map(([label, value]) => `<li><span>${esc(label)}</span><strong>${esc(value)}</strong></li>`).join('')
+            : '<li><span>This record</span><strong>has nothing saved beyond its title.</strong></li>'}
+        </ul>
+
+        <div class="reminder-actions">
+          <button type="button" class="reminder-link record-delete" data-record-delete>Delete record</button>
+          <button type="button" class="btn btn-primary record-edit">
             <svg class="icon"><use href="#i-pencil"/></svg>
-          </button>
-          <button type="button" class="record-row-action danger" onclick="window.deleteLog(${Number(row.id)})" aria-label="Delete record" title="Delete record">
-            <svg class="icon"><use href="#i-trash"/></svg>
+            Edit record
           </button>
         </div>
-      </div>`;
+      </section>`;
+
+    document.body.appendChild(sheet);
+    document.body.classList.add('reminder-open');
+
+    sheet.addEventListener('click', event => {
+      if (event.target.closest('[data-record-close]')) {
+        closeRecordSheet();
+        return;
+      }
+
+      if (event.target.closest('[data-record-delete]')) {
+        closeRecordSheet();
+        window.deleteLog(row.id);
+        return;
+      }
+
+      if (event.target.closest('.record-edit')) {
+        closeRecordSheet();
+        window.editLog(row.id);
+      }
+    });
+
+    document.addEventListener('keydown', onSheetKeydown);
+    sheet.querySelector('.record-edit').focus();
+  }
+
+  function onSheetKeydown(event) {
+    if (event.key === 'Escape') closeRecordSheet();
+  }
+
+  function closeRecordMenu() {
+    $('recordMenu')?.remove();
+    document.removeEventListener('click', onMenuOutside, true);
+    document.removeEventListener('keydown', onMenuKeydown);
+  }
+
+  /* The menu sits beside the dot that opened it and flips above when the card is
+     near the bottom of the screen, where a list of records usually ends. */
+  function openRecordMenu(button, row) {
+    const open = $('recordMenu');
+    if (open?.dataset.for === String(row.id)) {
+      closeRecordMenu();
+      return;
+    }
+
+    closeRecordMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'record-menu';
+    menu.id = 'recordMenu';
+    menu.dataset.for = String(row.id);
+    menu.setAttribute('role', 'menu');
+    menu.innerHTML = `
+      <button type="button" role="menuitem" data-record-edit>
+        <svg class="icon"><use href="#i-pencil"/></svg>
+        Edit record
+      </button>
+      <button type="button" role="menuitem" class="danger" data-record-delete>
+        <svg class="icon"><use href="#i-trash"/></svg>
+        Delete record
+      </button>`;
+
+    document.body.appendChild(menu);
+
+    const rect = button.getBoundingClientRect();
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+    const below = rect.bottom + 6;
+    const top = below + height > window.innerHeight - 12 ? Math.max(12, rect.top - height - 6) : below;
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    menu.addEventListener('click', event => {
+      const choice = event.target.closest('[data-record-edit], [data-record-delete]');
+      if (!choice) return;
+
+      closeRecordMenu();
+
+      if (choice.hasAttribute('data-record-edit')) {
+        window.editLog(row.id);
+        return;
+      }
+
+      window.deleteLog(row.id);
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', onMenuOutside, true);
+      document.addEventListener('keydown', onMenuKeydown);
+    });
+  }
+
+  function onMenuOutside(event) {
+    if (event.target.closest('#recordMenu') || event.target.closest('[data-record-menu]')) return;
+    closeRecordMenu();
+  }
+
+  function onMenuKeydown(event) {
+    if (event.key === 'Escape') closeRecordMenu();
   }
 
   function overlaps(row, from, to) {
@@ -2967,6 +3238,11 @@ function logPage(cfg) {
         return;
       }
 
+      if (type === 'timelist') {
+        body[name] = collectTimes(el);
+        return;
+      }
+
       if (type === 'list') {
         body[name] = el.value.split(',').map(s => s.trim()).filter(Boolean);
         return;
@@ -3047,6 +3323,41 @@ function logPage(cfg) {
   };
 
   window.__medibyteReloadLog = load;
+
+  /* The list is redrawn on every filter, edit and delete, so both the row and the
+     dot are answered from the page shell rather than from each card. */
+  const listHost = $('log');
+
+  if (listHost) {
+    const rowFrom = key => rows.find(row => String(row.id) === key);
+
+    listHost.addEventListener('click', event => {
+      const toggle = event.target.closest('[data-record-menu]');
+      if (toggle) {
+        const row = rowFrom(toggle.dataset.recordMenu);
+        if (row) openRecordMenu(toggle, row);
+        return;
+      }
+
+      const card = event.target.closest('[data-record-detail]');
+      if (card) {
+        const row = rowFrom(card.dataset.recordDetail);
+        if (row) openRecordSheet(row);
+      }
+    });
+
+    listHost.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+
+      const card = event.target.closest('[data-record-detail]');
+      if (!card) return;
+
+      event.preventDefault();
+
+      const row = rowFrom(card.dataset.recordDetail);
+      if (row) openRecordSheet(row);
+    });
+  }
 
   load();
 }

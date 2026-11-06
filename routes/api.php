@@ -11,6 +11,7 @@ use App\Http\Controllers\MealLogController;
 use App\Http\Controllers\MedicationController;
 use App\Http\Controllers\MoodLogController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PeriodDayController;
 use App\Http\Controllers\PeriodLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
@@ -67,7 +68,9 @@ Route::prefix('v1')->group(function () {
             ->only(['index', 'store', 'update', 'destroy']);
 
         Route::get('/period-predict', [PeriodLogController::class, 'predict']);
+        Route::get('/cycle', [PeriodLogController::class, 'overview']);
         Route::apiResource('period-logs', PeriodLogController::class)->except('show');
+        Route::apiResource('period-days', PeriodDayController::class)->except('show');
 
         Route::apiResource('symptom-logs', SymptomLogController::class)->except('show');
         Route::apiResource('vital-sign-logs', VitalSignLogController::class)->except('show');
