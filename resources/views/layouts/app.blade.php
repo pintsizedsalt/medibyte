@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="/css/medibyte.css?v=38">
+  <link rel="stylesheet" href="/css/medibyte.css?v=39">
   @if ($avatarPhoto)
     <style>:root { --avatar-photo: url('{{ $avatarPhoto }}'); }</style>
   @endif

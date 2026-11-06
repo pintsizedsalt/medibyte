@@ -4650,6 +4650,12 @@ select.cselect-native {
 .form-grid-action .btn,
 .custom-mood-form .btn { height: var(--control-h); }
 
+/* Compact prompt modals (rename, single-input dialogs) — tighten the gap
+   between the name label/input and the Save/Cancel row so the modal looks
+   balanced rather than leaving a big empty stretch above the buttons. */
+.log-form-dialog .log-modal-body .field { margin-bottom: 6px; }
+.log-form-dialog .log-modal-body .form-card-note { margin-bottom: 10px; }
+
 /* Records toolbar must never spill off a phone screen */
 @media (max-width: 620px) {
   .card-head { flex-wrap: wrap; row-gap: 8px; }
@@ -6020,13 +6026,14 @@ body.reminder-open { overflow: hidden; }
 
 /* =========================================================
    Phase 14 — medication dose times
-   A schedule is a set of picked times rather than one text box. The slots share
-   the width of the field so the row reads as a group of controls, the same size
-   and finish as every other input on the form.
+   A schedule is a set of picked times rather than one text box. Each slot
+   stretches the full width of the field (same as the medication name input)
+   and stacks under the previous one when "+ Add another time" is clicked.
+   The first slot never shows a remove button — only extra rows get one.
    ========================================================= */
 .time-list-slots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 .time-slot {
@@ -6035,6 +6042,8 @@ body.reminder-open { overflow: hidden; }
   gap: 6px;
 }
 .time-slot .time-slot-input { width: 100%; min-width: 0; }
+/* Hide the × button on the first dose-time row; show it on every extra row. */
+.time-slot:first-child .time-slot-remove { display: none; }
 .time-slot-remove {
   flex: 0 0 auto;
   display: grid;
@@ -6054,10 +6063,6 @@ body.reminder-open { overflow: hidden; }
 .time-slot-remove:hover { color: var(--danger); border-color: var(--danger); }
 .time-slot-remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .time-list-add { margin-top: 8px; align-self: flex-start; }
-
-@media (max-width: 420px) {
-  .time-list-slots { grid-template-columns: 1fr; }
-}
 
 /* =========================================================
    Phase 15 — records read as cards
@@ -6177,7 +6182,10 @@ button.reminder-link.record-delete { color: var(--danger); }
 
 .reminder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  /* Wider minimum so each card is "fatter" and fills the space evenly.
+     repeat(auto-fit, …) instead of auto-fill collapses empty columns,
+     so 2 cards share the row equally and 3 cards each take ⅓. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   gap: 16px;
   align-items: start;
 }
