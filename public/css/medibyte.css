@@ -3201,23 +3201,152 @@ html:has(.pv-page) { scroll-behavior: smooth; }
   color: #ffffff;
 }
 
-/* All records*/
+/* All records - Photo 2 notched corner cards */
 .records-section { margin-bottom: 28px; }
-.records-grid { gap: 16px; }
-.record-hub-card {
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  padding: 18px;
-  border-color: var(--card-line);
-  border-radius: 20px;
-  background: var(--card);
 }
-.record-hub-card:hover { transform: translateY(-2px); }
-.record-hub-card > .icon { color: var(--muted); }
-.record-hub-copy strong { font-size: 16px; }
-.record-hub-copy small { font-size: 13px; }
+@media (max-width: 768px) {
+  .records-grid { grid-template-columns: 1fr; }
+}
 
-/* Icon chips*/
-.record-hub-icon, .record-icon, .quick-action-icon, .empty-orb {
+.record-hub-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 136px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  border: 1px solid var(--card-line);
+  background: linear-gradient(160deg, rgba(var(--glass-rgb), 0.8) 0%, rgba(var(--glass-rgb), 0.48) 100%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 4px 18px rgba(var(--ink-rgb), 0.05), 0 1px 0 rgba(var(--glass-rgb), 0.95) inset;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+}
+.record-hub-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(var(--ink-rgb), 0.1), 0 1px 0 rgba(var(--glass-rgb), 0.95) inset;
+  border-color: color-mix(in srgb, var(--tone) 45%, var(--card-line));
+}
+
+/* Notched top-right corner holding the round arrow button */
+.record-hub-notch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 54px;
+  height: 54px;
+  border-bottom-left-radius: 20px;
+  border-left: 1px solid var(--card-line);
+  border-bottom: 1px solid var(--card-line);
+  background: linear-gradient(135deg, rgba(var(--glass-rgb), 0.45) 0%, rgba(var(--paper-rgb), 0.75) 100%);
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.record-hub-card:hover .record-hub-notch {
+  border-color: color-mix(in srgb, var(--tone) 35%, var(--card-line));
+  background: color-mix(in srgb, var(--tint) 20%, rgba(var(--glass-rgb), 0.6));
+}
+
+.record-hub-notch-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--card-line);
+  background: rgba(var(--glass-rgb), 0.9);
+  color: var(--muted);
+  box-shadow: 0 2px 6px rgba(var(--ink-rgb), 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.record-hub-notch-btn .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+}
+.record-hub-card:hover .record-hub-notch-btn {
+  background: var(--tone);
+  border-color: var(--tone);
+  color: #ffffff;
+  transform: translate(1px, -1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--tone) 40%, transparent);
+}
+
+/* Feature logo squircle and title/count */
+.record-hub-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-right: 48px;
+}
+.record-hub-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: var(--tint, var(--soft));
+  color: var(--tn, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--tone) 25%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--tone) 15%, transparent), 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.record-hub-card:hover .record-hub-icon {
+  transform: scale(1.06);
+}
+.record-hub-icon .icon {
+  width: 23px;
+  height: 23px;
+  stroke-width: 1.9;
+}
+
+.record-hub-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.record-hub-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.record-hub-count {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+/* Footer summary line */
+.record-hub-foot {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(var(--line-rgb), 0.5);
+}
+.record-hub-stat {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* Icon chips */
+.record-icon, .quick-action-icon, .empty-orb {
   width: 48px;
   height: 48px;
   border: 0;
@@ -3225,7 +3354,7 @@ html:has(.pv-page) { scroll-behavior: smooth; }
   background: var(--tint, var(--soft));
   color: var(--tn, var(--ink));
 }
-.record-hub-icon .icon, .record-icon .icon, .quick-action-icon .icon, .empty-orb .icon {
+.record-icon .icon, .quick-action-icon .icon, .empty-orb .icon {
   width: 22px;
   height: 22px;
   stroke-width: 1.9;
